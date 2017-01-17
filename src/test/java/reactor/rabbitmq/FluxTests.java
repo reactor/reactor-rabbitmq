@@ -54,7 +54,7 @@ public class FluxTests {
         }
     }
 
-    @Test public void senderFlux() throws Exception {
+    @Test public void senderFluxWithPublisherConfirms() throws Exception {
         int nbMessages = 10;
         Flux<Integer> flux = Flux.range(1, nbMessages);
         Channel channel = connection.createChannel();
@@ -103,7 +103,7 @@ public class FluxTests {
         assertEquals(nbMessages, lastConfirm.get());
     }
 
-    @Test public void senderFluxWithPublisherConfirms() throws Exception {
+    @Test public void senderFlux() throws Exception {
         int nbMessages = 10;
         Flux<Integer> flux = Flux.range(1, nbMessages);
         Channel channel = connection.createChannel();
@@ -135,7 +135,10 @@ public class FluxTests {
 
         CountDownLatch cancelLatch = new CountDownLatch(1);
 
-        Flux<Delivery> flux = Flux.create(emitter -> {
+
+        Flux<Delivery> flux = Flux.create(unsafeEmitter -> {
+            // because handleDelivery can be called from different threads
+            FluxSink<Delivery> emitter = unsafeEmitter.serialize();
             final DefaultConsumer consumer = new DefaultConsumer(channel) {
 
                 volatile int counter = 0;
