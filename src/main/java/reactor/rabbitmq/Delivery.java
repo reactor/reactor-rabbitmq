@@ -19,6 +19,8 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Envelope;
 
+import java.util.Arrays;
+
 /**
  *
  */
@@ -44,5 +46,14 @@ public class Delivery {
 
     public byte[] getBody() {
         return body;
+    }
+
+    @Override
+    public String toString() {
+        return "Delivery{" +
+            "envelope=" + envelope +
+            ", properties=" + properties +
+            ", body=" + new String(body) +
+            '}';
     }
 }
