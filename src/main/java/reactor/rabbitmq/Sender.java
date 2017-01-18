@@ -4,8 +4,11 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -32,30 +35,50 @@ public class Sender {
         }).cache();
     }
 
-    // TODO return Mono<Void> to know when the sending is done
-    public void send(Publisher<OutboundMessage> messages) {
-        Flux<OutboundMessage> flux = Flux.from(messages);
+    public Mono<Void> send(Publisher<OutboundMessage> messages) {
         final Mono<Channel> channelMono = Mono.fromCallable(() -> connectionMono.block().createChannel()).cache();
-        flux.subscribe(message -> {
-            try {
-                channelMono.block().basicPublish(
-                    message.getExchange(),
-                    message.getRoutingKey(),
-                    message.getProperties(),
-                    message.getBody()
-                );
-            } catch(IOException e) {
-                throw new ReactorRabbitMqException(e);
+        return new Flux<Void>() {
+
+            @Override
+            public void subscribe(Subscriber<? super Void> s) {
+                messages.subscribe(new BaseSubscriber<OutboundMessage>() {
+
+                    @Override
+                    protected void hookOnSubscribe(Subscription subscription) {
+                        s.onSubscribe(subscription);
+                    }
+
+                    @Override
+                    protected void hookOnNext(OutboundMessage message) {
+                        try {
+                            channelMono.block().basicPublish(
+                                message.getExchange(),
+                                message.getRoutingKey(),
+                                message.getProperties(),
+                                message.getBody()
+                            );
+                        } catch(IOException e) {
+                            throw new ReactorRabbitMqException(e);
+                        }
+                    }
+
+                    @Override
+                    protected void hookOnError(Throwable throwable) {
+                        LOGGER.warn("Send failed with exception {}", throwable);
+                    }
+
+                    @Override
+                    protected void hookOnComplete() {
+                        try {
+                            channelMono.block().close();
+                        } catch (TimeoutException | IOException e) {
+                            throw new ReactorRabbitMqException(e);
+                        }
+                        s.onComplete();
+                    }
+                });
             }
-        }, exception -> {
-            LOGGER.warn("Send failed with exception {}", exception);
-        }, () -> {
-            try {
-                channelMono.block().close();
-            } catch (TimeoutException | IOException e) {
-                throw new ReactorRabbitMqException(e);
-            }
-        });
+        }.then();
     }
 
     public void close() {

@@ -134,7 +134,7 @@ public class ReactorRabbitMqTests {
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 
         Sender sender = ReactorRabbitMq.createSender();
-        sender.send(msgFlux);
+        sender.send(msgFlux).subscribe();
         assertTrue(latch.await(1, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
         sender.close();
