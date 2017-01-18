@@ -22,7 +22,6 @@ import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
-import reactor.test.StepVerifier;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
@@ -30,6 +29,7 @@ import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.Assert.assertEquals;
@@ -176,10 +176,15 @@ public class FluxTests {
             channel.basicPublish("", queue.getQueue(), null, "Hello".getBytes());
         }
 
-        StepVerifier.create(flux).expectNextCount(nbMessages).expectComplete().verify();
-
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        AtomicInteger counter = new AtomicInteger();
+        flux.subscribe(msg -> {
+            counter.incrementAndGet();
+            latch.countDown();
+        });
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        assertEquals(nbMessages, counter.get());
         assertTrue(cancelLatch.await(1, TimeUnit.SECONDS));
     }
-
 
 }
