@@ -17,15 +17,14 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -117,6 +116,28 @@ public class ReactorRabbitMqTests {
 
         receiver.close();
         assertNull(connection.createChannel().basicGet(queue, true));
+    }
+
+    @Test public void sender() throws Exception {
+        int nbMessages = 10;
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        AtomicInteger counter = new AtomicInteger();
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, new DefaultConsumer(channel) {
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                counter.incrementAndGet();
+                latch.countDown();
+            }
+        });
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        Sender sender = ReactorRabbitMq.createSender();
+        sender.send(msgFlux);
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        assertEquals(nbMessages, counter.get());
+        sender.close();
     }
 
 }

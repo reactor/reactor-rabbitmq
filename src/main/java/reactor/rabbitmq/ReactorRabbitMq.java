@@ -25,4 +25,7 @@ public class ReactorRabbitMq {
         return new Receiver();
     }
 
+    public static Sender createSender() {
+        return new Sender();
+    }
 }

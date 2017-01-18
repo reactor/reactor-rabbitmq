@@ -19,6 +19,7 @@ public class AcknowledgableDelivery extends Delivery {
     }
 
     public void ack() {
+        // TODO make call idempotent
         try {
             channel.basicAck(getEnvelope().getDeliveryTag(), false);
         } catch (IOException e) {

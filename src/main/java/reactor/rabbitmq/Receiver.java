@@ -35,6 +35,7 @@ public class Receiver {
         this.connectionMono = Mono.fromCallable(() -> {
             // TODO provide connection settings
             ConnectionFactory connectionFactory = new ConnectionFactory();
+            connectionFactory.useNio();
             // TODO handle exception
             Connection connection = connectionFactory.newConnection();
             return connection;
@@ -78,14 +79,16 @@ public class Receiver {
             }
         }, overflowStrategy);
         // TODO track flux so it can disposed when the sender is closed?
-        // could be also developer responsability
+        // could be also developer responsibility
         return flux;
     }
 
     public Flux<AcknowledgableDelivery> consumeAutoAck(final String queue) {
         // TODO handle overflow strategy
-        // "IGNORE" should be fine for an auto-ack listener
-        FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.IGNORE;
+        FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
+
+        // TODO handle QoS
+
         Flux<AcknowledgableDelivery> flux = Flux.create(unsafeEmitter -> {
             // because handleDelivery can be called from different threads
             FluxSink<AcknowledgableDelivery> emitter = unsafeEmitter.serialize();
@@ -117,8 +120,12 @@ public class Receiver {
         }, overflowStrategy);
         // TODO track flux so it can disposed when the sender is closed?
         // could be also developer responsability
+
+        // TODO why acking here and not just after emitter.next() ?
         return flux.doOnNext(msg -> msg.ack());
     }
+
+    // TODO add consumeManualAck method
 
     public void close() {
         // TODO close emitted fluxes?
