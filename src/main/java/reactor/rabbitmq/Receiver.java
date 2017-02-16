@@ -78,12 +78,19 @@ public class Receiver {
                 throw new ReactorRabbitMqException(e);
             }
         }, overflowStrategy);
-        // TODO track flux so it can disposed when the sender is closed?
+        // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
         return flux;
     }
 
-    public Flux<AcknowledgableDelivery> consumeAutoAck(final String queue) {
+    public Flux<Delivery> consumeAutoAck(final String queue) {
+        // TODO why acking here and not just after emitter.next()?
+        return consumeManuelAck(queue).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
+    }
+
+    // TODO add consumeManualAck method
+
+    public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue) {
         // TODO handle overflow strategy
         FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
 
@@ -118,14 +125,10 @@ public class Receiver {
                 throw new ReactorRabbitMqException(e);
             }
         }, overflowStrategy);
-        // TODO track flux so it can disposed when the sender is closed?
-        // could be also developer responsability
-
-        // TODO why acking here and not just after emitter.next() ?
-        return flux.doOnNext(msg -> msg.ack());
+        // TODO track flux so it can be disposed when the sender is closed?
+        // could be also developer responsibility
+        return flux;
     }
-
-    // TODO add consumeManualAck method
 
     public void close() {
         // TODO close emitted fluxes?

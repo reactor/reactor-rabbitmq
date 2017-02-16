@@ -25,6 +25,7 @@ import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -75,15 +76,20 @@ public class ReactorRabbitMqTests {
                 channel.basicPublish("", queue, null, "Hello".getBytes());
             }
 
-            CountDownLatch latch = new CountDownLatch(nbMessages);
+            CountDownLatch latch = new CountDownLatch(nbMessages * 2);
             AtomicInteger counter = new AtomicInteger();
             Disposable subscription = flux.subscribe(msg -> {
                 counter.incrementAndGet();
                 latch.countDown();
             });
+
+            for(int $$ : IntStream.range(0, nbMessages).toArray()) {
+                channel.basicPublish("", queue, null, "Hello".getBytes());
+            }
+
             assertTrue(latch.await(1, TimeUnit.SECONDS));
             subscription.dispose();
-            assertEquals(nbMessages, counter.get());
+            assertEquals(nbMessages * 2, counter.get());
         }
         receiver.close();
         assertNull(connection.createChannel().basicGet(queue, true));
@@ -97,21 +103,63 @@ public class ReactorRabbitMqTests {
         Receiver receiver = ReactorRabbitMq.createReceiver();
 
         for(int $ : IntStream.range(0, 10).toArray()) {
-            Flux<AcknowledgableDelivery> flux = receiver.consumeAutoAck(queue);
+            Flux<Delivery> flux = receiver.consumeAutoAck(queue);
 
             for(int $$ : IntStream.range(0, nbMessages).toArray()) {
                 channel.basicPublish("", queue, null, "Hello".getBytes());
             }
 
-            CountDownLatch latch = new CountDownLatch(nbMessages);
+            CountDownLatch latch = new CountDownLatch(nbMessages * 2);
             AtomicInteger counter = new AtomicInteger();
             Disposable subscription = flux.subscribe(msg -> {
                 counter.incrementAndGet();
                 latch.countDown();
             });
+
+            for(int $$ : IntStream.range(0, nbMessages).toArray()) {
+                channel.basicPublish("", queue, null, "Hello".getBytes());
+            }
+
             assertTrue(latch.await(1, TimeUnit.SECONDS));
             subscription.dispose();
-            assertEquals(nbMessages, counter.get());
+            assertEquals(nbMessages * 2, counter.get());
+        }
+
+        receiver.close();
+        assertNull(connection.createChannel().basicGet(queue, true));
+    }
+
+    @Test
+    public void receiverConsumeManuelAck() throws Exception {
+        Channel channel = connection.createChannel();
+        int nbMessages = 10;
+
+        Receiver receiver = ReactorRabbitMq.createReceiver();
+
+        for(int $ : IntStream.range(0, 10).toArray()) {
+            Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue);
+
+            for(int $$ : IntStream.range(0, nbMessages).toArray()) {
+                channel.basicPublish("", queue, null, "Hello".getBytes());
+            }
+
+            CountDownLatch latch = new CountDownLatch(nbMessages * 2);
+            AtomicInteger counter = new AtomicInteger();
+            Disposable subscription = flux.bufferTimeout(5, Duration.ofSeconds(1)).subscribe(messages -> {
+                counter.addAndGet(messages.size());
+                messages.forEach(msg -> {
+                    msg.ack();
+                    latch.countDown();
+                });
+            });
+
+            for(int $$ : IntStream.range(0, nbMessages).toArray()) {
+                channel.basicPublish("", queue, null, "Hello".getBytes());
+            }
+
+            assertTrue(latch.await(1, TimeUnit.SECONDS));
+            subscription.dispose();
+            assertEquals(nbMessages * 2, counter.get());
         }
 
         receiver.close();

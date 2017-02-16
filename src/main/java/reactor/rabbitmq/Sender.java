@@ -36,6 +36,9 @@ public class Sender {
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {
+        // TODO using a pool of channels?
+        // would be much more efficient if send is called very often
+        // less useful if seldom called, only for long or infinite message flux
         final Mono<Channel> channelMono = Mono.fromCallable(() -> connectionMono.block().createChannel()).cache();
         return new Flux<Void>() {
 
