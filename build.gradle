@@ -36,7 +36,7 @@ ext {
   gradleVersion = '2.8'
   gradleScriptDir = "${rootProject.projectDir}/gradle"
 
-  reactorCoreVersion = "3.0.4.RELEASE"
+  reactorCoreVersion = "3.0.5.RELEASE"
 
   // Languages
   groovyVersion = '2.4.1'
@@ -47,7 +47,7 @@ ext {
   testAddonVersion = '3.0.4.RELEASE'
 
   // Libraries
-  rabbitMqJavaClientVersion = '4.0.1'
+  rabbitMqJavaClientVersion = '4.0.2'
 
   // Testing
   mockitoVersion = '1.10.19'
@@ -170,6 +170,8 @@ configure(rootProject) { project ->
 			"org.awaitility:awaitility:$awaitilityVersion"
   }
 
+  // force test runs even when there are no test changes
+  test.outputs.upToDateWhen { false }
 
   if (project.hasProperty('platformVersion')) {
 	apply plugin: 'spring-io'
