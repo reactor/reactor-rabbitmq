@@ -173,4 +173,6 @@ public class Sender {
         }
     }
 
+    // TODO provide close method with Mono
+
 }

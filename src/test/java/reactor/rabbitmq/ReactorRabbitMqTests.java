@@ -18,11 +18,13 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.*;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.MonoProcessor;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -209,6 +211,43 @@ public class ReactorRabbitMqTests {
             channel.exchangeDeclarePassive(exchangeName);
             channel.queueDeclarePassive(queueName);
         } finally {
+            channel.exchangeDelete(exchangeName);
+            channel.queueDelete(queueName);
+            channel.close();
+        }
+    }
+
+    @Test public void createResourcesPublishConsume() throws Exception {
+        final String queueName = UUID.randomUUID().toString();
+        final String exchangeName = UUID.randomUUID().toString();
+        final String routingKey = "a.b";
+        int nbMessages = 100;
+        try {
+            Sender sender = ReactorRabbitMq.createSender();
+
+            MonoProcessor<Void> resourceSendingSub = sender.createExchange(ExchangeSpecification.exchange().exchange(exchangeName))
+                .then(sender.createQueue(QueueSpecification.queue().queue(queueName)))
+                .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
+                .then(sender.send(
+                    Flux.range(0, nbMessages)
+                        .map(i -> new OutboundMessage(exchangeName, routingKey, "".getBytes()))
+                ))
+                .subscribe();
+            resourceSendingSub.dispose();
+
+            CountDownLatch latch = new CountDownLatch(nbMessages);
+            AtomicInteger count = new AtomicInteger();
+            Receiver receiver = ReactorRabbitMq.createReceiver();
+            receiver.consumeNoAck(queueName)
+                .subscribe(msg -> {
+                    count.incrementAndGet();
+                    latch.countDown();
+                });
+
+            assertTrue(latch.await(1, TimeUnit.SECONDS));
+            assertEquals(nbMessages, count.get());
+        } finally {
+            final Channel channel = connection.createChannel();
             channel.exchangeDelete(exchangeName);
             channel.queueDelete(queueName);
             channel.close();
