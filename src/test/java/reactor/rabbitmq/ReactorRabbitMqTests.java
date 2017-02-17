@@ -18,7 +18,6 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.*;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.Disposable;
@@ -41,8 +40,13 @@ import static org.junit.Assert.*;
  */
 public class ReactorRabbitMqTests {
 
+    // TODO refactor test with StepVerifier
+
     Connection connection;
     String queue;
+
+    Receiver receiver;
+    Sender sender;
 
     @Before
     public void init() throws Exception {
@@ -53,6 +57,8 @@ public class ReactorRabbitMqTests {
         String queueName = UUID.randomUUID().toString();
         queue = channel.queueDeclare(queueName, false, false, false, null).getQueue();
         channel.close();
+        receiver = null;
+        sender = null;
     }
 
     @After
@@ -63,6 +69,12 @@ public class ReactorRabbitMqTests {
             channel.close();
             connection.close();
         }
+        if (sender != null) {
+            sender.close();
+        }
+        if (receiver != null) {
+            receiver.close();
+        }
     }
 
     @Test
@@ -70,7 +82,7 @@ public class ReactorRabbitMqTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        Receiver receiver = ReactorRabbitMq.createReceiver();
+        receiver = ReactorRabbitMq.createReceiver();
 
         for (int $ : IntStream.range(0, 10).toArray()) {
             Flux<Delivery> flux = receiver.consumeNoAck(queue);
@@ -93,7 +105,6 @@ public class ReactorRabbitMqTests {
             subscription.dispose();
             assertEquals(nbMessages * 2, counter.get());
         }
-        receiver.close();
         assertNull(connection.createChannel().basicGet(queue, true));
     }
 
@@ -102,7 +113,7 @@ public class ReactorRabbitMqTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        Receiver receiver = ReactorRabbitMq.createReceiver();
+        receiver = ReactorRabbitMq.createReceiver();
 
         for (int $ : IntStream.range(0, 10).toArray()) {
             Flux<Delivery> flux = receiver.consumeAutoAck(queue);
@@ -127,7 +138,6 @@ public class ReactorRabbitMqTests {
             assertEquals(nbMessages * 2, counter.get());
         }
 
-        receiver.close();
         assertNull(connection.createChannel().basicGet(queue, true));
     }
 
@@ -136,7 +146,7 @@ public class ReactorRabbitMqTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        Receiver receiver = ReactorRabbitMq.createReceiver();
+        receiver = ReactorRabbitMq.createReceiver();
 
         for (int $ : IntStream.range(0, 10).toArray()) {
             Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue);
@@ -164,7 +174,6 @@ public class ReactorRabbitMqTests {
             assertEquals(nbMessages * 2, counter.get());
         }
 
-        receiver.close();
         assertNull(connection.createChannel().basicGet(queue, true));
     }
 
@@ -185,11 +194,10 @@ public class ReactorRabbitMqTests {
 
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 
-        Sender sender = ReactorRabbitMq.createSender();
+        sender = ReactorRabbitMq.createSender();
         sender.send(msgFlux).subscribe();
         assertTrue(latch.await(1, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
-        sender.close();
     }
 
     @Test
@@ -200,10 +208,10 @@ public class ReactorRabbitMqTests {
         final String exchangeName = UUID.randomUUID().toString();
 
         try {
-            Sender sender = ReactorRabbitMq.createSender();
+            sender = ReactorRabbitMq.createSender();
 
-            Mono<AMQP.Queue.BindOk> resources = sender.createExchange(ExchangeSpecification.exchange().exchange(exchangeName))
-                .then(sender.createQueue(QueueSpecification.queue().queue(queueName)))
+            Mono<AMQP.Queue.BindOk> resources = sender.createExchange(ExchangeSpecification.exchange().name(exchangeName))
+                .then(sender.createQueue(QueueSpecification.queue(queueName)))
                 .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey("a.b")));
 
             resources.block(java.time.Duration.ofSeconds(1));
@@ -217,16 +225,17 @@ public class ReactorRabbitMqTests {
         }
     }
 
-    @Test public void createResourcesPublishConsume() throws Exception {
+    @Test
+    public void createResourcesPublishConsume() throws Exception {
         final String queueName = UUID.randomUUID().toString();
         final String exchangeName = UUID.randomUUID().toString();
         final String routingKey = "a.b";
         int nbMessages = 100;
         try {
-            Sender sender = ReactorRabbitMq.createSender();
+            sender = ReactorRabbitMq.createSender();
 
-            MonoProcessor<Void> resourceSendingSub = sender.createExchange(ExchangeSpecification.exchange().exchange(exchangeName))
-                .then(sender.createQueue(QueueSpecification.queue().queue(queueName)))
+            MonoProcessor<Void> resourceSendingSub = sender.createExchange(ExchangeSpecification.exchange(exchangeName))
+                .then(sender.createQueue(QueueSpecification.queue(queueName)))
                 .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
                 .then(sender.send(
                     Flux.range(0, nbMessages)
@@ -237,7 +246,7 @@ public class ReactorRabbitMqTests {
 
             CountDownLatch latch = new CountDownLatch(nbMessages);
             AtomicInteger count = new AtomicInteger();
-            Receiver receiver = ReactorRabbitMq.createReceiver();
+            receiver = ReactorRabbitMq.createReceiver();
             receiver.consumeNoAck(queueName)
                 .subscribe(msg -> {
                     count.incrementAndGet();
@@ -251,6 +260,47 @@ public class ReactorRabbitMqTests {
             channel.exchangeDelete(exchangeName);
             channel.queueDelete(queueName);
             channel.close();
+        }
+    }
+
+    @Test
+    public void shovel() throws Exception {
+        final String sourceQueue = UUID.randomUUID().toString();
+        final String destinationQueue = UUID.randomUUID().toString();
+
+        try {
+            sender = ReactorRabbitMq.createSender();
+            Mono<AMQP.Queue.DeclareOk> resources = sender.createQueue(QueueSpecification.queue(sourceQueue))
+                .then(sender.createQueue(QueueSpecification.queue(destinationQueue)));
+
+            resources.block();
+
+            int nbMessages = 100;
+            MonoProcessor<Void> sourceMessages = sender.send(Flux.range(0, nbMessages).map(i -> new OutboundMessage("", sourceQueue, "".getBytes())))
+                .subscribe();
+
+            receiver = ReactorRabbitMq.createReceiver();
+            Flux<OutboundMessage> forwardedMessages = receiver.consumeNoAck(sourceQueue)
+                .map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()));
+
+            AtomicInteger counter = new AtomicInteger();
+            CountDownLatch latch = new CountDownLatch(nbMessages);
+
+            sourceMessages
+                .then(sender.send(forwardedMessages))
+                .subscribe();
+
+            receiver.consumeNoAck(destinationQueue).subscribe(msg -> {
+                counter.incrementAndGet();
+                latch.countDown();
+            });
+
+            assertTrue(latch.await(1, TimeUnit.SECONDS));
+            assertEquals(nbMessages, counter.get());
+        } finally {
+            Channel channel = connection.createChannel();
+            channel.queueDelete(sourceQueue);
+            channel.queueDelete(destinationQueue);
         }
     }
 }

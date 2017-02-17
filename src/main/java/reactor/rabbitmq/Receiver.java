@@ -88,8 +88,6 @@ public class Receiver {
         return consumeManuelAck(queue).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
     }
 
-    // TODO add consumeManualAck method
-
     public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue) {
         // TODO handle overflow strategy
         FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
@@ -130,13 +128,18 @@ public class Receiver {
         return flux;
     }
 
+    // TODO consume with dynamic QoS and/or batch ack
+
     public void close() {
         // TODO close emitted fluxes?
+        // TODO make call idempotent
         try {
             connectionMono.block().close();
         } catch (IOException e) {
             throw new ReactorRabbitMqException(e);
         }
     }
+
+    // TODO provide close method with Mono
 
 }

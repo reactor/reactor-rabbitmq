@@ -100,19 +100,23 @@ public class Sender {
                         }
                         s.onComplete();
                     }
+
                 });
             }
+
         }.then();
     }
+
+    // TODO send with publisher confirms
 
     public Mono<AMQP.Queue.DeclareOk> createQueue(QueueSpecification specification) {
         return doOnChannel(channel -> {
             try {
-                if(specification.getQueue() == null) {
+                if(specification.getName() == null) {
                     return channel.queueDeclare();
                 } else {
                     return channel.queueDeclare(
-                        specification.getQueue(),
+                        specification.getName(),
                         specification.isDurable(),
                         specification.isExclusive(),
                         specification.isAutoDelete(),
@@ -129,7 +133,7 @@ public class Sender {
         return doOnChannel(channel -> {
             try {
                 return channel.exchangeDeclare(
-                    specification.getExchange(), specification.getType(),
+                    specification.getName(), specification.getType(),
                     specification.isDurable(),
                     specification.isAutoDelete(),
                     specification.isInternal(),
@@ -166,6 +170,7 @@ public class Sender {
     }
 
     public void close() {
+        // TODO make call idempotent
         try {
             connectionMono.block().close();
         } catch (IOException e) {

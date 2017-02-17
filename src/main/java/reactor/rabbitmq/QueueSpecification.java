@@ -23,7 +23,7 @@ import java.util.Map;
  */
 public class QueueSpecification {
 
-    private String queue;
+    private String name;
     private boolean durable;
     private boolean exclusive;
     private boolean autoDelete;
@@ -33,8 +33,12 @@ public class QueueSpecification {
         return new QueueSpecification();
     }
 
-    public QueueSpecification queue(String queue) {
-        this.queue = queue;
+    public static QueueSpecification queue(String name) {
+        return new QueueSpecification().name(name);
+    }
+
+    public QueueSpecification name(String queue) {
+        this.name = queue;
         return this;
     }
 
@@ -58,8 +62,8 @@ public class QueueSpecification {
         return this;
     }
 
-    public String getQueue() {
-        return queue;
+    public String getName() {
+        return name;
     }
 
     public boolean isDurable() {

@@ -23,7 +23,7 @@ import java.util.Map;
  */
 public class ExchangeSpecification {
 
-    private String exchange;
+    private String name;
     private String type = "direct";
     private boolean durable, autoDelete, internal;
     private Map<String, Object> arguments;
@@ -32,8 +32,12 @@ public class ExchangeSpecification {
         return new ExchangeSpecification();
     }
 
-    public ExchangeSpecification exchange(String exchange) {
-        this.exchange = exchange;
+    public static ExchangeSpecification exchange(String name) {
+        return new ExchangeSpecification().name(name);
+    }
+
+    public ExchangeSpecification name(String name) {
+        this.name = name;
         return this;
     }
 
@@ -62,8 +66,8 @@ public class ExchangeSpecification {
         return this;
     }
 
-    public String getExchange() {
-        return exchange;
+    public String getName() {
+        return name;
     }
 
     public String getType() {
