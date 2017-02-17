@@ -42,19 +42,22 @@ public class FluxTests {
 
     Connection connection;
 
-    @Before public void init() throws IOException, TimeoutException {
+    @Before
+    public void init() throws IOException, TimeoutException {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
         connection = connectionFactory.newConnection();
     }
 
-    @After public void tearDown() throws IOException {
-        if(connection != null) {
+    @After
+    public void tearDown() throws IOException {
+        if (connection != null) {
             connection.close();
         }
     }
 
-    @Test public void senderFluxWithPublisherConfirms() throws Exception {
+    @Test
+    public void senderFluxWithPublisherConfirms() throws Exception {
         int nbMessages = 10;
         Flux<Integer> flux = Flux.range(1, nbMessages);
         Channel channel = connection.createChannel();
@@ -62,6 +65,7 @@ public class FluxTests {
 
         CountDownLatch latch = new CountDownLatch(nbMessages);
         channel.basicConsume(queue.getQueue(), new DefaultConsumer(channel) {
+
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                 latch.countDown();
@@ -93,8 +97,7 @@ public class FluxTests {
 
                 channel.getNextPublishSeqNo();
                 channel.basicPublish("", queue.getQueue(), null, String.valueOf(value).getBytes());
-
-            } catch(Exception e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         });
@@ -103,7 +106,8 @@ public class FluxTests {
         assertEquals(nbMessages, lastConfirm.get());
     }
 
-    @Test public void senderFlux() throws Exception {
+    @Test
+    public void senderFlux() throws Exception {
         int nbMessages = 10;
         Flux<Integer> flux = Flux.range(1, nbMessages);
         Channel channel = connection.createChannel();
@@ -111,6 +115,7 @@ public class FluxTests {
 
         CountDownLatch latch = new CountDownLatch(nbMessages);
         channel.basicConsume(queue.getQueue(), new DefaultConsumer(channel) {
+
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                 latch.countDown();
@@ -120,7 +125,7 @@ public class FluxTests {
         flux.subscribe(value -> {
             try {
                 channel.basicPublish("", queue.getQueue(), null, String.valueOf(value).getBytes());
-            } catch(Exception e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         });
@@ -128,13 +133,13 @@ public class FluxTests {
         latch.await(1, TimeUnit.SECONDS);
     }
 
-    @Test public void consumerFlux() throws IOException, InterruptedException {
+    @Test
+    public void consumerFlux() throws IOException, InterruptedException {
         final Channel channel = connection.createChannel();
         AMQP.Queue.DeclareOk queue = channel.queueDeclare();
         int nbMessages = 10;
 
         CountDownLatch cancelLatch = new CountDownLatch(1);
-
 
         Flux<Delivery> flux = Flux.create(unsafeEmitter -> {
             // because handleDelivery can be called from different threads
@@ -146,20 +151,19 @@ public class FluxTests {
                 @Override
                 public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                     counter++;
-                    if(counter <= nbMessages) {
+                    if (counter <= nbMessages) {
                         emitter.next(new Delivery(envelope, properties, body));
                     } else {
                         emitter.complete();
                     }
                 }
-
             };
 
             try {
                 final String consumerTag = channel.basicConsume(queue.getQueue(), true, consumer);
                 emitter.setCancellation(() -> {
                     try {
-                        if(channel.isOpen() && channel.getConnection().isOpen()) {
+                        if (channel.isOpen() && channel.getConnection().isOpen()) {
                             channel.basicCancel(consumerTag);
                         }
                         cancelLatch.countDown();
@@ -172,7 +176,7 @@ public class FluxTests {
             }
         }, FluxSink.OverflowStrategy.BUFFER);
 
-        for(int i = 0; i < nbMessages + 1; i++) {
+        for (int i = 0; i < nbMessages + 1; i++) {
             channel.basicPublish("", queue.getQueue(), null, "Hello".getBytes());
         }
 
@@ -186,5 +190,4 @@ public class FluxTests {
         assertEquals(nbMessages, counter.get());
         assertTrue(cancelLatch.await(1, TimeUnit.SECONDS));
     }
-
 }
