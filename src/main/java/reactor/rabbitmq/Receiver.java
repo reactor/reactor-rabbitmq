@@ -17,6 +17,8 @@
 package reactor.rabbitmq;
 
 import com.rabbitmq.client.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
@@ -28,6 +30,8 @@ import java.util.concurrent.TimeoutException;
  *
  */
 public class Receiver {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Receiver.class);
 
     private final Mono<Connection> connectionMono;
 
@@ -62,6 +66,12 @@ public class Receiver {
                     public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                         emitter.next(new Delivery(envelope, properties, body));
                     }
+
+                    @Override
+                    public void handleCancel(String consumerTag) throws IOException {
+                        LOGGER.warn("Flux consumer {} has been cancelled", consumerTag);
+                    }
+
                 };
                 final String consumerTag = channel.basicConsume(queue, true, consumer);
                 emitter.setCancellation(() -> {
