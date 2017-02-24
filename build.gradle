@@ -44,7 +44,7 @@ ext {
   logbackVersion = '1.1.8'
 
   // Libraries
-  rabbitMqJavaClientVersion = '4.0.2'
+  rabbitMqJavaClientVersion = '4.1.0'
 
   // Testing
   mockitoVersion = '1.10.19'
