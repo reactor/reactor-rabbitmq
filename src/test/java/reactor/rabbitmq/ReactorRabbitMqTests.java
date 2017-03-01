@@ -247,7 +247,7 @@ public class ReactorRabbitMqTests {
             CountDownLatch latch = new CountDownLatch(nbMessages);
             AtomicInteger count = new AtomicInteger();
             receiver = ReactorRabbitMq.createReceiver();
-            receiver.consumeNoAck(queueName)
+            Disposable receiverSubscription = receiver.consumeNoAck(queueName)
                 .subscribe(msg -> {
                     count.incrementAndGet();
                     latch.countDown();
@@ -255,6 +255,7 @@ public class ReactorRabbitMqTests {
 
             assertTrue(latch.await(1, TimeUnit.SECONDS));
             assertEquals(nbMessages, count.get());
+            receiverSubscription.dispose();
         } finally {
             final Channel channel = connection.createChannel();
             channel.exchangeDelete(exchangeName);
@@ -286,17 +287,20 @@ public class ReactorRabbitMqTests {
             AtomicInteger counter = new AtomicInteger();
             CountDownLatch latch = new CountDownLatch(nbMessages);
 
-            sourceMessages
+            MonoProcessor<Void> shovelSubscription = sourceMessages
                 .then(sender.send(forwardedMessages))
                 .subscribe();
 
-            receiver.consumeNoAck(destinationQueue).subscribe(msg -> {
+
+            Disposable consumerSubscription = receiver.consumeNoAck(destinationQueue).subscribe(msg -> {
                 counter.incrementAndGet();
                 latch.countDown();
             });
 
             assertTrue(latch.await(1, TimeUnit.SECONDS));
             assertEquals(nbMessages, counter.get());
+            shovelSubscription.dispose();
+            consumerSubscription.dispose();
         } finally {
             Channel channel = connection.createChannel();
             channel.queueDelete(sourceQueue);
