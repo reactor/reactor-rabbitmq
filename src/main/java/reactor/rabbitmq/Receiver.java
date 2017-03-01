@@ -22,8 +22,11 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -35,6 +38,13 @@ public class Receiver {
 
     private final Mono<Connection> connectionMono;
 
+    // using specific scheduler to avoid being cancelled in subscribe
+    // see https://github.com/reactor/reactor-core/issues/442
+    private final Scheduler scheduler = Schedulers.fromExecutor(
+        Executors.newFixedThreadPool(Schedulers.DEFAULT_POOL_SIZE),
+        true
+    );
+
     public Receiver() {
         this.connectionMono = Mono.fromCallable(() -> {
             // TODO provide connection settings
@@ -43,7 +53,8 @@ public class Receiver {
             // TODO handle exception
             Connection connection = connectionFactory.newConnection();
             return connection;
-        }).cache();
+        }).subscribeOn(scheduler)
+          .cache();
     }
 
     // TODO more consumeNoAck functions:
