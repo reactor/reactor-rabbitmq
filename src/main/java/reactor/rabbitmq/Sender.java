@@ -60,7 +60,9 @@ public class Sender {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        final Mono<Channel> channelMono = Mono.fromCallable(() -> connectionMono.block().createChannel()).cache();
+        final Mono<Channel> channelMono = connectionMono
+            .then(connection -> Mono.fromCallable(() -> connection.createChannel()))
+            .cache();
         return new Flux<Void>() {
 
             @Override
@@ -69,6 +71,7 @@ public class Sender {
 
                     @Override
                     protected void hookOnSubscribe(Subscription subscription) {
+                        channelMono.block();
                         s.onSubscribe(subscription);
                     }
 
@@ -158,15 +161,7 @@ public class Sender {
     }
 
     public static <T> Mono<T> doOnChannel(Function<Channel, T> operation, Channel channel) {
-        return Mono.create(emitter -> {
-            try {
-                T result = operation.apply(channel);
-                emitter.success(result);
-            } catch(Exception e) {
-                emitter.error(e);
-            }
-
-        });
+        return Mono.fromCallable(() -> operation.apply(channel));
     }
 
     public void close() {

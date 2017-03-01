@@ -56,37 +56,38 @@ public class Receiver {
         Flux<Delivery> flux = Flux.create(unsafeEmitter -> {
             // because handleDelivery can be called from different threads
             FluxSink<Delivery> emitter = unsafeEmitter.serialize();
-            // TODO handle timeout
-            Connection connection = connectionMono.block();
-            try {
-                // TODO handle exception
-                Channel channel = connection.createChannel();
-                final DefaultConsumer consumer = new DefaultConsumer(channel) {
-                    @Override
-                    public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-                        emitter.next(new Delivery(envelope, properties, body));
-                    }
-
-                    @Override
-                    public void handleCancel(String consumerTag) throws IOException {
-                        LOGGER.warn("Flux consumer {} has been cancelled", consumerTag);
-                    }
-
-                };
-                final String consumerTag = channel.basicConsume(queue, true, consumer);
-                emitter.setCancellation(() -> {
-                    try {
-                        if(channel.isOpen() && channel.getConnection().isOpen()) {
-                            channel.basicCancel(consumerTag);
-                            channel.close();
+            connectionMono.subscribe(connection -> {
+                try {
+                    // TODO handle exception
+                    Channel channel = connection.createChannel();
+                    final DefaultConsumer consumer = new DefaultConsumer(channel) {
+                        @Override
+                        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                            emitter.next(new Delivery(envelope, properties, body));
                         }
-                    } catch (TimeoutException | IOException e) {
-                        throw new ReactorRabbitMqException(e);
-                    }
-                });
-            } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
-            }
+
+                        @Override
+                        public void handleCancel(String consumerTag) throws IOException {
+                            LOGGER.warn("Flux consumer {} has been cancelled", consumerTag);
+                        }
+
+                    };
+                    final String consumerTag = channel.basicConsume(queue, true, consumer);
+                    emitter.setCancellation(() -> {
+                        try {
+                            if(channel.isOpen() && channel.getConnection().isOpen()) {
+                                channel.basicCancel(consumerTag);
+                                channel.close();
+                            }
+                        } catch (TimeoutException | IOException e) {
+                            throw new ReactorRabbitMqException(e);
+                        }
+                    });
+                } catch (IOException e) {
+                    throw new ReactorRabbitMqException(e);
+                }
+            });
+
         }, overflowStrategy);
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
@@ -107,31 +108,31 @@ public class Receiver {
         Flux<AcknowledgableDelivery> flux = Flux.create(unsafeEmitter -> {
             // because handleDelivery can be called from different threads
             FluxSink<AcknowledgableDelivery> emitter = unsafeEmitter.serialize();
-            // TODO handle timeout
-            Connection connection = connectionMono.block();
-            try {
-                // TODO handle exception
-                Channel channel = connection.createChannel();
-                final DefaultConsumer consumer = new DefaultConsumer(channel) {
-                    @Override
-                    public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-                        emitter.next(new AcknowledgableDelivery(envelope, properties, body, getChannel()));
-                    }
-                };
-                final String consumerTag = channel.basicConsume(queue, false, consumer);
-                emitter.setCancellation(() -> {
-                    try {
-                        if(channel.isOpen() && channel.getConnection().isOpen()) {
-                            channel.basicCancel(consumerTag);
-                            channel.close();
+            connectionMono.subscribe(connection -> {
+                try {
+                    // TODO handle exception
+                    Channel channel = connection.createChannel();
+                    final DefaultConsumer consumer = new DefaultConsumer(channel) {
+                        @Override
+                        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                            emitter.next(new AcknowledgableDelivery(envelope, properties, body, getChannel()));
                         }
-                    } catch (TimeoutException | IOException e) {
-                        throw new ReactorRabbitMqException(e);
-                    }
-                });
-            } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
-            }
+                    };
+                    final String consumerTag = channel.basicConsume(queue, false, consumer);
+                    emitter.setCancellation(() -> {
+                        try {
+                            if(channel.isOpen() && channel.getConnection().isOpen()) {
+                                channel.basicCancel(consumerTag);
+                                channel.close();
+                            }
+                        } catch (TimeoutException | IOException e) {
+                            throw new ReactorRabbitMqException(e);
+                        }
+                    });
+                } catch (IOException e) {
+                    throw new ReactorRabbitMqException(e);
+                }
+            });
         }, overflowStrategy);
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
