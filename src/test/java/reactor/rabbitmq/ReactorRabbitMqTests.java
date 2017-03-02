@@ -20,10 +20,9 @@ import com.rabbitmq.client.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoProcessor;
+import reactor.core.publisher.*;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -31,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
@@ -84,8 +84,10 @@ public class ReactorRabbitMqTests {
 
         receiver = ReactorRabbitMq.createReceiver();
 
-        for (int $ : IntStream.range(0, 10).toArray()) {
-            Flux<Delivery> flux = receiver.consumeNoAck(queue);
+        for (int $ : IntStream.range(0, 1).toArray()) {
+            Flux<Delivery> flux = receiver.consumeNoAck(queue, new ReceiverOptions().overflowStrategy(
+                FluxSink.OverflowStrategy.BUFFER
+            ));
             for (int $$ : IntStream.range(0, nbMessages).toArray()) {
                 channel.basicPublish("", queue, null, "Hello".getBytes());
             }
@@ -174,6 +176,145 @@ public class ReactorRabbitMqTests {
             assertEquals(nbMessages * 2, counter.get());
         }
 
+        assertNull(connection.createChannel().basicGet(queue, true));
+    }
+
+    @Test
+    public void receiverConsumeManuelAckOverflowMessagesRequeued() throws Exception {
+        // Downstream would request only one message and the hook before emission
+        // would nack/requeue messages.
+        // Messages are then redelivered, so there a nack can fail because
+        // the channel is closed (the subscription is cancelled once the 20
+        // published messages have been acked (first one) and at least 19 have
+        // been nacked. This can lead to some stack trace in the console, but
+        // it's normal behavior.
+        // This can be an example of trying no to loose messages and requeue
+        // messages when the downstream consumers are overloaded
+        Channel channel = connection.createChannel();
+        int nbMessages = 10;
+
+        receiver = ReactorRabbitMq.createReceiver();
+
+        CountDownLatch ackedNackedLatch = new CountDownLatch(2 * nbMessages - 1);
+
+        Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue, new ReceiverOptions()
+            .overflowStrategy(FluxSink.OverflowStrategy.DROP)
+            .hookBeforeEmit((emitter, message) -> {
+                if(emitter.requestedFromDownstream() == 0) {
+                    message.nack(true);
+                    ackedNackedLatch.countDown();
+                    return false;
+                } else {
+                    return true;
+                }
+            })
+            .qos(1)
+        );
+
+        for (int $$ : IntStream.range(0, nbMessages).toArray()) {
+            channel.basicPublish("", queue, null, "Hello".getBytes());
+        }
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicInteger counter = new AtomicInteger();
+        AtomicReference<Subscription> subscriptionReference = new AtomicReference<>();
+        flux.subscribe(new BaseSubscriber<AcknowledgableDelivery>() {
+
+            @Override
+            protected void hookOnSubscribe(Subscription subscription) {
+                subscription.request(1);
+                subscriptionReference.set(subscription);
+            }
+
+            @Override
+            protected void hookOnNext(AcknowledgableDelivery message) {
+                try {
+                    Thread.sleep(100L);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                counter.addAndGet(1);
+                message.ack();
+                latch.countDown();
+                subscriptionReference.get().request(0);
+            }
+        });
+
+        for (int $$ : IntStream.range(0, nbMessages).toArray()) {
+            channel.basicPublish("", queue, null, "Hello".getBytes());
+        }
+
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        assertTrue(ackedNackedLatch.await(1, TimeUnit.SECONDS));
+        subscriptionReference.get().cancel();
+        assertEquals(1, counter.get());
+        assertTrue(connection.createChannel().queueDeclarePassive(queue).getMessageCount() > 0);
+    }
+
+    @Test
+    public void receiverConsumeManuelAckOverflowMessagesDropped() throws Exception {
+        // downstream would request only one message and the hook before emission
+        // would ack other messages.
+        // This can be an example of controlling back pressure by dropping
+        // messages (because they're non-essential) with RabbitMQ QoS+ack and
+        // reactor feedback from downstream.
+        Channel channel = connection.createChannel();
+        int nbMessages = 10;
+
+        receiver = ReactorRabbitMq.createReceiver();
+
+        CountDownLatch ackedDroppedLatch = new CountDownLatch(2 * nbMessages - 1);
+
+        Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue, new ReceiverOptions()
+            .overflowStrategy(FluxSink.OverflowStrategy.DROP)
+            .hookBeforeEmit((emitter, message) -> {
+                if(emitter.requestedFromDownstream() == 0) {
+                    message.ack();
+                    ackedDroppedLatch.countDown();
+                }
+                // we can emit, the message will be dropped by the overflow strategy
+                return true;
+            })
+            .qos(1)
+        );
+
+        for (int $$ : IntStream.range(0, nbMessages).toArray()) {
+            channel.basicPublish("", queue, null, "Hello".getBytes());
+        }
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicInteger counter = new AtomicInteger();
+        AtomicReference<Subscription> subscriptionReference = new AtomicReference<>();
+        flux.subscribe(new BaseSubscriber<AcknowledgableDelivery>() {
+
+            @Override
+            protected void hookOnSubscribe(Subscription subscription) {
+                subscription.request(1);
+                subscriptionReference.set(subscription);
+            }
+
+            @Override
+            protected void hookOnNext(AcknowledgableDelivery message) {
+                try {
+                    Thread.sleep(100L);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                counter.addAndGet(1);
+                message.ack();
+                latch.countDown();
+                subscriptionReference.get().request(0);
+            }
+        });
+
+        for (int $$ : IntStream.range(0, nbMessages).toArray()) {
+            channel.basicPublish("", queue, null, "Hello".getBytes());
+        }
+
+        assertTrue(ackedDroppedLatch.await(1, TimeUnit.SECONDS));
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        subscriptionReference.get().cancel();
+        assertEquals(1, counter.get());
         assertNull(connection.createChannel().basicGet(queue, true));
     }
 

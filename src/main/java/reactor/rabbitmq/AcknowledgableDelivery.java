@@ -42,4 +42,13 @@ public class AcknowledgableDelivery extends Delivery {
             throw new ReactorRabbitMqException(e);
         }
     }
+
+    public void nack(boolean requeue) {
+        // TODO make call idempotent
+        try {
+            channel.basicNack(getEnvelope().getDeliveryTag(), false, requeue);
+        } catch (IOException e) {
+            throw new ReactorRabbitMqException(e);
+        }
+    }
 }

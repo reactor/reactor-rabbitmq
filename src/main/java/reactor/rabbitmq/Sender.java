@@ -32,6 +32,7 @@ import reactor.core.publisher.Mono;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  *
@@ -45,11 +46,19 @@ public class Sender {
     private final Mono<Channel> channelMono;
 
     public Sender() {
-        this.connectionMono = Mono.fromCallable(() -> {
-            // TODO provide connection settings
+        this(() -> {
             ConnectionFactory connectionFactory = new ConnectionFactory();
             connectionFactory.useNio();
-            // TODO handle exception
+            return connectionFactory;
+        });
+    }
+
+    public Sender(Supplier<ConnectionFactory> connectionFactorySupplier) {
+        this(connectionFactorySupplier.get());
+    }
+
+    public Sender(ConnectionFactory connectionFactory) {
+        this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = connectionFactory.newConnection();
             return connection;
         }).cache();

@@ -28,6 +28,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 /**
  *
@@ -46,11 +47,19 @@ public class Receiver {
     );
 
     public Receiver() {
+        this(() -> {
+           ConnectionFactory connectionFactory = new ConnectionFactory();
+           connectionFactory.useNio();
+           return connectionFactory;
+        });
+    }
+
+    public Receiver(Supplier<ConnectionFactory> connectionFactorySupplier) {
+        this(connectionFactorySupplier.get());
+    }
+
+    public Receiver(ConnectionFactory connectionFactory) {
         this.connectionMono = Mono.fromCallable(() -> {
-            // TODO provide connection settings
-            ConnectionFactory connectionFactory = new ConnectionFactory();
-            connectionFactory.useNio();
-            // TODO handle exception
             Connection connection = connectionFactory.newConnection();
             return connection;
         }).subscribeOn(scheduler)
@@ -61,12 +70,14 @@ public class Receiver {
     //  - with a Supplier<Boolean> or Predicate<FluxSink> or Predicate<Delivery> to complete the Flux
 
     public Flux<Delivery> consumeNoAck(final String queue) {
-        // TODO handle overflow strategy
-        // "IGNORE" should be fine for an auto-ack listener
-        FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.IGNORE;
+        return consumeNoAck(queue, new ReceiverOptions().overflowStrategy(FluxSink.OverflowStrategy.IGNORE));
+    }
+
+    public Flux<Delivery> consumeNoAck(final String queue, ReceiverOptions options) {
         Flux<Delivery> flux = Flux.create(unsafeEmitter -> {
             // because handleDelivery can be called from different threads
             FluxSink<Delivery> emitter = unsafeEmitter.serialize();
+
             connectionMono.subscribe(connection -> {
                 try {
                     // TODO handle exception
@@ -81,7 +92,6 @@ public class Receiver {
                         public void handleCancel(String consumerTag) throws IOException {
                             LOGGER.warn("Flux consumer {} has been cancelled", consumerTag);
                         }
-
                     };
                     final String consumerTag = channel.basicConsume(queue, true, consumer);
                     emitter.setCancellation(() -> {
@@ -99,38 +109,48 @@ public class Receiver {
                 }
             });
 
-        }, overflowStrategy);
+        }, options.getOverflowStrategy());
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
         return flux;
     }
 
     public Flux<Delivery> consumeAutoAck(final String queue) {
+        return consumeAutoAck(queue, new ReceiverOptions().overflowStrategy(FluxSink.OverflowStrategy.BUFFER));
+    }
+
+    public Flux<Delivery> consumeAutoAck(final String queue, ReceiverOptions options) {
         // TODO why acking here and not just after emitter.next()?
-        return consumeManuelAck(queue).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
+        return consumeManuelAck(queue, options).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
     }
 
     public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue) {
-        // TODO handle overflow strategy
-        FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
+        return consumeManuelAck(queue, new ReceiverOptions().overflowStrategy(FluxSink.OverflowStrategy.BUFFER));
+    }
 
-        // TODO handle QoS
-
+    public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue, ReceiverOptions options) {
         Flux<AcknowledgableDelivery> flux = Flux.create(unsafeEmitter -> {
             // because handleDelivery can be called from different threads
             FluxSink<AcknowledgableDelivery> emitter = unsafeEmitter.serialize();
             connectionMono.subscribe(connection -> {
                 try {
-                    // TODO handle exception
+
                     Channel channel = connection.createChannel();
+                    if(options.getQos() != 0) {
+                        channel.basicQos(options.getQos());
+                    }
                     final DefaultConsumer consumer = new DefaultConsumer(channel) {
                         @Override
                         public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-                            emitter.next(new AcknowledgableDelivery(envelope, properties, body, getChannel()));
+                            AcknowledgableDelivery message = new AcknowledgableDelivery(envelope, properties, body, getChannel());
+                            if(options.getHookBeforeEmit().apply(emitter, message)) {
+                                emitter.next(message);
+                            }
                         }
                     };
                     final String consumerTag = channel.basicConsume(queue, false, consumer);
                     emitter.setCancellation(() -> {
+
                         try {
                             if(channel.isOpen() && channel.getConnection().isOpen()) {
                                 channel.basicCancel(consumerTag);
@@ -144,7 +164,7 @@ public class Receiver {
                     throw new ReactorRabbitMqException(e);
                 }
             });
-        }, overflowStrategy);
+        }, options.getOverflowStrategy());
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
         return flux;
