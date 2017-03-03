@@ -31,6 +31,9 @@ public class OutboundMessage {
 
     private final byte [] body;
 
+    // TODO add a correlation property to use for OutboundMessageResult
+    // (instead of using the whole message)
+
     public OutboundMessage(String exchange, String routingKey, BasicProperties properties, byte[] body) {
         this.exchange = exchange;
         this.routingKey = routingKey;

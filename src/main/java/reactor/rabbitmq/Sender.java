@@ -16,10 +16,7 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.*;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -27,10 +24,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.util.concurrent.TimeoutException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -119,7 +120,118 @@ public class Sender {
         }.then();
     }
 
-    // TODO send with publisher confirms
+    private enum SubscriberState {
+        INIT,
+        ACTIVE,
+        OUTBOUND_DONE,
+        COMPLETE
+    }
+
+    public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages) {
+        // TODO using a pool of channels?
+        // would be much more efficient if send is called very often
+        // less useful if seldom called, only for long or infinite message flux
+        final Mono<Channel> channelMono = connectionMono
+            .then(connection -> Mono.fromCallable(() -> {
+                Channel channel = connection.createChannel();
+                channel.confirmSelect();
+                return channel;
+            }))
+            .cache();
+
+        ConcurrentNavigableMap<Long, OutboundMessage> unconfirmed = new ConcurrentSkipListMap<>();
+
+        return new Flux<OutboundMessageResult>() {
+
+            @Override
+            public void subscribe(Subscriber<? super OutboundMessageResult> subscriber) {
+                messages.subscribe(new Subscriber<OutboundMessage>() {
+
+                    AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
+
+                    ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+                    @Override
+                    public void onSubscribe(Subscription subscription) {
+                        channelMono.block().addConfirmListener(new ConfirmListener() {
+                            @Override
+                            public void handleAck(long deliveryTag, boolean multiple) throws IOException {
+                                handleAckNack(deliveryTag, multiple, true);
+                            }
+
+                            @Override
+                            public void handleNack(long deliveryTag, boolean multiple) throws IOException {
+                                handleAckNack(deliveryTag, multiple, false);
+                            }
+
+                            private void handleAckNack(long deliveryTag, boolean multiple, boolean ack) {
+                                if(multiple) {
+                                    ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
+                                    Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
+                                    while(iterator.hasNext()) {
+                                        subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
+                                        iterator.remove();
+                                    }
+                                } else {
+                                    OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
+                                    unconfirmed.remove(deliveryTag);
+                                    subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
+                                }
+                                if(unconfirmed.size() == 0) {
+                                    executorService.submit(() -> {
+                                        // confirmation listeners are executed in the IO reading thread
+                                        // so we need to complete in another thread
+                                        maybeComplete();
+                                    });
+                                }
+                            }
+                        });
+                        state.set(SubscriberState.ACTIVE);
+                        subscriber.onSubscribe(subscription);
+                    }
+
+                    @Override
+                    public void onNext(OutboundMessage message) {
+                        try {
+                            unconfirmed.putIfAbsent(channelMono.block().getNextPublishSeqNo(), message);
+                            channelMono.block().basicPublish(
+                                message.getExchange(),
+                                message.getRoutingKey(),
+                                message.getProperties(),
+                                message.getBody()
+                            );
+                        } catch(IOException e) {
+                            throw new ReactorRabbitMqException(e);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                        LOGGER.warn("Send failed with exception {}", throwable);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        if(state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.OUTBOUND_DONE) && unconfirmed.size() == 0) {
+                            maybeComplete();
+                        }
+                    }
+
+                    private void maybeComplete() {
+                        if(state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
+                            try {
+                                channelMono.block().close();
+                            } catch (TimeoutException | IOException e) {
+                                throw new ReactorRabbitMqException(e);
+                            }
+                            subscriber.onComplete();
+                        }
+                    }
+
+                });
+            }
+        };
+    }
 
     public Mono<AMQP.Queue.DeclareOk> createQueue(QueueSpecification specification) {
         return doOnChannel(channel -> {

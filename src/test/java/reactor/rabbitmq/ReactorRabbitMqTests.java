@@ -341,6 +341,32 @@ public class ReactorRabbitMqTests {
         assertEquals(nbMessages, counter.get());
     }
 
+    @Test public void publishConfirms() throws Exception {
+        int nbMessages = 10;
+        CountDownLatch consumedLatch = new CountDownLatch(nbMessages);
+        CountDownLatch confirmedLatch = new CountDownLatch(nbMessages);
+        AtomicInteger counter = new AtomicInteger();
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, new DefaultConsumer(channel) {
+
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                counter.incrementAndGet();
+                consumedLatch.countDown();
+            }
+        });
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        sender = ReactorRabbitMq.createSender();
+        sender.sendWithPublishConfirms(msgFlux).subscribe(outboundMessageResult -> {
+            confirmedLatch.countDown();
+        });
+        assertTrue(consumedLatch.await(1, TimeUnit.SECONDS));
+        assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
+        assertEquals(nbMessages, counter.get());
+    }
+
     @Test
     public void createResources() throws Exception {
         final Channel channel = connection.createChannel();
