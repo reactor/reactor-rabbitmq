@@ -24,8 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Operators;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -147,9 +147,11 @@ public class Sender {
             public void subscribe(Subscriber<? super OutboundMessageResult> subscriber) {
                 messages.subscribe(new Subscriber<OutboundMessage>() {
 
-                    AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
+                    final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
 
-                    ExecutorService executorService = Executors.newFixedThreadPool(1);
+                    final ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+                    final AtomicReference<Throwable> firstException = new AtomicReference<Throwable>();
 
                     @Override
                     public void onSubscribe(Subscription subscription) {
@@ -166,16 +168,25 @@ public class Sender {
 
                             private void handleAckNack(long deliveryTag, boolean multiple, boolean ack) {
                                 if(multiple) {
-                                    ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
-                                    Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
-                                    while(iterator.hasNext()) {
-                                        subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
-                                        iterator.remove();
+                                    try {
+                                        ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
+                                        Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
+                                        while(iterator.hasNext()) {
+                                            subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
+                                            iterator.remove();
+                                        }
+                                    } catch(Exception e) {
+                                        handleError(e, null);
                                     }
                                 } else {
                                     OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
-                                    unconfirmed.remove(deliveryTag);
-                                    subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
+                                    try {
+                                        unconfirmed.remove(deliveryTag);
+                                        subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
+                                    } catch(Exception e) {
+                                        handleError(e, new OutboundMessageResult(outboundMessage, ack));
+                                    }
+
                                 }
                                 if(unconfirmed.size() == 0) {
                                     executorService.submit(() -> {
@@ -192,22 +203,35 @@ public class Sender {
 
                     @Override
                     public void onNext(OutboundMessage message) {
+                        if (checkComplete(message))
+                            return;
+
+                        long nextPublishSeqNo = channelMono.block().getNextPublishSeqNo();
                         try {
-                            unconfirmed.putIfAbsent(channelMono.block().getNextPublishSeqNo(), message);
+                            unconfirmed.putIfAbsent(nextPublishSeqNo, message);
                             channelMono.block().basicPublish(
                                 message.getExchange(),
                                 message.getRoutingKey(),
                                 message.getProperties(),
                                 message.getBody()
                             );
-                        } catch(IOException e) {
-                            throw new ReactorRabbitMqException(e);
+                        } catch(Exception e) {
+                            unconfirmed.remove(nextPublishSeqNo);
+                            handleError(e, new OutboundMessageResult(message, false));
                         }
                     }
 
                     @Override
                     public void onError(Throwable throwable) {
-                        LOGGER.warn("Send failed with exception {}", throwable);
+                        if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.COMPLETE) ||
+                            state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
+                            closeResources();
+                            // complete the flux state
+                            subscriber.onError(throwable);
+                        } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
+                            // already completed, drop the error
+                            Operators.onErrorDropped(throwable);
+                        }
                     }
 
                     @Override
@@ -217,15 +241,39 @@ public class Sender {
                         }
                     }
 
+                    private void handleError(Exception e, OutboundMessageResult result) {
+                        LOGGER.error("error in publish confirm sending", e);
+                        boolean complete = checkComplete(e);
+                        firstException.compareAndSet(null, e);
+                        if (!complete) {
+                            if(result != null) {
+                                subscriber.onNext(result);
+                            }
+                            onError(e);
+                        }
+                    }
+
                     private void maybeComplete() {
                         if(state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
-                            try {
-                                channelMono.block().close();
-                            } catch (TimeoutException | IOException e) {
-                                throw new ReactorRabbitMqException(e);
-                            }
+                            closeResources();
                             subscriber.onComplete();
                         }
+                    }
+
+                    private void closeResources() {
+                        try {
+                            channelMono.block().close();
+                        } catch (TimeoutException | IOException e) {
+                            throw new ReactorRabbitMqException(e);
+                        }
+                    }
+
+                    public <T> boolean checkComplete(T t) {
+                        boolean complete = state.get() == SubscriberState.COMPLETE;
+                        if (complete && firstException.get() == null) {
+                            Operators.onNextDropped(t);
+                        }
+                        return complete;
                     }
 
                 });

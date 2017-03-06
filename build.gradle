@@ -145,7 +145,8 @@ configure(rootProject) { project ->
 	testCompile "io.projectreactor.addons:reactor-test:$reactorCoreVersion"
 	testCompile 'junit:junit:4.12'
 	testCompile "org.hamcrest:hamcrest-library:1.3",
-			"org.awaitility:awaitility:$awaitilityVersion"
+	         	"org.awaitility:awaitility:$awaitilityVersion",
+				"org.mockito:mockito-core:$mockitoVersion"
 	testRuntime "org.slf4j:jcl-over-slf4j:$slf4jVersion"
 	testRuntime "org.slf4j:slf4j-api:$slf4jVersion"
 	testRuntime "ch.qos.logback:logback-classic:$logbackVersion"

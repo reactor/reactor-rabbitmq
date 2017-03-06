@@ -20,6 +20,10 @@ import com.rabbitmq.client.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
 import reactor.core.publisher.*;
@@ -27,13 +31,14 @@ import reactor.core.publisher.*;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 /**
  *
@@ -365,6 +370,46 @@ public class ReactorRabbitMqTests {
         assertTrue(consumedLatch.await(1, TimeUnit.SECONDS));
         assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
+    }
+
+    @Test public void publishConfirmsErrorWhilePublishing() throws Exception {
+        ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
+        Connection mockConnection = mock(Connection.class);
+        Channel mockChannel = mock(Channel.class);
+        when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
+        when(mockConnection.createChannel()).thenReturn(mockChannel);
+
+        AtomicLong publishSequence = new AtomicLong();
+        when(mockChannel.getNextPublishSeqNo()).thenAnswer(invocation -> publishSequence.incrementAndGet());
+
+        doNothing()
+            .doThrow(new IOException("simulated error while publishing"))
+            .when(mockChannel).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class), any(byte[].class));
+
+        int nbMessages = 10;
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+        int nbMessagesAckNack = 2;
+        CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
+        sender = ReactorRabbitMq.createSender(mockConnectionFactory);
+        sender.sendWithPublishConfirms(msgFlux).subscribe(
+            outboundMessageResult -> {
+                confirmLatch.countDown();
+            },
+            error -> {}
+        );
+
+        ArgumentCaptor<ConfirmListener> confirmListenerArgumentCaptor = ArgumentCaptor.forClass(ConfirmListener.class);
+        verify(mockChannel).addConfirmListener(confirmListenerArgumentCaptor.capture());
+        ConfirmListener confirmListener = confirmListenerArgumentCaptor.getValue();
+
+        ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+        ioExecutor.submit(() -> {
+            confirmListener.handleAck(1, false);
+            return null;
+        });
+
+        assertTrue(confirmLatch.await(1L, TimeUnit.SECONDS));
+        verify(mockChannel, times(1)).close();
     }
 
     @Test
