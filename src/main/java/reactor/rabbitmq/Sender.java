@@ -139,144 +139,10 @@ public class Sender {
             }))
             .cache();
 
-        ConcurrentNavigableMap<Long, OutboundMessage> unconfirmed = new ConcurrentSkipListMap<>();
-
         return new Flux<OutboundMessageResult>() {
-
             @Override
             public void subscribe(Subscriber<? super OutboundMessageResult> subscriber) {
-                messages.subscribe(new Subscriber<OutboundMessage>() {
-
-                    final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
-
-                    final ExecutorService executorService = Executors.newFixedThreadPool(1);
-
-                    final AtomicReference<Throwable> firstException = new AtomicReference<Throwable>();
-
-                    @Override
-                    public void onSubscribe(Subscription subscription) {
-                        channelMono.block().addConfirmListener(new ConfirmListener() {
-                            @Override
-                            public void handleAck(long deliveryTag, boolean multiple) throws IOException {
-                                handleAckNack(deliveryTag, multiple, true);
-                            }
-
-                            @Override
-                            public void handleNack(long deliveryTag, boolean multiple) throws IOException {
-                                handleAckNack(deliveryTag, multiple, false);
-                            }
-
-                            private void handleAckNack(long deliveryTag, boolean multiple, boolean ack) {
-                                if(multiple) {
-                                    try {
-                                        ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
-                                        Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
-                                        while(iterator.hasNext()) {
-                                            subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
-                                            iterator.remove();
-                                        }
-                                    } catch(Exception e) {
-                                        handleError(e, null);
-                                    }
-                                } else {
-                                    OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
-                                    try {
-                                        unconfirmed.remove(deliveryTag);
-                                        subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
-                                    } catch(Exception e) {
-                                        handleError(e, new OutboundMessageResult(outboundMessage, ack));
-                                    }
-
-                                }
-                                if(unconfirmed.size() == 0) {
-                                    executorService.submit(() -> {
-                                        // confirmation listeners are executed in the IO reading thread
-                                        // so we need to complete in another thread
-                                        maybeComplete();
-                                    });
-                                }
-                            }
-                        });
-                        state.set(SubscriberState.ACTIVE);
-                        subscriber.onSubscribe(subscription);
-                    }
-
-                    @Override
-                    public void onNext(OutboundMessage message) {
-                        if (checkComplete(message))
-                            return;
-
-                        long nextPublishSeqNo = channelMono.block().getNextPublishSeqNo();
-                        try {
-                            unconfirmed.putIfAbsent(nextPublishSeqNo, message);
-                            channelMono.block().basicPublish(
-                                message.getExchange(),
-                                message.getRoutingKey(),
-                                message.getProperties(),
-                                message.getBody()
-                            );
-                        } catch(Exception e) {
-                            unconfirmed.remove(nextPublishSeqNo);
-                            handleError(e, new OutboundMessageResult(message, false));
-                        }
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                        if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.COMPLETE) ||
-                            state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
-                            closeResources();
-                            // complete the flux state
-                            subscriber.onError(throwable);
-                        } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
-                            // already completed, drop the error
-                            Operators.onErrorDropped(throwable);
-                        }
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        if(state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.OUTBOUND_DONE) && unconfirmed.size() == 0) {
-                            maybeComplete();
-                        }
-                    }
-
-                    private void handleError(Exception e, OutboundMessageResult result) {
-                        LOGGER.error("error in publish confirm sending", e);
-                        boolean complete = checkComplete(e);
-                        firstException.compareAndSet(null, e);
-                        if (!complete) {
-                            if(result != null) {
-                                subscriber.onNext(result);
-                            }
-                            onError(e);
-                        }
-                    }
-
-                    private void maybeComplete() {
-                        if(state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
-                            closeResources();
-                            subscriber.onComplete();
-                        }
-                    }
-
-                    private void closeResources() {
-                        try {
-                            channelMono.block().close();
-                        } catch (TimeoutException | IOException e) {
-                            throw new ReactorRabbitMqException(e);
-                        }
-                    }
-
-                    public <T> boolean checkComplete(T t) {
-                        boolean complete = state.get() == SubscriberState.COMPLETE;
-                        if (complete && firstException.get() == null) {
-                            Operators.onNextDropped(t);
-                        }
-                        return complete;
-                    }
-
-                });
+                messages.subscribe(new PublishConfirmSubscriber(channelMono, subscriber));
             }
         };
     }
@@ -343,5 +209,149 @@ public class Sender {
     }
 
     // TODO provide close method with Mono
+
+    private static class PublishConfirmSubscriber implements Subscriber<OutboundMessage> {
+
+        private final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
+
+        private final ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+        private final AtomicReference<Throwable> firstException = new AtomicReference<Throwable>();
+
+        private final ConcurrentNavigableMap<Long, OutboundMessage> unconfirmed = new ConcurrentSkipListMap<>();
+
+        private final Mono<Channel> channelMono;
+
+        private final Subscriber<? super OutboundMessageResult> subscriber;
+
+        private PublishConfirmSubscriber(Mono<Channel> channelMono, Subscriber<? super OutboundMessageResult> subscriber) {
+            this.channelMono = channelMono;
+            this.subscriber = subscriber;
+        }
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            channelMono.block().addConfirmListener(new ConfirmListener() {
+                @Override
+                public void handleAck(long deliveryTag, boolean multiple) throws IOException {
+                    handleAckNack(deliveryTag, multiple, true);
+                }
+
+                @Override
+                public void handleNack(long deliveryTag, boolean multiple) throws IOException {
+                    handleAckNack(deliveryTag, multiple, false);
+                }
+
+                private void handleAckNack(long deliveryTag, boolean multiple, boolean ack) {
+                    if(multiple) {
+                        try {
+                            ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
+                            Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
+                            while(iterator.hasNext()) {
+                                subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
+                                iterator.remove();
+                            }
+                        } catch(Exception e) {
+                            handleError(e, null);
+                        }
+                    } else {
+                        OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
+                        try {
+                            unconfirmed.remove(deliveryTag);
+                            subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
+                        } catch(Exception e) {
+                            handleError(e, new OutboundMessageResult(outboundMessage, ack));
+                        }
+
+                    }
+                    if(unconfirmed.size() == 0) {
+                        executorService.submit(() -> {
+                            // confirmation listeners are executed in the IO reading thread
+                            // so we need to complete in another thread
+                            maybeComplete();
+                        });
+                    }
+                }
+            });
+            state.set(SubscriberState.ACTIVE);
+            subscriber.onSubscribe(subscription);
+        }
+
+        @Override
+        public void onNext(OutboundMessage message) {
+            if (checkComplete(message))
+                return;
+
+            long nextPublishSeqNo = channelMono.block().getNextPublishSeqNo();
+            try {
+                unconfirmed.putIfAbsent(nextPublishSeqNo, message);
+                channelMono.block().basicPublish(
+                    message.getExchange(),
+                    message.getRoutingKey(),
+                    message.getProperties(),
+                    message.getBody()
+                );
+            } catch(Exception e) {
+                unconfirmed.remove(nextPublishSeqNo);
+                handleError(e, new OutboundMessageResult(message, false));
+            }
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.COMPLETE) ||
+                state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
+                closeResources();
+                // complete the flux state
+                subscriber.onError(throwable);
+            } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
+                // already completed, drop the error
+                Operators.onErrorDropped(throwable);
+            }
+        }
+
+        @Override
+        public void onComplete() {
+            if(state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.OUTBOUND_DONE) && unconfirmed.size() == 0) {
+                maybeComplete();
+            }
+        }
+
+        private void handleError(Exception e, OutboundMessageResult result) {
+            LOGGER.error("error in publish confirm sending", e);
+            boolean complete = checkComplete(e);
+            firstException.compareAndSet(null, e);
+            if (!complete) {
+                if(result != null) {
+                    subscriber.onNext(result);
+                }
+                onError(e);
+            }
+        }
+
+        private void maybeComplete() {
+            if(state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
+                closeResources();
+                subscriber.onComplete();
+            }
+        }
+
+        private void closeResources() {
+            try {
+                channelMono.block().close();
+            } catch (TimeoutException | IOException e) {
+                throw new ReactorRabbitMqException(e);
+            }
+        }
+
+        public <T> boolean checkComplete(T t) {
+            boolean complete = state.get() == SubscriberState.COMPLETE;
+            if (complete && firstException.get() == null) {
+                Operators.onNextDropped(t);
+            }
+            return complete;
+        }
+
+    }
 
 }
