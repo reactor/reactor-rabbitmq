@@ -26,6 +26,8 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -46,6 +48,13 @@ public class Sender {
 
     private final Mono<Channel> channelMono;
 
+    // using specific scheduler to avoid being cancelled in subscribe
+    // see https://github.com/reactor/reactor-core/issues/442
+    private final Scheduler scheduler = Schedulers.fromExecutor(
+        Executors.newFixedThreadPool(Schedulers.DEFAULT_POOL_SIZE),
+        true
+    );
+
     public Sender() {
         this(() -> {
             ConnectionFactory connectionFactory = new ConnectionFactory();
@@ -62,7 +71,9 @@ public class Sender {
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = connectionFactory.newConnection();
             return connection;
-        }).cache();
+        })
+          .subscribeOn(scheduler)
+          .cache();
         this.channelMono = Mono.fromCallable(() -> connectionMono.block().createChannel()).cache();
     }
 

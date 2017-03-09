@@ -391,12 +391,13 @@ public class ReactorRabbitMqTests {
         int nbMessagesAckNack = 2;
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = ReactorRabbitMq.createSender(mockConnectionFactory);
-        sender.sendWithPublishConfirms(msgFlux).subscribe(
-            outboundMessageResult -> {
-                confirmLatch.countDown();
-            },
-            error -> {}
-        );
+        CountDownLatch subscriptionLatch = new CountDownLatch(1);
+        sender.sendWithPublishConfirms(msgFlux)
+            .subscribe(outboundMessageResult -> confirmLatch.countDown(),
+                error -> { });
+
+        // have to wait a bit the subscription propagates and add the confirm listener
+        Thread.sleep(100L);
 
         ArgumentCaptor<ConfirmListener> confirmListenerArgumentCaptor = ArgumentCaptor.forClass(ConfirmListener.class);
         verify(mockChannel).addConfirmListener(confirmListenerArgumentCaptor.capture());
