@@ -136,15 +136,14 @@ public class Sender {
                 Channel channel = connection.createChannel();
                 channel.confirmSelect();
                 return channel;
-            }))
-            .cache();
+            }));
 
-        return new Flux<OutboundMessageResult>() {
+        return channelMono.flatMap(channel -> new Flux<OutboundMessageResult>() {
             @Override
             public void subscribe(Subscriber<? super OutboundMessageResult> subscriber) {
-                messages.subscribe(new PublishConfirmSubscriber(channelMono, subscriber));
+                messages.subscribe(new PublishConfirmSubscriber(channel, subscriber));
             }
-        };
+        });
     }
 
     public Mono<AMQP.Queue.DeclareOk> createQueue(QueueSpecification specification) {
@@ -220,18 +219,18 @@ public class Sender {
 
         private final ConcurrentNavigableMap<Long, OutboundMessage> unconfirmed = new ConcurrentSkipListMap<>();
 
-        private final Mono<Channel> channelMono;
+        private final Channel channel;
 
         private final Subscriber<? super OutboundMessageResult> subscriber;
 
-        private PublishConfirmSubscriber(Mono<Channel> channelMono, Subscriber<? super OutboundMessageResult> subscriber) {
-            this.channelMono = channelMono;
+        private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber) {
+            this.channel = channel;
             this.subscriber = subscriber;
         }
 
         @Override
         public void onSubscribe(Subscription subscription) {
-            channelMono.block().addConfirmListener(new ConfirmListener() {
+            channel.addConfirmListener(new ConfirmListener() {
                 @Override
                 public void handleAck(long deliveryTag, boolean multiple) throws IOException {
                     handleAckNack(deliveryTag, multiple, true);
@@ -282,10 +281,10 @@ public class Sender {
             if (checkComplete(message))
                 return;
 
-            long nextPublishSeqNo = channelMono.block().getNextPublishSeqNo();
+            long nextPublishSeqNo = channel.getNextPublishSeqNo();
             try {
                 unconfirmed.putIfAbsent(nextPublishSeqNo, message);
-                channelMono.block().basicPublish(
+                channel.basicPublish(
                     message.getExchange(),
                     message.getRoutingKey(),
                     message.getProperties(),
@@ -338,7 +337,7 @@ public class Sender {
 
         private void closeResources() {
             try {
-                channelMono.block().close();
+                channel.close();
             } catch (TimeoutException | IOException e) {
                 throw new ReactorRabbitMqException(e);
             }
