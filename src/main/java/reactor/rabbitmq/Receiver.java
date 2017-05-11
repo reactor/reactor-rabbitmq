@@ -74,10 +74,9 @@ public class Receiver {
     }
 
     public Flux<Delivery> consumeNoAck(final String queue, ReceiverOptions options) {
-        Flux<Delivery> flux = Flux.create(unsafeEmitter -> {
-            // because handleDelivery can be called from different threads
-            FluxSink<Delivery> emitter = unsafeEmitter.serialize();
-
+        // TODO track flux so it can be disposed when the sender is closed?
+        // could be also developer responsibility
+        return Flux.create(emitter -> {
             connectionMono.subscribe(connection -> {
                 try {
                     // TODO handle exception
@@ -94,7 +93,7 @@ public class Receiver {
                         }
                     };
                     final String consumerTag = channel.basicConsume(queue, true, consumer);
-                    emitter.setCancellation(() -> {
+                    emitter.onDispose(() -> {
                         try {
                             if(channel.isOpen() && channel.getConnection().isOpen()) {
                                 channel.basicCancel(consumerTag);
@@ -110,9 +109,6 @@ public class Receiver {
             });
 
         }, options.getOverflowStrategy());
-        // TODO track flux so it can be disposed when the sender is closed?
-        // could be also developer responsibility
-        return flux;
     }
 
     public Flux<Delivery> consumeAutoAck(final String queue) {
@@ -129,9 +125,9 @@ public class Receiver {
     }
 
     public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue, ReceiverOptions options) {
-        Flux<AcknowledgableDelivery> flux = Flux.create(unsafeEmitter -> {
-            // because handleDelivery can be called from different threads
-            FluxSink<AcknowledgableDelivery> emitter = unsafeEmitter.serialize();
+        // TODO track flux so it can be disposed when the sender is closed?
+        // could be also developer responsibility
+        return Flux.create(emitter -> {
             connectionMono.subscribe(connection -> {
                 try {
 
@@ -149,10 +145,10 @@ public class Receiver {
                         }
                     };
                     final String consumerTag = channel.basicConsume(queue, false, consumer);
-                    emitter.setCancellation(() -> {
+                    emitter.onDispose(() -> {
 
                         try {
-                            if(channel.isOpen() && channel.getConnection().isOpen()) {
+                            if (channel.isOpen() && channel.getConnection().isOpen()) {
                                 channel.basicCancel(consumerTag);
                                 channel.close();
                             }
@@ -165,9 +161,6 @@ public class Receiver {
                 }
             });
         }, options.getOverflowStrategy());
-        // TODO track flux so it can be disposed when the sender is closed?
-        // could be also developer responsibility
-        return flux;
     }
 
     // TODO consume with dynamic QoS and/or batch ack

@@ -149,7 +149,7 @@ public class Sender {
                 return channel;
             }));
 
-        return channelMono.flatMap(channel -> new Flux<OutboundMessageResult>() {
+        return channelMono.flatMapMany(channel -> new Flux<OutboundMessageResult>() {
             @Override
             public void subscribe(Subscriber<? super OutboundMessageResult> subscriber) {
                 messages.subscribe(new PublishConfirmSubscriber(channel, subscriber));
