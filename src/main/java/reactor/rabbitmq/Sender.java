@@ -82,7 +82,13 @@ public class Sender {
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
         final Mono<Channel> channelMono = connectionMono
-            .then(connection -> Mono.fromCallable(() -> connection.createChannel()))
+            .flatMap(connection -> {
+                try {
+                    return Mono.just(connection.createChannel());
+                } catch (IOException e) {
+                    return Mono.error(e);
+                }
+            })
             .cache();
         return new Flux<Void>() {
 
@@ -143,13 +149,18 @@ public class Sender {
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
         final Mono<Channel> channelMono = connectionMono
-            .then(connection -> Mono.fromCallable(() -> {
-                Channel channel = connection.createChannel();
-                channel.confirmSelect();
-                return channel;
-            }));
+            .flatMap(connection -> {
+                Channel channel = null;
+                try {
+                    channel = connection.createChannel();
+                    channel.confirmSelect();
+                    return Mono.just(channel);
+                } catch (IOException e) {
+                    return Mono.error(e);
+                }
+            });
 
-        return channelMono.flatMap(channel -> new Flux<OutboundMessageResult>() {
+        return channelMono.flatMapMany(channel -> new Flux<OutboundMessageResult>() {
             @Override
             public void subscribe(Subscriber<? super OutboundMessageResult> subscriber) {
                 messages.subscribe(new PublishConfirmSubscriber(channel, subscriber));
