@@ -142,7 +142,7 @@ configure(rootProject) { project ->
 	compile "com.rabbitmq:amqp-client:$rabbitMqJavaClientVersion"
 
 	// Testing
-	testCompile "io.projectreactor.addons:reactor-test:$reactorCoreVersion"
+	testCompile "io.projectreactor:reactor-test:$reactorCoreVersion"
 	testCompile 'junit:junit:4.12'
 	testCompile "org.hamcrest:hamcrest-library:1.3",
 	         	"org.awaitility:awaitility:$awaitilityVersion",
