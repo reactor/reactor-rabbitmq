@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2011-2017 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -447,7 +447,8 @@ public class ReactorRabbitMqTests {
         try {
             sender = ReactorRabbitMq.createSender();
 
-            MonoProcessor<Void> resourceSendingSub = sender.createExchange(ExchangeSpecification.exchange(exchangeName))
+            Disposable resourceSendingSub = sender.createExchange(ExchangeSpecification.exchange
+                    (exchangeName))
                 .then(sender.createQueue(QueueSpecification.queue(queueName)))
                 .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
                 .then(sender.send(
@@ -490,8 +491,9 @@ public class ReactorRabbitMqTests {
             resources.block();
 
             int nbMessages = 100;
-            MonoProcessor<Void> sourceMessages = sender.send(Flux.range(0, nbMessages).map(i -> new OutboundMessage("", sourceQueue, "".getBytes())))
-                .subscribe();
+            MonoProcessor<Void> sourceMessages = sender.send(Flux.range(0, nbMessages).map
+                    (i -> new OutboundMessage("", sourceQueue, "".getBytes())))
+                .toProcessor();
 
             receiver = ReactorRabbitMq.createReceiver();
             Flux<OutboundMessage> forwardedMessages = receiver.consumeNoAck(sourceQueue)
@@ -500,7 +502,7 @@ public class ReactorRabbitMqTests {
             AtomicInteger counter = new AtomicInteger();
             CountDownLatch latch = new CountDownLatch(nbMessages);
 
-            MonoProcessor<Void> shovelSubscription = sourceMessages
+            Disposable shovelSubscription = sourceMessages
                 .then(sender.send(forwardedMessages))
                 .subscribe();
 

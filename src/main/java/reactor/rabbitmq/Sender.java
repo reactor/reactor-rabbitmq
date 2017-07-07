@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2011-2017 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,26 +16,35 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.*;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConfirmListener;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.CoreSubscriber;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
-
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  *
@@ -93,7 +102,7 @@ public class Sender {
         return new Flux<Void>() {
 
             @Override
-            public void subscribe(Subscriber<? super Void> s) {
+            public void subscribe(CoreSubscriber<? super Void> s) {
                 messages.subscribe(new BaseSubscriber<OutboundMessage>() {
 
                     @Override
@@ -162,8 +171,8 @@ public class Sender {
 
         return channelMono.flatMapMany(channel -> new Flux<OutboundMessageResult>() {
             @Override
-            public void subscribe(Subscriber<? super OutboundMessageResult> subscriber) {
-                messages.subscribe(new PublishConfirmSubscriber(channel, subscriber));
+            public void subscribe(CoreSubscriber<? super OutboundMessageResult>
+                    subscriber) { messages.subscribe(new PublishConfirmSubscriber(channel, subscriber));
             }
         });
     }
@@ -231,7 +240,8 @@ public class Sender {
 
     // TODO provide close method with Mono
 
-    private static class PublishConfirmSubscriber implements Subscriber<OutboundMessage> {
+    private static class PublishConfirmSubscriber implements
+                                                  CoreSubscriber<OutboundMessage> {
 
         private final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
 
