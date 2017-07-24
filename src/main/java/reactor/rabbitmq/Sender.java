@@ -16,23 +16,8 @@
 
 package reactor.rabbitmq;
 
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Supplier;
-
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.ConfirmListener;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.*;
+import com.rabbitmq.client.impl.AMQImpl;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -45,6 +30,13 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  *
@@ -90,15 +82,12 @@ public class Sender {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        final Mono<Channel> channelMono = connectionMono
-            .flatMap(connection -> {
-                try {
-                    return Mono.just(connection.createChannel());
-                } catch (IOException e) {
-                    return Mono.error(e);
-                }
-            })
-            .cache();
+        final Channel channel;
+        try {
+            channel = connectionMono.block().createChannel();
+        } catch (IOException e) {
+            throw new ReactorRabbitMqException(e);
+        }
         return new Flux<Void>() {
 
             @Override
@@ -107,14 +96,13 @@ public class Sender {
 
                     @Override
                     protected void hookOnSubscribe(Subscription subscription) {
-                        channelMono.block();
                         s.onSubscribe(subscription);
                     }
 
                     @Override
                     protected void hookOnNext(OutboundMessage message) {
                         try {
-                            channelMono.block().basicPublish(
+                            channel.basicPublish(
                                 message.getExchange(),
                                 message.getRoutingKey(),
                                 message.getProperties(),
@@ -133,9 +121,10 @@ public class Sender {
                     @Override
                     protected void hookOnComplete() {
                         try {
-                            channelMono.block().close();
+                            LOGGER.info("closing channel {}", channel.getChannelNumber());
+                            channel.close();
                         } catch (TimeoutException | IOException e) {
-                            throw new ReactorRabbitMqException(e);
+                            LOGGER.warn("Channel {} didn't close normally: {}", channel.getChannelNumber(), e);
                         }
                         s.onComplete();
                     }
@@ -178,55 +167,67 @@ public class Sender {
     }
 
     public Mono<AMQP.Queue.DeclareOk> createQueue(QueueSpecification specification) {
-        return doOnChannel(channel -> {
-            try {
-                if(specification.getName() == null) {
-                    return channel.queueDeclare();
-                } else {
-                    return channel.queueDeclare(
-                        specification.getName(),
-                        specification.isDurable(),
-                        specification.isExclusive(),
-                        specification.isAutoDelete(),
-                        specification.getArguments()
-                    );
-                }
-            } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
+        try {
+            if (specification.getName() == null) {
+                CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(
+                    new AMQImpl.Queue.Declare.Builder()
+                        .queue("")
+                        .durable(false)
+                        .exclusive(true)
+                        .autoDelete(true)
+                        .arguments(null)
+                        .build());
+                return Mono.fromCompletionStage(completableFuture)
+                           .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()));
+
+        } else {
+                CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(
+                    new AMQImpl.Queue.Declare.Builder()
+                        .queue(specification.getName())
+                        .durable(specification.isDurable())
+                        .exclusive(specification.isExclusive())
+                        .autoDelete(specification.isAutoDelete())
+                        .arguments(specification.getArguments())
+                        .build());
+                return Mono.fromCompletionStage(completableFuture)
+                           .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()));
             }
-        }, channelMono.block());
+        } catch (IOException e) {
+            throw new ReactorRabbitMqException(e);
+        }
     }
 
     public Mono<AMQP.Exchange.DeclareOk> createExchange(ExchangeSpecification specification) {
-        return doOnChannel(channel -> {
-            try {
-                return channel.exchangeDeclare(
-                    specification.getName(), specification.getType(),
-                    specification.isDurable(),
-                    specification.isAutoDelete(),
-                    specification.isInternal(),
-                    specification.getArguments()
-                );
-            } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
-            }
-        }, channelMono.block());
+        try {
+            CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(new AMQImpl.Exchange.Declare.Builder()
+                .exchange(specification.getName())
+                .type(specification.getType())
+                .durable(specification.isDurable())
+                .autoDelete(specification.isAutoDelete())
+                .internal(specification.isInternal())
+                .arguments(specification.getArguments())
+                .build());
+            return Mono.fromCompletionStage(completableFuture)
+                       .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()));
+        } catch (IOException e) {
+            throw new ReactorRabbitMqException(e);
+        }
     }
 
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {
-        return doOnChannel(channel -> {
-            try {
-                return channel.queueBind(
-                    specification.getQueue(), specification.getExchange(),
-                    specification.getRoutingKey(), specification.getArguments());
-            } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
-            }
-        }, channelMono.block());
-    }
-
-    public static <T> Mono<T> doOnChannel(Function<Channel, T> operation, Channel channel) {
-        return Mono.fromCallable(() -> operation.apply(channel));
+        try {
+            CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(
+                new AMQImpl.Queue.Bind.Builder()
+                    .exchange(specification.getExchange())
+                    .queue(specification.getQueue())
+                    .routingKey(specification.getRoutingKey())
+                    .arguments(specification.getArguments())
+                    .build());
+            return Mono.fromCompletionStage(completableFuture)
+                       .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()));
+        } catch (IOException e) {
+            throw new ReactorRabbitMqException(e);
+        }
     }
 
     public void close() {

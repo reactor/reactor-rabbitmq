@@ -89,7 +89,7 @@ public class Receiver {
 
                         @Override
                         public void handleCancel(String consumerTag) throws IOException {
-                            LOGGER.warn("Flux consumer {} has been cancelled", consumerTag);
+                            LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
                         }
                     };
                     final String consumerTag = channel.basicConsume(queue, true, consumer);

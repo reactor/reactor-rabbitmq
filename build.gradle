@@ -40,15 +40,15 @@ ext {
   reactorCoreVersion = "3.1.0.BUILD-SNAPSHOT"
 
   // Logging
-  slf4jVersion = '1.7.12'
-  logbackVersion = '1.1.8'
+  slf4jVersion = '1.7.25'
+  logbackVersion = '1.2.3'
 
   // Libraries
-  rabbitMqJavaClientVersion = '4.1.0'
+  rabbitMqJavaClientVersion = '5.0.0-SNAPSHOT'
 
   // Testing
   mockitoVersion = '1.10.19'
-  awaitilityVersion = '2.0.0'
+  awaitilityVersion = '3.0.0'
 
   javadocLinks = ["http://docs.oracle.com/javase/7/docs/api/",
 				  "http://docs.oracle.com/javaee/6/api/",
