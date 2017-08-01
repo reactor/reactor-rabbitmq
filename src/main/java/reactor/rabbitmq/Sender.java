@@ -56,6 +56,8 @@ public class Sender {
         true
     );
 
+    private final ExecutorService resourceCreationExecutorService = Executors.newSingleThreadExecutor();
+
     public Sender() {
         this(() -> {
             ConnectionFactory connectionFactory = new ConnectionFactory();
@@ -176,7 +178,7 @@ public class Sender {
                         .exclusive(true)
                         .autoDelete(true)
                         .arguments(null)
-                        .build());
+                        .build(), resourceCreationExecutorService);
                 return Mono.fromCompletionStage(completableFuture)
                            .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()));
 
@@ -188,8 +190,8 @@ public class Sender {
                         .exclusive(specification.isExclusive())
                         .autoDelete(specification.isAutoDelete())
                         .arguments(specification.getArguments())
-                        .build());
-                return Mono.fromCompletionStage(completableFuture)
+                        .build(), resourceCreationExecutorService);
+                return Mono.fromFuture(completableFuture)
                            .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()));
             }
         } catch (IOException e) {
@@ -206,8 +208,8 @@ public class Sender {
                 .autoDelete(specification.isAutoDelete())
                 .internal(specification.isInternal())
                 .arguments(specification.getArguments())
-                .build());
-            return Mono.fromCompletionStage(completableFuture)
+                .build(), resourceCreationExecutorService);
+            return Mono.fromFuture(completableFuture)
                        .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()));
         } catch (IOException e) {
             throw new ReactorRabbitMqException(e);
@@ -222,8 +224,8 @@ public class Sender {
                     .queue(specification.getQueue())
                     .routingKey(specification.getRoutingKey())
                     .arguments(specification.getArguments())
-                    .build());
-            return Mono.fromCompletionStage(completableFuture)
+                    .build(), resourceCreationExecutorService);
+            return Mono.fromFuture(completableFuture)
                        .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()));
         } catch (IOException e) {
             throw new ReactorRabbitMqException(e);
@@ -234,6 +236,7 @@ public class Sender {
         // TODO make call idempotent
         try {
             connectionMono.block().close();
+            resourceCreationExecutorService.shutdownNow();
         } catch (IOException e) {
             throw new ReactorRabbitMqException(e);
         }

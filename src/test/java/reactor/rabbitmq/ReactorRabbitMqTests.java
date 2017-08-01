@@ -453,16 +453,9 @@ public class ReactorRabbitMqTests {
                     (exchangeName))
                 .then(sender.createQueue(QueueSpecification.queue(queueName)))
                 .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
-                .then().subscribe();
-
-            // FIXME chain the message sending with the resource creation
-            // it sometimes fails, maybe because binding response is sometimes
-            // on the IO thread
-
-            Disposable send = sender.send(
-                Flux.range(0, nbMessages)
-                    .map(i -> new OutboundMessage(exchangeName, routingKey, "".getBytes()))
-            ).subscribe();
+                .then(sender.send(Flux.range(0, nbMessages)
+                                        .map(i -> new OutboundMessage(exchangeName, routingKey, "".getBytes()))
+                                )).subscribe();
 
             CountDownLatch latch = new CountDownLatch(nbMessages);
             AtomicInteger count = new AtomicInteger();
@@ -476,7 +469,6 @@ public class ReactorRabbitMqTests {
             assertTrue(latch.await(2, TimeUnit.SECONDS));
             assertEquals(nbMessages, count.get());
             resourceSending.dispose();
-            send.dispose();
             receiverSubscription.dispose();
         } finally {
             final Channel channel = connection.createChannel();
