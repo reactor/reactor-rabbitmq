@@ -24,6 +24,8 @@ import org.mockito.ArgumentCaptor;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
 import reactor.core.publisher.*;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -453,9 +455,11 @@ public class ReactorRabbitMqTests {
                     (exchangeName))
                 .then(sender.createQueue(QueueSpecification.queue(queueName)))
                 .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
+                .publishOn(Schedulers.elastic())
                 .then(sender.send(Flux.range(0, nbMessages)
-                                        .map(i -> new OutboundMessage(exchangeName, routingKey, "".getBytes()))
-                                )).subscribe();
+                                      .map(i -> new OutboundMessage(exchangeName, routingKey, "".getBytes()))
+                ))
+                .subscribe();
 
             CountDownLatch latch = new CountDownLatch(nbMessages);
             AtomicInteger count = new AtomicInteger();

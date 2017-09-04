@@ -16,7 +16,12 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.*;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Command;
+import com.rabbitmq.client.ConfirmListener;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.impl.AMQImpl;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -34,7 +39,13 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -75,8 +86,8 @@ public class Sender {
             Connection connection = connectionFactory.newConnection();
             return connection;
         })
-          .subscribeOn(scheduler)
-          .cache();
+            .subscribeOn(scheduler)
+            .cache();
         this.channelMono = Mono.fromCallable(() -> connectionMono.block().createChannel()).cache();
     }
 
@@ -110,7 +121,7 @@ public class Sender {
                                 message.getProperties(),
                                 message.getBody()
                             );
-                        } catch(IOException e) {
+                        } catch (IOException e) {
                             throw new ReactorRabbitMqException(e);
                         }
                     }
@@ -126,22 +137,14 @@ public class Sender {
                             LOGGER.info("closing channel {}", channel.getChannelNumber());
                             channel.close();
                         } catch (TimeoutException | IOException e) {
-                            LOGGER.warn("Channel {} didn't close normally: {}", channel.getChannelNumber(), e);
+                            e.printStackTrace();
+                            LOGGER.warn("Channel {} didn't close normally: {}", channel.getChannelNumber(), e.getMessage());
                         }
                         s.onComplete();
                     }
-
                 });
             }
-
         }.then();
-    }
-
-    private enum SubscriberState {
-        INIT,
-        ACTIVE,
-        OUTBOUND_DONE,
-        COMPLETE
     }
 
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages) {
@@ -161,46 +164,42 @@ public class Sender {
             });
 
         return channelMono.flatMapMany(channel -> new Flux<OutboundMessageResult>() {
+
             @Override
             public void subscribe(CoreSubscriber<? super OutboundMessageResult>
-                    subscriber) { messages.subscribe(new PublishConfirmSubscriber(channel, subscriber));
+                subscriber) {
+                messages.subscribe(new PublishConfirmSubscriber(channel, subscriber));
             }
         });
     }
 
     public Mono<AMQP.Queue.DeclareOk> createQueue(QueueSpecification specification) {
-        try {
-            if (specification.getName() == null) {
-                CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(
-                    new AMQImpl.Queue.Declare.Builder()
-                        .queue("")
-                        .durable(false)
-                        .exclusive(true)
-                        .autoDelete(true)
-                        .arguments(null)
-                        .build(), resourceCreationExecutorService);
-                return Mono.fromCompletionStage(completableFuture)
-                           .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()));
-
+        AMQP.Queue.Declare declare;
+        if (specification.getName() == null) {
+            declare = new AMQImpl.Queue.Declare.Builder()
+                .queue("")
+                .durable(false)
+                .exclusive(true)
+                .autoDelete(true)
+                .arguments(null)
+                .build();
         } else {
-                CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(
-                    new AMQImpl.Queue.Declare.Builder()
-                        .queue(specification.getName())
-                        .durable(specification.isDurable())
-                        .exclusive(specification.isExclusive())
-                        .autoDelete(specification.isAutoDelete())
-                        .arguments(specification.getArguments())
-                        .build(), resourceCreationExecutorService);
-                return Mono.fromFuture(completableFuture)
-                           .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()));
-            }
-        } catch (IOException e) {
-            throw new ReactorRabbitMqException(e);
+            declare = new AMQImpl.Queue.Declare.Builder()
+                .queue(specification.getName())
+                .durable(specification.isDurable())
+                .exclusive(specification.isExclusive())
+                .autoDelete(specification.isAutoDelete())
+                .arguments(specification.getArguments())
+                .build();
         }
+        Callable<CompletableFuture<Command>> creation = () -> channelMono.block().asyncCompletableRpc(declare, null);
+        return Mono.fromCallable(creation)
+            .flatMap(future -> Mono.fromCompletionStage(future))
+            .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()));
     }
 
     public Mono<AMQP.Exchange.DeclareOk> createExchange(ExchangeSpecification specification) {
-        try {
+        Callable<CompletableFuture<Command>> creation = () -> {
             CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(new AMQImpl.Exchange.Declare.Builder()
                 .exchange(specification.getName())
                 .type(specification.getType())
@@ -208,28 +207,30 @@ public class Sender {
                 .autoDelete(specification.isAutoDelete())
                 .internal(specification.isInternal())
                 .arguments(specification.getArguments())
-                .build(), resourceCreationExecutorService);
-            return Mono.fromFuture(completableFuture)
-                       .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()));
-        } catch (IOException e) {
-            throw new ReactorRabbitMqException(e);
-        }
+                .build(), null);
+
+            return completableFuture;
+        };
+
+        return Mono.fromCallable(creation)
+            .flatMap(future -> Mono.fromCompletionStage(future))
+            .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()));
     }
 
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {
-        try {
-            CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(
+        Callable<CompletableFuture<Command>> creation = () -> {
+            return channelMono.block().asyncCompletableRpc(
                 new AMQImpl.Queue.Bind.Builder()
                     .exchange(specification.getExchange())
                     .queue(specification.getQueue())
                     .routingKey(specification.getRoutingKey())
                     .arguments(specification.getArguments())
-                    .build(), resourceCreationExecutorService);
-            return Mono.fromFuture(completableFuture)
-                       .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()));
-        } catch (IOException e) {
-            throw new ReactorRabbitMqException(e);
-        }
+                    .build(), null);
+        };
+
+        return Mono.fromCallable(creation)
+            .flatMap(completableFuture -> Mono.fromCompletionStage(completableFuture))
+            .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()));
     }
 
     public void close() {
@@ -242,10 +243,17 @@ public class Sender {
         }
     }
 
+    private enum SubscriberState {
+        INIT,
+        ACTIVE,
+        OUTBOUND_DONE,
+        COMPLETE
+    }
+
     // TODO provide close method with Mono
 
     private static class PublishConfirmSubscriber implements
-                                                  CoreSubscriber<OutboundMessage> {
+        CoreSubscriber<OutboundMessage> {
 
         private final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
 
@@ -267,6 +275,7 @@ public class Sender {
         @Override
         public void onSubscribe(Subscription subscription) {
             channel.addConfirmListener(new ConfirmListener() {
+
                 @Override
                 public void handleAck(long deliveryTag, boolean multiple) throws IOException {
                     handleAckNack(deliveryTag, multiple, true);
@@ -278,15 +287,15 @@ public class Sender {
                 }
 
                 private void handleAckNack(long deliveryTag, boolean multiple, boolean ack) {
-                    if(multiple) {
+                    if (multiple) {
                         try {
                             ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
                             Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
-                            while(iterator.hasNext()) {
+                            while (iterator.hasNext()) {
                                 subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
                                 iterator.remove();
                             }
-                        } catch(Exception e) {
+                        } catch (Exception e) {
                             handleError(e, null);
                         }
                     } else {
@@ -294,12 +303,11 @@ public class Sender {
                         try {
                             unconfirmed.remove(deliveryTag);
                             subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
-                        } catch(Exception e) {
+                        } catch (Exception e) {
                             handleError(e, new OutboundMessageResult(outboundMessage, ack));
                         }
-
                     }
-                    if(unconfirmed.size() == 0) {
+                    if (unconfirmed.size() == 0) {
                         executorService.submit(() -> {
                             // confirmation listeners are executed in the IO reading thread
                             // so we need to complete in another thread
@@ -326,7 +334,7 @@ public class Sender {
                     message.getProperties(),
                     message.getBody()
                 );
-            } catch(Exception e) {
+            } catch (Exception e) {
                 unconfirmed.remove(nextPublishSeqNo);
                 handleError(e, new OutboundMessageResult(message, false));
             }
@@ -347,7 +355,7 @@ public class Sender {
 
         @Override
         public void onComplete() {
-            if(state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.OUTBOUND_DONE) && unconfirmed.size() == 0) {
+            if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.OUTBOUND_DONE) && unconfirmed.size() == 0) {
                 maybeComplete();
             }
         }
@@ -357,7 +365,7 @@ public class Sender {
             boolean complete = checkComplete(e);
             firstException.compareAndSet(null, e);
             if (!complete) {
-                if(result != null) {
+                if (result != null) {
                     subscriber.onNext(result);
                 }
                 onError(e);
@@ -365,7 +373,7 @@ public class Sender {
         }
 
         private void maybeComplete() {
-            if(state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
+            if (state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
                 closeResources();
                 subscriber.onComplete();
             }
@@ -386,7 +394,5 @@ public class Sender {
             }
             return complete;
         }
-
     }
-
 }
