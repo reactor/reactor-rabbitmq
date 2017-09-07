@@ -349,7 +349,7 @@ public class Sender {
                 subscriber.onError(throwable);
             } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
                 // already completed, drop the error
-                Operators.onErrorDropped(throwable);
+                Operators.onErrorDropped(throwable, currentContext());
             }
         }
 
@@ -390,7 +390,7 @@ public class Sender {
         public <T> boolean checkComplete(T t) {
             boolean complete = state.get() == SubscriberState.COMPLETE;
             if (complete && firstException.get() == null) {
-                Operators.onNextDropped(t);
+                Operators.onNextDropped(t, currentContext());
             }
             return complete;
         }
