@@ -487,12 +487,9 @@ public class ReactorRabbitMqTests {
             Mono<AMQP.Queue.DeclareOk> resources = sender.createQueue(QueueSpecification.queue(sourceQueue))
                 .then(sender.createQueue(QueueSpecification.queue(destinationQueue)));
 
-            resources.block();
-
             int nbMessages = 100;
-            MonoProcessor<Void> sourceMessages = sender.send(Flux.range(0, nbMessages).map
-                    (i -> new OutboundMessage("", sourceQueue, "".getBytes())))
-                .toProcessor();
+            Mono<Void> sourceMessages = sender.send(Flux.range(0, nbMessages).map
+                    (i -> new OutboundMessage("", sourceQueue, "".getBytes())));
 
             receiver = ReactorRabbitMq.createReceiver();
             Flux<OutboundMessage> forwardedMessages = receiver.consumeNoAck(sourceQueue)
@@ -501,10 +498,11 @@ public class ReactorRabbitMqTests {
             AtomicInteger counter = new AtomicInteger();
             CountDownLatch latch = new CountDownLatch(nbMessages);
 
-            Disposable shovelSubscription = sourceMessages
+            Disposable shovelSubscription = resources
+                .then(sourceMessages)
                 .then(sender.send(forwardedMessages))
+                .thenMany(receiver.consumeNoAck(destinationQueue))
                 .subscribe();
-
 
             Disposable consumerSubscription = receiver.consumeNoAck(destinationQueue).subscribe(msg -> {
                 counter.incrementAndGet();

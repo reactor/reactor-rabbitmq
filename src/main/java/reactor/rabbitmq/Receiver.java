@@ -93,6 +93,7 @@ public class Receiver {
                         }
                     };
                     final String consumerTag = channel.basicConsume(queue, true, consumer);
+                    LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                     emitter.onDispose(() -> {
                         try {
                             if(channel.isOpen() && channel.getConnection().isOpen()) {

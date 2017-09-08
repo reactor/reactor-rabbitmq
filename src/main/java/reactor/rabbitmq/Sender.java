@@ -195,7 +195,8 @@ public class Sender {
         Callable<CompletableFuture<Command>> creation = () -> channelMono.block().asyncCompletableRpc(declare, null);
         return Mono.fromCallable(creation)
             .flatMap(future -> Mono.fromCompletionStage(future))
-            .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()));
+            .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
+            .publishOn(Schedulers.elastic());
     }
 
     public Mono<AMQP.Exchange.DeclareOk> createExchange(ExchangeSpecification specification) {
