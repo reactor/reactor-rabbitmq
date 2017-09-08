@@ -86,7 +86,7 @@ public class Sender {
             Connection connection = connectionFactory.newConnection();
             return connection;
         })
-            .subscribeOn(scheduler)
+            .subscribeOn(Schedulers.elastic())
             .cache();
         this.channelMono = Mono.fromCallable(() -> connectionMono.block().createChannel()).cache();
     }

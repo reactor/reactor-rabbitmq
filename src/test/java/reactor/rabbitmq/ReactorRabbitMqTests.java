@@ -465,7 +465,7 @@ public class ReactorRabbitMqTests {
                     latch.countDown();
                 });
 
-            assertTrue(latch.await(2, TimeUnit.SECONDS));
+            assertTrue(latch.await(5, TimeUnit.SECONDS));
             assertEquals(nbMessages, count.get());
             resourceSending.dispose();
             receiverSubscription.dispose();
