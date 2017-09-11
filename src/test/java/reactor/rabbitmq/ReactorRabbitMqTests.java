@@ -16,15 +16,23 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.*;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConfirmListener;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DefaultConsumer;
+import com.rabbitmq.client.Envelope;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
-import reactor.core.publisher.*;
-import reactor.core.scheduler.Scheduler;
+import reactor.core.publisher.BaseSubscriber;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
@@ -39,8 +47,16 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  *
@@ -481,15 +497,16 @@ public class ReactorRabbitMqTests {
     public void shovel() throws Exception {
         final String sourceQueue = UUID.randomUUID().toString();
         final String destinationQueue = UUID.randomUUID().toString();
-
         try {
             sender = ReactorRabbitMq.createSender();
             Mono<AMQP.Queue.DeclareOk> resources = sender.createQueue(QueueSpecification.queue(sourceQueue))
                 .then(sender.createQueue(QueueSpecification.queue(destinationQueue)));
 
-            int nbMessages = 100;
+            int nbMessages = 10;
             Mono<Void> sourceMessages = sender.send(Flux.range(0, nbMessages).map
                     (i -> new OutboundMessage("", sourceQueue, "".getBytes())));
+
+            resources.block();
 
             receiver = ReactorRabbitMq.createReceiver();
             Flux<OutboundMessage> forwardedMessages = receiver.consumeNoAck(sourceQueue)
@@ -498,10 +515,8 @@ public class ReactorRabbitMqTests {
             AtomicInteger counter = new AtomicInteger();
             CountDownLatch latch = new CountDownLatch(nbMessages);
 
-            Disposable shovelSubscription = resources
-                .then(sourceMessages)
+            Disposable shovelSubscription = sourceMessages
                 .then(sender.send(forwardedMessages))
-                .thenMany(receiver.consumeNoAck(destinationQueue))
                 .subscribe();
 
             Disposable consumerSubscription = receiver.consumeNoAck(destinationQueue).subscribe(msg -> {

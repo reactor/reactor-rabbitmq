@@ -33,7 +33,6 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
-import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
@@ -47,6 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -56,16 +56,11 @@ public class Sender {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Sender.class);
 
+    private static final Function<Connection, Channel> CHANNEL_CREATION_FUNCTION = new ChannelCreationFunction();
+
     private final Mono<Connection> connectionMono;
 
     private final Mono<Channel> channelMono;
-
-    // using specific scheduler to avoid being cancelled in subscribe
-    // see https://github.com/reactor/reactor-core/issues/442
-    private final Scheduler scheduler = Schedulers.fromExecutor(
-        Executors.newFixedThreadPool(Schedulers.DEFAULT_POOL_SIZE),
-        true
-    );
 
     private final ExecutorService resourceCreationExecutorService = Executors.newSingleThreadExecutor();
 
@@ -88,19 +83,14 @@ public class Sender {
         })
             .subscribeOn(Schedulers.elastic())
             .cache();
-        this.channelMono = Mono.fromCallable(() -> connectionMono.block().createChannel()).cache();
+        this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        final Channel channel;
-        try {
-            channel = connectionMono.block().createChannel();
-        } catch (IOException e) {
-            throw new ReactorRabbitMqException(e);
-        }
+        final Mono<Channel> currentChannelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
         return new Flux<Void>() {
 
             @Override
@@ -115,7 +105,7 @@ public class Sender {
                     @Override
                     protected void hookOnNext(OutboundMessage message) {
                         try {
-                            channel.basicPublish(
+                            currentChannelMono.block().basicPublish(
                                 message.getExchange(),
                                 message.getRoutingKey(),
                                 message.getProperties(),
@@ -134,11 +124,11 @@ public class Sender {
                     @Override
                     protected void hookOnComplete() {
                         try {
-                            LOGGER.info("closing channel {}", channel.getChannelNumber());
-                            channel.close();
+                            LOGGER.info("closing channel {}", currentChannelMono.block().getChannelNumber());
+                            currentChannelMono.block().close();
                         } catch (TimeoutException | IOException e) {
                             e.printStackTrace();
-                            LOGGER.warn("Channel {} didn't close normally: {}", channel.getChannelNumber(), e.getMessage());
+                            LOGGER.warn("Channel {} didn't close normally: {}", channelMono.block().getChannelNumber(), e.getMessage());
                         }
                         s.onComplete();
                     }
@@ -151,17 +141,15 @@ public class Sender {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        final Mono<Channel> channelMono = connectionMono
-            .flatMap(connection -> {
-                Channel channel = null;
+        final Mono<Channel> channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION)
+            .map(channel -> {
                 try {
-                    channel = connection.createChannel();
                     channel.confirmSelect();
-                    return Mono.just(channel);
                 } catch (IOException e) {
-                    return Mono.error(e);
+                    throw new ReactorRabbitMqException("Error while setting publisher confirms on channel", e);
                 }
-            });
+                return channel;
+            }).cache();
 
         return channelMono.flatMapMany(channel -> new Flux<OutboundMessageResult>() {
 
@@ -192,30 +180,36 @@ public class Sender {
                 .arguments(specification.getArguments())
                 .build();
         }
-        Callable<CompletableFuture<Command>> creation = () -> channelMono.block().asyncCompletableRpc(declare, null);
-        return Mono.fromCallable(creation)
-            .flatMap(future -> Mono.fromCompletionStage(future))
-            .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
-            .publishOn(Schedulers.elastic());
+
+        return channelMono.map(channel -> {
+            try {
+                return channel.asyncCompletableRpc(declare, null);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error during RPC call", e);
+            }
+        }).flatMap(future -> Mono.fromCompletionStage(future))
+          .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
+          .publishOn(Schedulers.elastic());
     }
 
     public Mono<AMQP.Exchange.DeclareOk> createExchange(ExchangeSpecification specification) {
-        Callable<CompletableFuture<Command>> creation = () -> {
-            CompletableFuture<Command> completableFuture = channelMono.block().asyncCompletableRpc(new AMQImpl.Exchange.Declare.Builder()
-                .exchange(specification.getName())
-                .type(specification.getType())
-                .durable(specification.isDurable())
-                .autoDelete(specification.isAutoDelete())
-                .internal(specification.isInternal())
-                .arguments(specification.getArguments())
-                .build(), null);
-
-            return completableFuture;
-        };
-
-        return Mono.fromCallable(creation)
-            .flatMap(future -> Mono.fromCompletionStage(future))
-            .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()));
+        AMQP.Exchange.Declare declare = new AMQImpl.Exchange.Declare.Builder()
+            .exchange(specification.getName())
+            .type(specification.getType())
+            .durable(specification.isDurable())
+            .autoDelete(specification.isAutoDelete())
+            .internal(specification.isInternal())
+            .arguments(specification.getArguments())
+            .build();
+        return channelMono.map(channel -> {
+            try {
+                return channel.asyncCompletableRpc(declare, null);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error during RPC call", e);
+            }
+        }).flatMap(future -> Mono.fromCompletionStage(future))
+          .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()))
+          .publishOn(Schedulers.elastic());
     }
 
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {
@@ -394,6 +388,18 @@ public class Sender {
                 Operators.onNextDropped(t, currentContext());
             }
             return complete;
+        }
+    }
+
+    private static class ChannelCreationFunction implements Function<Connection, Channel> {
+
+        @Override
+        public Channel apply(Connection connection) {
+            try {
+                return connection.createChannel();
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error while creating channel", e);
+            }
         }
     }
 }
