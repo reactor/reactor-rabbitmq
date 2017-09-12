@@ -462,14 +462,16 @@ public class ReactorRabbitMqTests {
         try {
             sender = ReactorRabbitMq.createSender();
 
-            Disposable resourceSending = sender.createExchange(ExchangeSpecification.exchange
+            // FIXME remove block() and chain the resource creation and sending
+
+            sender.createExchange(ExchangeSpecification.exchange
                     (exchangeName))
                 .then(sender.createQueue(QueueSpecification.queue(queueName)))
                 .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
-                .publishOn(Schedulers.elastic())
-                .then(sender.send(Flux.range(0, nbMessages)
-                                      .map(i -> new OutboundMessage(exchangeName, routingKey, "".getBytes()))
-                ))
+                .block();
+
+            Disposable resourceSending = sender.send(Flux.range(0, nbMessages)
+                .map(i -> new OutboundMessage(exchangeName, routingKey, "".getBytes())))
                 .subscribe();
 
             CountDownLatch latch = new CountDownLatch(nbMessages);

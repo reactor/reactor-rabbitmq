@@ -127,7 +127,6 @@ public class Sender {
                             LOGGER.info("closing channel {}", currentChannelMono.block().getChannelNumber());
                             currentChannelMono.block().close();
                         } catch (TimeoutException | IOException e) {
-                            e.printStackTrace();
                             LOGGER.warn("Channel {} didn't close normally: {}", channelMono.block().getChannelNumber(), e.getMessage());
                         }
                         s.onComplete();
