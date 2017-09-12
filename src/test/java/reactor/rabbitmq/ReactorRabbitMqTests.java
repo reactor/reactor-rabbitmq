@@ -23,9 +23,9 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
@@ -33,7 +33,6 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -47,9 +46,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -71,7 +68,7 @@ public class ReactorRabbitMqTests {
     Receiver receiver;
     Sender sender;
 
-    @Before
+    @BeforeEach
     public void init() throws Exception {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
@@ -84,7 +81,7 @@ public class ReactorRabbitMqTests {
         sender = null;
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         if (connection != null) {
             Channel channel = connection.createChannel();
