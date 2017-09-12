@@ -107,6 +107,7 @@ configure(rootProject) { project ->
 	filters {
 	  includeClassNamePattern '.*Tests'
 	}
+	reportsDir file('build/test-results/test')
   }
 
   // to generate HTML test reports (and make Bamboo happy)
@@ -125,8 +126,8 @@ configure(rootProject) { project ->
 			classpath: configurations.junitXmlToHtml.asPath
 	)
 
-	ant.junitReport(todir: "$buildDir/test-results/junit-platform", tofile: "aggregated-test-results.xml") {
-    	fileset(dir: "$buildDir/test-results/junit-platform")
+	ant.junitReport(todir: "$buildDir/test-results/test", tofile: "aggregated-test-results.xml") {
+    	fileset(dir: "$buildDir/test-results/test")
 		report(format: 'frames', todir: reportsDir)
 	}
   }
