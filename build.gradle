@@ -109,6 +109,35 @@ configure(rootProject) { project ->
 	}
   }
 
+  // to generate HTML test reports (and make Bamboo happy)
+  // from https://stackoverflow.com/questions/39444908/how-to-create-an-html-report-for-junit-5-tests/39455463#39455463
+  configurations {
+    junitXmlToHtml
+  }
+
+  task generateHtmlTestReports << {
+	def reportsDir = new File(buildDir, 'reports/tests')
+	reportsDir.mkdirs()
+
+	ant.taskdef(
+			name: 'junitReport',
+			classname: 'org.apache.tools.ant.taskdefs.optional.junit.XMLResultAggregator',
+			classpath: configurations.junitXmlToHtml.asPath
+	)
+
+	ant.junitReport(todir: "$buildDir/test-results/junit-platform", tofile: "aggregated-test-results.xml") {
+    	fileset(dir: "$buildDir/test-results/junit-platform")
+		report(format: 'frames', todir: reportsDir)
+	}
+  }
+
+  afterEvaluate {
+	def junitPlatformTestTask = tasks.getByName('junitPlatformTest')
+	generateHtmlTestReports.dependsOn(junitPlatformTestTask)
+	test.dependsOn(generateHtmlTestReports)
+  }
+  // end of HTML test reports
+
   if (JavaVersion.current().isJava8Compatible()) {
 	compileTestJava.options.compilerArgs += "-parameters"
 	tasks.withType(Javadoc) {
@@ -165,6 +194,9 @@ configure(rootProject) { project ->
 	testRuntime "org.slf4j:jcl-over-slf4j:$slf4jVersion"
 	testRuntime "org.slf4j:slf4j-api:$slf4jVersion"
 	testRuntime "ch.qos.logback:logback-classic:$logbackVersion"
+
+	// to generate HTML test reports
+	junitXmlToHtml 'org.apache.ant:ant-junit:1.9.7'
   }
 
   // force test runs even when there are no test changes
