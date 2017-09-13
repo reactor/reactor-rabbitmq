@@ -224,7 +224,8 @@ public class Sender {
 
         return Mono.fromCallable(creation)
             .flatMap(completableFuture -> Mono.fromCompletionStage(completableFuture))
-            .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()));
+            .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
+            .publishOn(Schedulers.elastic());
     }
 
     public void close() {

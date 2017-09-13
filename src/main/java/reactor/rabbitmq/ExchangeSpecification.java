@@ -25,7 +25,7 @@ public class ExchangeSpecification {
 
     private String name;
     private String type = "direct";
-    private boolean durable, autoDelete, internal;
+    private boolean durable = false, autoDelete = false, internal = false;
     private Map<String, Object> arguments;
 
     public static ExchangeSpecification exchange() {

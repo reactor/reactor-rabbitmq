@@ -24,9 +24,9 @@ import java.util.Map;
 public class QueueSpecification {
 
     private String name;
-    private boolean durable;
-    private boolean exclusive;
-    private boolean autoDelete;
+    private boolean durable = false;
+    private boolean exclusive = false;
+    private boolean autoDelete = false;
     private Map<String, Object> arguments;
 
     public static QueueSpecification queue() {

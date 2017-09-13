@@ -24,7 +24,7 @@
         </encoder>
     </appender>
 
-    <logger name="reactor" level="INFO"/>
+    <logger name="reactor" level="warn"/>
 
     <root level="info">
         <appender-ref ref="stdout"/>

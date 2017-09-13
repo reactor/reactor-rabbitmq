@@ -15,6 +15,8 @@ public class ReceiverOptions {
 
     private BiFunction<FluxSink<?>, AcknowledgableDelivery, Boolean> hookBeforeEmit = (fluxSink, message) -> true;
 
+    private BiFunction<FluxSink<?>, Delivery, Boolean> stopConsumingBiFunction = (fluxSink, message) -> false;
+
     public int getQos() {
         return qos;
     }
@@ -42,6 +44,16 @@ public class ReceiverOptions {
 
     public ReceiverOptions hookBeforeEmit(BiFunction<FluxSink<?>, AcknowledgableDelivery, Boolean> hookBeforeEmit) {
         this.hookBeforeEmit = hookBeforeEmit;
+        return this;
+    }
+
+    public BiFunction<FluxSink<?>, Delivery, Boolean> getStopConsumingBiFunction() {
+        return stopConsumingBiFunction;
+    }
+
+    public ReceiverOptions stopConsumingBiFunction(
+        BiFunction<FluxSink<?>, Delivery, Boolean> stopConsumingBiFunction) {
+        this.stopConsumingBiFunction = stopConsumingBiFunction;
         return this;
     }
 }

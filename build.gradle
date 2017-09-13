@@ -107,10 +107,11 @@ configure(rootProject) { project ->
 	filters {
 	  includeClassNamePattern '.*Tests'
 	}
+	// store test results where Bamboo expects them or the build will fail
 	reportsDir file('build/test-results/test')
   }
 
-  // to generate HTML test reports (and make Bamboo happy)
+  // to generate HTML test reports
   // from https://stackoverflow.com/questions/39444908/how-to-create-an-html-report-for-junit-5-tests/39455463#39455463
   configurations {
     junitXmlToHtml

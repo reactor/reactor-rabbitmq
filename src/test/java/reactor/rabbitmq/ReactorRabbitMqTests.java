@@ -28,6 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.reactivestreams.Subscription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
@@ -46,7 +48,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -59,6 +63,8 @@ import static org.mockito.Mockito.when;
  *
  */
 public class ReactorRabbitMqTests {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReactorRabbitMqTests.class);
 
     // TODO refactor test with StepVerifier
 
@@ -433,16 +439,19 @@ public class ReactorRabbitMqTests {
         final String exchangeName = UUID.randomUUID().toString();
 
         try {
+            CountDownLatch latch = new CountDownLatch(1);
             sender = ReactorRabbitMq.createSender();
-
-            Mono<AMQP.Queue.BindOk> resources = sender.createExchange(ExchangeSpecification.exchange().name(exchangeName))
+            Disposable resourceCreation = sender.createExchange(ExchangeSpecification.exchange().name(exchangeName))
                 .then(sender.createQueue(QueueSpecification.queue(queueName)))
-                .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey("a.b")));
+                .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey("a.b")))
+                .doAfterTerminate(() -> latch.countDown())
+                .subscribe();
 
-            resources.block(java.time.Duration.ofSeconds(1));
+            assertTrue(latch.await(1, TimeUnit.SECONDS));
 
             channel.exchangeDeclarePassive(exchangeName);
             channel.queueDeclarePassive(queueName);
+            resourceCreation.dispose();
         } finally {
             channel.exchangeDelete(exchangeName);
             channel.queueDelete(queueName);
@@ -458,23 +467,20 @@ public class ReactorRabbitMqTests {
         int nbMessages = 100;
         try {
             sender = ReactorRabbitMq.createSender();
-
-            // FIXME remove block() and chain the resource creation and sending
-
-            sender.createExchange(ExchangeSpecification.exchange
-                    (exchangeName))
-                .then(sender.createQueue(QueueSpecification.queue(queueName)))
-                .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
-                .block();
-
-            Disposable resourceSending = sender.send(Flux.range(0, nbMessages)
-                .map(i -> new OutboundMessage(exchangeName, routingKey, "".getBytes())))
-                .subscribe();
+            receiver = ReactorRabbitMq.createReceiver();
 
             CountDownLatch latch = new CountDownLatch(nbMessages);
             AtomicInteger count = new AtomicInteger();
-            receiver = ReactorRabbitMq.createReceiver();
-            Disposable receiverSubscription = receiver.consumeNoAck(queueName)
+
+            Disposable resourceSendingConsuming = sender.createExchange(ExchangeSpecification.exchange
+                (exchangeName))
+                .then(sender.createQueue(QueueSpecification.queue(queueName)))
+                .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
+                .thenMany(sender.send(Flux.range(0, nbMessages)
+                    .map(i -> new OutboundMessage(exchangeName, routingKey, i.toString().getBytes()))))
+                .thenMany(receiver.consumeNoAck(
+                    queueName,
+                    new ReceiverOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)))
                 .subscribe(msg -> {
                     count.incrementAndGet();
                     latch.countDown();
@@ -482,8 +488,7 @@ public class ReactorRabbitMqTests {
 
             assertTrue(latch.await(5, TimeUnit.SECONDS));
             assertEquals(nbMessages, count.get());
-            resourceSending.dispose();
-            receiverSubscription.dispose();
+            resourceSendingConsuming.dispose();
         } finally {
             final Channel channel = connection.createChannel();
             channel.exchangeDelete(exchangeName);
@@ -498,35 +503,31 @@ public class ReactorRabbitMqTests {
         final String destinationQueue = UUID.randomUUID().toString();
         try {
             sender = ReactorRabbitMq.createSender();
+            receiver = ReactorRabbitMq.createReceiver();
             Mono<AMQP.Queue.DeclareOk> resources = sender.createQueue(QueueSpecification.queue(sourceQueue))
                 .then(sender.createQueue(QueueSpecification.queue(destinationQueue)));
 
-            int nbMessages = 10;
-            Mono<Void> sourceMessages = sender.send(Flux.range(0, nbMessages).map
-                    (i -> new OutboundMessage("", sourceQueue, "".getBytes())));
-
-            resources.block();
-
-            receiver = ReactorRabbitMq.createReceiver();
-            Flux<OutboundMessage> forwardedMessages = receiver.consumeNoAck(sourceQueue)
-                .map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()));
+            int nbMessages = 100;
 
             AtomicInteger counter = new AtomicInteger();
             CountDownLatch latch = new CountDownLatch(nbMessages);
 
-            Disposable shovelSubscription = sourceMessages
-                .then(sender.send(forwardedMessages))
-                .subscribe();
+            Disposable shovel = resources.then(sender.send(Flux.range(0, nbMessages).map
+                (i -> new OutboundMessage("", sourceQueue, i.toString().getBytes()))))
+                .log()
+                .thenMany(receiver.consumeNoAck(
+                        sourceQueue,
+                        new ReceiverOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
+                    ).map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()))
+                     .transform(messages -> sender.send(messages)))
+                .thenMany(receiver.consumeNoAck(destinationQueue)).subscribe(msg -> {
+                    counter.incrementAndGet();
+                    latch.countDown();
+                });
 
-            Disposable consumerSubscription = receiver.consumeNoAck(destinationQueue).subscribe(msg -> {
-                counter.incrementAndGet();
-                latch.countDown();
-            });
-
-            assertTrue(latch.await(1, TimeUnit.SECONDS));
+            assertTrue(latch.await(3, TimeUnit.SECONDS));
             assertEquals(nbMessages, counter.get());
-            shovelSubscription.dispose();
-            consumerSubscription.dispose();
+            shovel.dispose();
         } finally {
             Channel channel = connection.createChannel();
             channel.queueDelete(sourceQueue);

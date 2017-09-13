@@ -84,17 +84,23 @@ public class Receiver {
                     final DefaultConsumer consumer = new DefaultConsumer(channel) {
                         @Override
                         public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-                            emitter.next(new Delivery(envelope, properties, body));
+                            Delivery delivery = new Delivery(envelope, properties, body);
+                            emitter.next(delivery);
+                            if (options.getStopConsumingBiFunction().apply(emitter, delivery)) {
+                                emitter.complete();
+                            }
                         }
 
                         @Override
                         public void handleCancel(String consumerTag) throws IOException {
                             LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+                            emitter.complete();
                         }
                     };
                     final String consumerTag = channel.basicConsume(queue, true, consumer);
                     LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                     emitter.onDispose(() -> {
+                        LOGGER.info("Cancelling consumer {} consuming from {}", consumerTag, queue);
                         try {
                             if(channel.isOpen() && channel.getConnection().isOpen()) {
                                 channel.basicCancel(consumerTag);
