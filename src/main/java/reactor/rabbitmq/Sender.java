@@ -182,7 +182,7 @@ public class Sender {
 
         return channelMono.map(channel -> {
             try {
-                return channel.asyncCompletableRpc(declare, null);
+                return channel.asyncCompletableRpc(declare);
             } catch (IOException e) {
                 throw new ReactorRabbitMqException("Error during RPC call", e);
             }
@@ -202,7 +202,7 @@ public class Sender {
             .build();
         return channelMono.map(channel -> {
             try {
-                return channel.asyncCompletableRpc(declare, null);
+                return channel.asyncCompletableRpc(declare);
             } catch (IOException e) {
                 throw new ReactorRabbitMqException("Error during RPC call", e);
             }
@@ -219,7 +219,7 @@ public class Sender {
                     .queue(specification.getQueue())
                     .routingKey(specification.getRoutingKey())
                     .arguments(specification.getArguments())
-                    .build(), null);
+                    .build());
         };
 
         return Mono.fromCallable(creation)
