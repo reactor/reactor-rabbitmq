@@ -45,7 +45,7 @@ ext {
   logbackVersion = '1.2.3'
 
   // Libraries
-  rabbitMqJavaClientVersion = '5.0.0-SNAPSHOT'
+  rabbitMqJavaClientVersion = '5.0.0.RC1'
 
   // Testing
   mockitoVersion = '1.10.19'
@@ -173,6 +173,7 @@ configure(rootProject) { project ->
 	}
 	maven { url 'http://repo.spring.io/libs-milestone' }
 	maven { url 'http://repo.spring.io/libs-release' }
+	maven { url "https://dl.bintray.com/rabbitmq/maven-milestones" }
 	maven { url "https://oss.sonatype.org/content/repositories/releases/" }
 	jcenter()
 	mavenCentral()
