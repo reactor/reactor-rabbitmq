@@ -38,14 +38,14 @@ ext {
   gradleVersion = '3.4'
   gradleScriptDir = "${rootProject.projectDir}/gradle"
 
-  reactorCoreVersion = "3.1.0.BUILD-SNAPSHOT"
+  reactorCoreVersion = "3.1.0.RELEASE"
 
   // Logging
   slf4jVersion = '1.7.25'
   logbackVersion = '1.2.3'
 
   // Libraries
-  rabbitMqJavaClientVersion = '5.0.0.RC1'
+  rabbitMqJavaClientVersion = '5.0.0'
 
   // Testing
   mockitoVersion = '1.10.19'
