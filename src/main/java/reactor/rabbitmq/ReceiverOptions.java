@@ -1,5 +1,6 @@
 package reactor.rabbitmq;
 
+import com.rabbitmq.client.Delivery;
 import reactor.core.publisher.FluxSink;
 
 import java.util.function.BiFunction;

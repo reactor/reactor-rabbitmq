@@ -16,7 +16,12 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.*;
+import com.rabbitmq.client.CancelCallback;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+import com.rabbitmq.client.Delivery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -81,23 +86,18 @@ public class Receiver {
                 try {
                     // TODO handle exception
                     Channel channel = connection.createChannel();
-                    final DefaultConsumer consumer = new DefaultConsumer(channel) {
-                        @Override
-                        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-                            Delivery delivery = new Delivery(envelope, properties, body);
-                            emitter.next(delivery);
-                            if (options.getStopConsumingBiFunction().apply(emitter, delivery)) {
-                                emitter.complete();
-                            }
-                        }
-
-                        @Override
-                        public void handleCancel(String consumerTag) throws IOException {
-                            LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+                    DeliverCallback deliverCallback = (consumerTag, message) -> {
+                        emitter.next(message);
+                        if (options.getStopConsumingBiFunction().apply(emitter, message)) {
                             emitter.complete();
                         }
                     };
-                    final String consumerTag = channel.basicConsume(queue, true, consumer);
+                    CancelCallback cancelCallback = consumerTag -> {
+                        LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+                        emitter.complete();
+                    };
+
+                    final String consumerTag = channel.basicConsume(queue, true, deliverCallback, cancelCallback);
                     LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                     emitter.onDispose(() -> {
                         LOGGER.info("Cancelling consumer {} consuming from {}", consumerTag, queue);
@@ -142,16 +142,19 @@ public class Receiver {
                     if(options.getQos() != 0) {
                         channel.basicQos(options.getQos());
                     }
-                    final DefaultConsumer consumer = new DefaultConsumer(channel) {
-                        @Override
-                        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-                            AcknowledgableDelivery message = new AcknowledgableDelivery(envelope, properties, body, getChannel());
-                            if(options.getHookBeforeEmit().apply(emitter, message)) {
-                                emitter.next(message);
-                            }
+
+                    DeliverCallback deliverCallback = (consumerTag, message) -> {
+                        AcknowledgableDelivery delivery = new AcknowledgableDelivery(message, channel);
+                        if(options.getHookBeforeEmit().apply(emitter, delivery)) {
+                            emitter.next(delivery);
                         }
                     };
-                    final String consumerTag = channel.basicConsume(queue, false, consumer);
+                    CancelCallback cancelCallback = consumerTag -> {
+                        LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+                        emitter.complete();
+                    };
+                    
+                    final String consumerTag = channel.basicConsume(queue, false, deliverCallback, cancelCallback);
                     emitter.onDispose(() -> {
 
                         try {

@@ -18,6 +18,7 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 
 import java.io.IOException;
@@ -28,6 +29,11 @@ import java.io.IOException;
 public class AcknowledgableDelivery extends Delivery {
 
     private final Channel channel;
+
+    public AcknowledgableDelivery(Delivery delivery, Channel channel) {
+        super(delivery.getEnvelope(), delivery.getProperties(), delivery.getBody());
+        this.channel = channel;
+    }
 
     public AcknowledgableDelivery(Envelope envelope, AMQP.BasicProperties properties, byte[] body, Channel channel) {
         super(envelope, properties, body);
