@@ -210,7 +210,7 @@ public class ReactorRabbitMqTests {
     public void receiverConsumeManuelAckOverflowMessagesRequeued() throws Exception {
         // Downstream would request only one message and the hook before emission
         // would nack/requeue messages.
-        // Messages are then redelivered, so there a nack can fail because
+        // Messages are then redelivered, so a nack can fail because
         // the channel is closed (the subscription is cancelled once the 20
         // published messages have been acked (first one) and at least 19 have
         // been nacked. This can lead to some stack trace in the console, but
@@ -228,7 +228,7 @@ public class ReactorRabbitMqTests {
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
             .hookBeforeEmit((emitter, message) -> {
                 if(emitter.requestedFromDownstream() == 0) {
-                    message.nack(true);
+                    ((AcknowledgableDelivery) message).nack(true);
                     ackedNackedLatch.countDown();
                     return false;
                 } else {
@@ -296,7 +296,7 @@ public class ReactorRabbitMqTests {
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
             .hookBeforeEmit((emitter, message) -> {
                 if(emitter.requestedFromDownstream() == 0) {
-                    message.ack();
+                    ((AcknowledgableDelivery) message).ack();
                     ackedDroppedLatch.countDown();
                 }
                 // we can emit, the message will be dropped by the overflow strategy
@@ -515,7 +515,6 @@ public class ReactorRabbitMqTests {
 
             Disposable shovel = resources.then(sender.send(Flux.range(0, nbMessages).map
                 (i -> new OutboundMessage("", sourceQueue, i.toString().getBytes()))))
-                .log()
                 .thenMany(receiver.consumeNoAck(
                         sourceQueue,
                         new ReceiverOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)

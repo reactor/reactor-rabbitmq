@@ -17,7 +17,6 @@
 package reactor.rabbitmq;
 
 import com.rabbitmq.client.CancelCallback;
-import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
@@ -81,41 +80,42 @@ public class Receiver {
     public Flux<Delivery> consumeNoAck(final String queue, ReceiverOptions options) {
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
-        return Flux.create(emitter -> {
-            connectionMono.subscribe(connection -> {
-                try {
-                    // TODO handle exception
-                    Channel channel = connection.createChannel();
-                    DeliverCallback deliverCallback = (consumerTag, message) -> {
-                        emitter.next(message);
-                        if (options.getStopConsumingBiFunction().apply(emitter, message)) {
-                            emitter.complete();
-                        }
-                    };
-                    CancelCallback cancelCallback = consumerTag -> {
-                        LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+        return Flux.create(emitter -> connectionMono.map(connection -> {
+            try {
+                return connection.createChannel();
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Exception while creating channel", e);
+            }
+        }).subscribe(channel -> {
+            try {
+                DeliverCallback deliverCallback = (consumerTag, message) -> {
+                    emitter.next(message);
+                    if (options.getStopConsumingBiFunction().apply(emitter, message)) {
                         emitter.complete();
-                    };
+                    }
+                };
+                CancelCallback cancelCallback = consumerTag -> {
+                    LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+                    emitter.complete();
+                };
 
-                    final String consumerTag = channel.basicConsume(queue, true, deliverCallback, cancelCallback);
-                    LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
-                    emitter.onDispose(() -> {
-                        LOGGER.info("Cancelling consumer {} consuming from {}", consumerTag, queue);
-                        try {
-                            if(channel.isOpen() && channel.getConnection().isOpen()) {
-                                channel.basicCancel(consumerTag);
-                                channel.close();
-                            }
-                        } catch (TimeoutException | IOException e) {
-                            throw new ReactorRabbitMqException(e);
+                final String consumerTag = channel.basicConsume(queue, true, deliverCallback, cancelCallback);
+                LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
+                emitter.onDispose(() -> {
+                    LOGGER.info("Cancelling consumer {} consuming from {}", consumerTag, queue);
+                    try {
+                        if(channel.isOpen() && channel.getConnection().isOpen()) {
+                            channel.basicCancel(consumerTag);
+                            channel.close();
                         }
-                    });
-                } catch (IOException e) {
-                    throw new ReactorRabbitMqException(e);
-                }
-            });
-
-        }, options.getOverflowStrategy());
+                    } catch (TimeoutException | IOException e) {
+                        throw new ReactorRabbitMqException(e);
+                    }
+                });
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException(e);
+            }
+        }), options.getOverflowStrategy());
     }
 
     public Flux<Delivery> consumeAutoAck(final String queue) {
@@ -134,43 +134,48 @@ public class Receiver {
     public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue, ReceiverOptions options) {
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
-        return Flux.create(emitter -> {
-            connectionMono.subscribe(connection -> {
-                try {
-
-                    Channel channel = connection.createChannel();
-                    if(options.getQos() != 0) {
-                        channel.basicQos(options.getQos());
-                    }
-
-                    DeliverCallback deliverCallback = (consumerTag, message) -> {
-                        AcknowledgableDelivery delivery = new AcknowledgableDelivery(message, channel);
-                        if(options.getHookBeforeEmit().apply(emitter, delivery)) {
-                            emitter.next(delivery);
-                        }
-                    };
-                    CancelCallback cancelCallback = consumerTag -> {
-                        LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
-                        emitter.complete();
-                    };
-                    
-                    final String consumerTag = channel.basicConsume(queue, false, deliverCallback, cancelCallback);
-                    emitter.onDispose(() -> {
-
-                        try {
-                            if (channel.isOpen() && channel.getConnection().isOpen()) {
-                                channel.basicCancel(consumerTag);
-                                channel.close();
-                            }
-                        } catch (TimeoutException | IOException e) {
-                            throw new ReactorRabbitMqException(e);
-                        }
-                    });
-                } catch (IOException e) {
-                    throw new ReactorRabbitMqException(e);
+        return Flux.create(emitter -> connectionMono.map(connection -> {
+            try {
+                return connection.createChannel();
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Exception while creating channel", e);
+            }
+        }).subscribe(channel -> {
+            try {
+                if(options.getQos() != 0) {
+                    channel.basicQos(options.getQos());
                 }
-            });
-        }, options.getOverflowStrategy());
+
+                DeliverCallback deliverCallback = (consumerTag, message) -> {
+                    AcknowledgableDelivery delivery = new AcknowledgableDelivery(message, channel);
+                    if(options.getHookBeforeEmit().apply(emitter, delivery)) {
+                        emitter.next(delivery);
+                    }
+                    if (options.getStopConsumingBiFunction().apply(emitter, message)) {
+                        emitter.complete();
+                    }
+                };
+                CancelCallback cancelCallback = consumerTag -> {
+                    LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+                    emitter.complete();
+                };
+
+                final String consumerTag = channel.basicConsume(queue, false, deliverCallback, cancelCallback);
+                emitter.onDispose(() -> {
+
+                    try {
+                        if (channel.isOpen() && channel.getConnection().isOpen()) {
+                            channel.basicCancel(consumerTag);
+                            channel.close();
+                        }
+                    } catch (TimeoutException | IOException e) {
+                        throw new ReactorRabbitMqException(e);
+                    }
+                });
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException(e);
+            }
+        }), options.getOverflowStrategy());
     }
 
     // TODO consume with dynamic QoS and/or batch ack
