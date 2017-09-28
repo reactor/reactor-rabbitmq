@@ -18,7 +18,6 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Command;
 import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -38,13 +37,12 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -60,9 +58,9 @@ public class Sender {
 
     private final Mono<Connection> connectionMono;
 
-    private final Mono<Channel> channelMono;
+    private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
-    private final ExecutorService resourceCreationExecutorService = Executors.newSingleThreadExecutor();
+    private final Mono<Channel> channelMono;
 
     public Sender() {
         this(() -> {
@@ -81,6 +79,7 @@ public class Sender {
             Connection connection = connectionFactory.newConnection();
             return connection;
         })
+            .doOnSubscribe(c -> hasConnection.set(true))
             .subscribeOn(Schedulers.elastic())
             .cache();
         this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
@@ -148,7 +147,7 @@ public class Sender {
                     throw new ReactorRabbitMqException("Error while setting publisher confirms on channel", e);
                 }
                 return channel;
-            }).cache();
+            });
 
         return channelMono.flatMapMany(channel -> new Flux<OutboundMessageResult>() {
 
@@ -212,29 +211,32 @@ public class Sender {
     }
 
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {
-        Callable<CompletableFuture<Command>> creation = () -> {
-            return channelMono.block().asyncCompletableRpc(
-                new AMQImpl.Queue.Bind.Builder()
-                    .exchange(specification.getExchange())
-                    .queue(specification.getQueue())
-                    .routingKey(specification.getRoutingKey())
-                    .arguments(specification.getArguments())
-                    .build());
-        };
+        AMQP.Queue.Bind binding = new AMQImpl.Queue.Bind.Builder()
+            .exchange(specification.getExchange())
+            .queue(specification.getQueue())
+            .routingKey(specification.getRoutingKey())
+            .arguments(specification.getArguments())
+            .build();
 
-        return Mono.fromCallable(creation)
-            .flatMap(completableFuture -> Mono.fromCompletionStage(completableFuture))
-            .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
-            .publishOn(Schedulers.elastic());
+        return channelMono.map(channel -> {
+            try {
+                return channel.asyncCompletableRpc(binding);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error during RPC call",e);
+            }
+        }).flatMap(future -> Mono.fromCompletionStage(future))
+          .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
+          .publishOn(Schedulers.elastic());
     }
 
     public void close() {
-        // TODO make call idempotent
-        try {
-            connectionMono.block().close();
-            resourceCreationExecutorService.shutdownNow();
-        } catch (IOException e) {
-            throw new ReactorRabbitMqException(e);
+        if (hasConnection.getAndSet(false)) {
+            try {
+                // FIXME use timeout on block (should be a parameter of the Sender)
+                connectionMono.block().close();
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException(e);
+            }
         }
     }
 
@@ -244,8 +246,6 @@ public class Sender {
         OUTBOUND_DONE,
         COMPLETE
     }
-
-    // TODO provide close method with Mono
 
     private static class PublishConfirmSubscriber implements
         CoreSubscriber<OutboundMessage> {

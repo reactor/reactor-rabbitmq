@@ -17,6 +17,7 @@
 package reactor.rabbitmq;
 
 import com.rabbitmq.client.CancelCallback;
+import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
@@ -32,6 +33,8 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -41,7 +44,11 @@ public class Receiver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Receiver.class);
 
+    private static final Function<Connection, Channel> CHANNEL_CREATION_FUNCTION = new Receiver.ChannelCreationFunction();
+
     private final Mono<Connection> connectionMono;
+
+    private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
     // using specific scheduler to avoid being cancelled in subscribe
     // see https://github.com/reactor/reactor-core/issues/442
@@ -66,7 +73,8 @@ public class Receiver {
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = connectionFactory.newConnection();
             return connection;
-        }).subscribeOn(scheduler)
+        }).doOnSubscribe(c -> hasConnection.set(true))
+          .subscribeOn(scheduler)
           .cache();
     }
 
@@ -80,13 +88,7 @@ public class Receiver {
     public Flux<Delivery> consumeNoAck(final String queue, ReceiverOptions options) {
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
-        return Flux.create(emitter -> connectionMono.map(connection -> {
-            try {
-                return connection.createChannel();
-            } catch (IOException e) {
-                throw new ReactorRabbitMqException("Exception while creating channel", e);
-            }
-        }).subscribe(channel -> {
+        return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {
             try {
                 DeliverCallback deliverCallback = (consumerTag, message) -> {
                     emitter.next(message);
@@ -134,13 +136,7 @@ public class Receiver {
     public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue, ReceiverOptions options) {
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
-        return Flux.create(emitter -> connectionMono.map(connection -> {
-            try {
-                return connection.createChannel();
-            } catch (IOException e) {
-                throw new ReactorRabbitMqException("Exception while creating channel", e);
-            }
-        }).subscribe(channel -> {
+        return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {
             try {
                 if(options.getQos() != 0) {
                     channel.basicQos(options.getQos());
@@ -181,15 +177,26 @@ public class Receiver {
     // TODO consume with dynamic QoS and/or batch ack
 
     public void close() {
-        // TODO close emitted fluxes?
-        // TODO make call idempotent
-        try {
-            connectionMono.block().close();
-        } catch (IOException e) {
-            throw new ReactorRabbitMqException(e);
+        if (hasConnection.getAndSet(false)) {
+            try {
+                // FIXME use timeout on block (should be a parameter of the Receiver)
+                connectionMono.block().close();
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException(e);
+            }
         }
     }
 
-    // TODO provide close method with Mono
+    private static class ChannelCreationFunction implements Function<Connection, Channel> {
+
+        @Override
+        public Channel apply(Connection connection) {
+            try {
+                return connection.createChannel();
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error while creating channel", e);
+            }
+        }
+    }
 
 }
