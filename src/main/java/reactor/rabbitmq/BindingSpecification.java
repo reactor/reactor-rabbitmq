@@ -30,6 +30,10 @@ public class BindingSpecification {
         return new BindingSpecification();
     }
 
+    public static BindingSpecification binding(String exchange, String routingKey, String queue) {
+        return new BindingSpecification().exchange(exchange).routingKey(routingKey).queue(queue);
+    }
+
     public BindingSpecification queue(String queue) {
         this.queue = queue;
         return this;

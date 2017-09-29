@@ -36,6 +36,9 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -533,5 +536,35 @@ public class ReactorRabbitMqTests {
             channel.queueDelete(sourceQueue);
             channel.queueDelete(destinationQueue);
         }
+    }
+
+    @Test public void partitions() throws Exception {
+        sender = ReactorRabbitMq.createSender();
+        receiver = ReactorRabbitMq.createReceiver();
+        int nbPartitions = 4;
+        int nbMessages = 100;
+
+        Flux<Tuple2<Integer, String>> queues = Flux.range(0, nbPartitions)
+            .flatMap(partition -> sender.createQueue(QueueSpecification.queue("partitions"+partition).autoDelete(true))
+                                                .map(q -> Tuples.of(partition, q.getQueue())))
+            .cache();
+
+        Flux<AMQP.Queue.BindOk> bindings = queues
+            .flatMap(q -> sender.bind(BindingSpecification.binding("amq.direct", "" + q.getT1(), q.getT2())));
+
+        Flux<OutboundMessage> messages = Flux.range(0, nbMessages).groupBy(v -> v % nbPartitions)
+            .flatMap(partitionFlux -> partitionFlux.publishOn(Schedulers.elastic())
+                .map(v -> new OutboundMessage("amq.direct", partitionFlux.key().toString(), (v+"").getBytes())));
+
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+
+        Disposable flow = bindings
+            .then(sender.send(messages))
+            .thenMany(queues.flatMap(q -> receiver.consumeAutoAck(q.getT2())))
+            .subscribe(msg -> latch.countDown());
+
+        assertTrue(latch.await(2, TimeUnit.SECONDS));
+        flow.dispose();
+
     }
 }
