@@ -1,0 +1,7 @@
+== New & Noteworthy
+
+[[new]]
+=== What's new in Reactor RabbitMQ 1.0
+
+* First release of Reactor RabbitMQ
+

@@ -19,27 +19,30 @@
     <title></title>
 </head>
 <body>
-This document is the API specification for the Reactor RabbitMQ.
-
-Routine use of Reactor will involve the composable <a href="www.reactive-streams.org"
-                                                      target="_blank">Reactive Streams</a>
-<a href="/docs/core/release/api/reactor/core/publisher/Flux.html"
-   target="_blank">Flux</a>, <a href="/docs/core/release/api/reactor/core/publisher/Mono.html"
-                                target="_blank">Mono</a> and message passing <a
-        href="/docs/core/release/api/reactor/core/publisher/FluxProcessor.html"
-        target="_blank">Processor</a> located
-under
-<a
-        href="/docs/core/release/api/reactor/core/publisher/package-summary.html"
-        target="_blank">reactor.core.publisher</a>.
+This document is the API specification for the Reactor RabbitMQ library.
 <hr/>
 <div id="overviewBody">
     <p>
-        Reactor is a succinct and powerful foundational library for building reactive and efficient applications
-        on the JVM.
-        More detailed documentation is available on the <a href="../reference"
-                                                           target="_blank">reference guide</a>.
+        Reactor RabbitMQ is a reactive API for <a href="https://rabbitmq.com/">Apache Kafka</a> based on
+        <a href="https://projectreactor.io">Project Reactor</a>. Reactor RabbitMQ API enables messages to be
+        published to RabbitMQ exchanges and consumed from RabbitMQ queues using functional APIs with non-blocking back-pressure
+        and very low overheads. This enables applications using Reactor to use RabbitMQ as a message bus or
+        streaming platform and integrate with other systems to provide an end-to-end reactive pipeline.
     </p>
+    <h3><a href="reactor/rabbitmq/Sender.html">Sender</a></h3>
+    <pre>
+    sender.send(Flux.range(0, 10).map(i -> new OutboundMessage(exchange, routingKey, ("Message_" + i).getBytes()));
+          .subscribe();
+    </pre>
+    <h3><a href="reactor/rabbitmq/Receiver.html">Receiver</a></h3>
+    <pre>
+    receiver.consumeNoAck(queue)
+            .subscribe(r -> log.info("Received message {} ", r));
+    </pre>
+    <p>
+        More detailed documentation is available in the <a href="../reference" target="_blank">Reference Guide</a>.
+    </p>
+
 </div>
 </body>
 </html>

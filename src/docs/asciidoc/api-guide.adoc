@@ -1,0 +1,26 @@
+== Reactor RabbitMQ API
+
+[[api-guide-overview]]
+=== Overview
+
+This section describes the reactive API for producing and consuming messages using RabbitMQ.
+There are two main classes in Reactor RabbitMQ:
+
+. `reactor.rabbitmq.Sender` for publishing messages to RabbitMQ
+. `reactor.rabbitmq.Receiver` for consuming messages from RabbitMQ
+
+Full API for Reactor RabbitMQ is available in the link:../api/index.html[javadocs].
+
+The project uses https://github.com/reactor/reactor-core[Reactor Core] to expose a https://github.com/reactive-streams/reactive-streams-jvm["Reactive Streams"] API.
+
+
+[[api-guide-sender]]
+=== Reactive RabbitMQ Sender
+
+TODO
+
+[[api-guide-receiver]]
+=== Reactive RabbitMQ Receiver
+
+TODO
+

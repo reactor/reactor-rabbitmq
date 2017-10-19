@@ -1,0 +1,28 @@
+= Reactor RabbitMQ Reference Guide
+Arnaud Cogoluègnes
+:appversion: 1.0.0.BUILD-SNAPSHOT
+ifndef::host-github[:ext-relative: {outfilesuffix}]
+{appversion}
+:doctype: book
+:toc:
+:toclevels: 4
+:source-highlighter: prettify
+:numbered:
+:icons: font
+:hide-uri-scheme:
+
+:github-repo: reactor/reactor-rabbitmq
+:github-code: http://github.com/{github-repo}
+
+// ======================================================================================
+= Introduction
+include::overview.adoc[]
+include::motivation.adoc[]
+include::getting-started.adoc[]
+include::resources.adoc[]
+include::new.adoc[]
+= Reference Documentation
+include::api-guide.adoc[]
+include::examples.adoc[]
+// ======================================================================================
+

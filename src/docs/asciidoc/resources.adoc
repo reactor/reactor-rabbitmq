@@ -1,0 +1,27 @@
+== Additional Resources
+
+[[support]]
+=== Getting help
+
+TODO
+
+
+[[resources]]
+=== Resources
+
+* https://github.com/reactor/reactor-rabbitmq[Reactor RabbitMQ on github]
+
+* http://www.rabbitmq.com/documentation.html[RabbitMQ]
+
+* http://projectreactor.io/[Project Reactor]
+
+* https://github.com/reactor/reactor-core[Reactor Core]
+
+* https://github.com/reactive-streams/reactive-streams-jvm[Reactive Streams Specification]
+
+* https://spring.io/blog/2016/04/19/understanding-reactive-types[Understanding Reactive types]
+
+* https://github.com/reactor/lite-rx-api-hands-on[Lite Rx API Hands-on]
+
+* https://www.infoq.com/articles/reactor-by-example[Reactor by Example]
+

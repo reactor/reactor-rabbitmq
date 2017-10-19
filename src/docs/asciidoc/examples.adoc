@@ -1,0 +1,6 @@
+== Sample Scenarios
+
+This section shows sample code segments for typical scenarios where Reactor RabbitMQ API
+may be used.
+
+TODO
