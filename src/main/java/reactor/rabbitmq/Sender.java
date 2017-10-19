@@ -63,6 +63,8 @@ public class Sender implements AutoCloseable {
 
     private final Mono<Channel> channelMono;
 
+    private final Scheduler resourceCreationScheduler;
+
     public Sender() {
         this(() -> {
             ConnectionFactory connectionFactory = new ConnectionFactory();
@@ -75,22 +77,23 @@ public class Sender implements AutoCloseable {
         this(connectionFactorySupplier.get());
     }
 
-    public Sender(Supplier<ConnectionFactory> connectionFactorySupplier, Scheduler connectionSubscriptionScheduler) {
-        this(connectionFactorySupplier.get(), connectionSubscriptionScheduler);
+    public Sender(Supplier<ConnectionFactory> connectionFactorySupplier, SenderOptions options) {
+        this(connectionFactorySupplier.get(), options);
     }
 
     public Sender(ConnectionFactory connectionFactory) {
-        this(connectionFactory, Schedulers.parallel());
+        this(connectionFactory, new SenderOptions());
     }
 
-    public Sender(ConnectionFactory connectionFactory, Scheduler connectionSubscriptionScheduler) {
+    public Sender(ConnectionFactory connectionFactory, SenderOptions options) {
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = connectionFactory.newConnection();
             return connection;
         })
             .doOnSubscribe(c -> hasConnection.set(true))
-            .subscribeOn(connectionSubscriptionScheduler)
+            .subscribeOn(options.getConnectionSubscriptionScheduler())
             .cache();
+        this.resourceCreationScheduler = options.getResourceCreationScheduler();
         this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
     }
 
@@ -196,8 +199,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
           .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
-            // FIXME make scheduler configurable
-          .publishOn(Schedulers.elastic());
+          .publishOn(resourceCreationScheduler);
     }
 
     public Mono<AMQP.Exchange.DeclareOk> createExchange(ExchangeSpecification specification) {
@@ -217,8 +219,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
           .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()))
-            // FIXME make scheduler configurable
-          .publishOn(Schedulers.elastic());
+          .publishOn(resourceCreationScheduler);
     }
 
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {
@@ -237,8 +238,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
           .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
-            // FIXME make scheduler configurable
-          .publishOn(Schedulers.elastic());
+          .publishOn(resourceCreationScheduler);
     }
 
     public void close() {
