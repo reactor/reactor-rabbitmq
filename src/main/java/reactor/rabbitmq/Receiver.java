@@ -30,6 +30,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,7 +40,7 @@ import java.util.function.Supplier;
 /**
  * Reactive abstraction to consume messages as a {@link Flux}.
  */
-public class Receiver {
+public class Receiver implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Receiver.class);
 

@@ -51,7 +51,7 @@ import java.util.function.Supplier;
 /**
  * Reactive abstraction to create resources and send messages.
  */
-public class Sender {
+public class Sender implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Sender.class);
 
@@ -196,6 +196,7 @@ public class Sender {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
           .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
+            // FIXME make scheduler configurable
           .publishOn(Schedulers.elastic());
     }
 
@@ -216,6 +217,7 @@ public class Sender {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
           .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()))
+            // FIXME make scheduler configurable
           .publishOn(Schedulers.elastic());
     }
 
@@ -235,6 +237,7 @@ public class Sender {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
           .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
+            // FIXME make scheduler configurable
           .publishOn(Schedulers.elastic());
     }
 

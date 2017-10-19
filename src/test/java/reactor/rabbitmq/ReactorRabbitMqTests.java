@@ -55,10 +55,14 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,8 +71,6 @@ import static org.mockito.Mockito.when;
  *
  */
 public class ReactorRabbitMqTests {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReactorRabbitMqTests.class);
 
     // TODO refactor test with StepVerifier
 
@@ -105,6 +107,49 @@ public class ReactorRabbitMqTests {
         if (receiver != null) {
             receiver.close();
         }
+    }
+
+    @Test public void senderCloseIsIdempotent() {
+        sender = ReactorRabbitMq.createSender();
+
+        sender.send(Flux.just(new OutboundMessage("", "dummy", new byte[0])))
+              .then().block();
+
+        sender.close();
+        sender.close();
+    }
+
+    @Test public void receiverCloseIsIdempotent() throws Exception {
+        receiver = ReactorRabbitMq.createReceiver();
+
+        sender = ReactorRabbitMq.createSender();
+        sender.send(Flux.just(new OutboundMessage("", queue, new byte[0]))).block();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Disposable subscribe = receiver.consumeAutoAck(queue).subscribe(delivery -> latch.countDown());
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS),"A message should have been received");
+        subscribe.dispose();
+
+        receiver.close();
+        receiver.close();
+    }
+
+    @Test public void acknowledgableDeliveryAckNackIsIdempotent() throws Exception {
+        Channel channel = mock(Channel.class);
+        doNothing().doThrow(new IOException()).when(channel).basicAck(anyLong(), anyBoolean());
+        doThrow(new IOException()).when(channel).basicNack(anyLong(), anyBoolean(), anyBoolean());
+        AcknowledgableDelivery msg = new AcknowledgableDelivery(
+            new Delivery(new Envelope(0, true, null, null), null, null), channel
+        );
+
+        msg.ack();
+        msg.ack();
+        msg.nack(false);
+        msg.nack(false);
+
+        verify(channel, times(1)).basicAck(anyLong(), anyBoolean());
+        verify(channel, never()).basicNack(anyLong(), anyBoolean(), anyBoolean());
     }
 
     @Test

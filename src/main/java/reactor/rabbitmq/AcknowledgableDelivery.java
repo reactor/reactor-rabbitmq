@@ -20,6 +20,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Delivery;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A message that can be manually acknowledged.
@@ -27,6 +28,8 @@ import java.io.IOException;
 public class AcknowledgableDelivery extends Delivery {
 
     private final Channel channel;
+
+    private final AtomicBoolean notAckedOrNacked = new AtomicBoolean(true);
 
     /**
      * Made public only for testing purposes.
@@ -40,20 +43,22 @@ public class AcknowledgableDelivery extends Delivery {
     }
 
     public void ack() {
-        // TODO make call idempotent
-        try {
-            channel.basicAck(getEnvelope().getDeliveryTag(), false);
-        } catch (IOException e) {
-            throw new ReactorRabbitMqException(e);
+        if(notAckedOrNacked.getAndSet(false)) {
+            try {
+                channel.basicAck(getEnvelope().getDeliveryTag(), false);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException(e);
+            }
         }
     }
 
     public void nack(boolean requeue) {
-        // TODO make call idempotent
-        try {
-            channel.basicNack(getEnvelope().getDeliveryTag(), false, requeue);
-        } catch (IOException e) {
-            throw new ReactorRabbitMqException(e);
+        if(notAckedOrNacked.getAndSet(false)) {
+            try {
+                channel.basicNack(getEnvelope().getDeliveryTag(), false, requeue);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException(e);
+            }
         }
     }
 }
