@@ -19,7 +19,7 @@ package reactor.rabbitmq;
 import java.util.Map;
 
 /**
- *
+ * Fluent API to specify the binding between an exchange and a queue.
  */
 public class BindingSpecification {
 

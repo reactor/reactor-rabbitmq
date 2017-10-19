@@ -16,6 +16,9 @@
 
 package reactor.rabbitmq;
 
+/**
+ * Result of a sent message when using publisher confirm.
+ */
 public class OutboundMessageResult {
 
     private final OutboundMessage outboundMessage;

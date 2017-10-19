@@ -19,7 +19,7 @@ package reactor.rabbitmq;
 import java.util.Map;
 
 /**
- *
+ * Fluent API to specify creation of an exchange.
  */
 public class ExchangeSpecification {
 

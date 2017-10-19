@@ -19,7 +19,7 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.AMQP.BasicProperties;
 
 /**
- *
+ * Outbound message meant to be sent by a {@link Sender}.
  */
 public class OutboundMessage {
 

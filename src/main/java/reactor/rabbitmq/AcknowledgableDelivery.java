@@ -16,27 +16,26 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Delivery;
-import com.rabbitmq.client.Envelope;
 
 import java.io.IOException;
 
 /**
- *
+ * A message that can be manually acknowledged.
  */
 public class AcknowledgableDelivery extends Delivery {
 
     private final Channel channel;
 
+    /**
+     * Made public only for testing purposes.
+     * Only the library is supposed to create instances.
+     * @param delivery
+     * @param channel
+     */
     public AcknowledgableDelivery(Delivery delivery, Channel channel) {
         super(delivery.getEnvelope(), delivery.getProperties(), delivery.getBody());
-        this.channel = channel;
-    }
-
-    public AcknowledgableDelivery(Envelope envelope, AMQP.BasicProperties properties, byte[] body, Channel channel) {
-        super(envelope, properties, body);
         this.channel = channel;
     }
 

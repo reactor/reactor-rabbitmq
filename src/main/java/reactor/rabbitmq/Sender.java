@@ -49,7 +49,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- *
+ * Reactive abstraction to create resources and send messages.
  */
 public class Sender {
 

@@ -19,7 +19,7 @@ package reactor.rabbitmq;
 import java.util.Map;
 
 /**
- *
+ * Fluent API to specify the creation of a queue.
  */
 public class QueueSpecification {
 

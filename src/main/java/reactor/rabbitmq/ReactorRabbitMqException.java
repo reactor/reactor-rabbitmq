@@ -17,7 +17,7 @@
 package reactor.rabbitmq;
 
 /**
- *
+ * Common exception class for Reactor RabbitMQ library.
  */
 public class ReactorRabbitMqException extends RuntimeException {
 

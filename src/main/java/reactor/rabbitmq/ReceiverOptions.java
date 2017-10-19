@@ -22,11 +22,15 @@ import reactor.core.publisher.FluxSink;
 import java.util.function.BiFunction;
 
 /**
- *
+ * Options for {@link Receiver}#consume* methods.
  */
 public class ReceiverOptions {
 
-    private int qos = 0;
+    /**
+     * Quality of Service (prefetch count) when using acknowledgment.
+     * Default is 250.
+     */
+    private int qos = 250;
 
     private FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
 
