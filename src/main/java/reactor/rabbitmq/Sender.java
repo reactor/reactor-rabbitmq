@@ -32,6 +32,7 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
@@ -74,13 +75,21 @@ public class Sender {
         this(connectionFactorySupplier.get());
     }
 
+    public Sender(Supplier<ConnectionFactory> connectionFactorySupplier, Scheduler connectionSubscriptionScheduler) {
+        this(connectionFactorySupplier.get(), connectionSubscriptionScheduler);
+    }
+
     public Sender(ConnectionFactory connectionFactory) {
+        this(connectionFactory, Schedulers.parallel());
+    }
+
+    public Sender(ConnectionFactory connectionFactory, Scheduler connectionSubscriptionScheduler) {
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = connectionFactory.newConnection();
             return connection;
         })
             .doOnSubscribe(c -> hasConnection.set(true))
-            .subscribeOn(Schedulers.elastic())
+            .subscribeOn(connectionSubscriptionScheduler)
             .cache();
         this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
     }

@@ -75,4 +75,5 @@ public class ReceiverOptions {
         this.stopConsumingBiFunction = stopConsumingBiFunction;
         return this;
     }
+
 }

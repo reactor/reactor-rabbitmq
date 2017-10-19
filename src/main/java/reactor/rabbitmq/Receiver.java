@@ -31,7 +31,6 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -50,13 +49,6 @@ public class Receiver {
 
     private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
-    // using specific scheduler to avoid being cancelled in subscribe
-    // see https://github.com/reactor/reactor-core/issues/442
-    private final Scheduler scheduler = Schedulers.fromExecutor(
-        Executors.newFixedThreadPool(Schedulers.DEFAULT_POOL_SIZE),
-        true
-    );
-
     public Receiver() {
         this(() -> {
            ConnectionFactory connectionFactory = new ConnectionFactory();
@@ -69,12 +61,20 @@ public class Receiver {
         this(connectionFactorySupplier.get());
     }
 
+    public Receiver(Supplier<ConnectionFactory> connectionFactorySupplier, Scheduler connectionSubscriptionScheduler) {
+        this(connectionFactorySupplier.get(), connectionSubscriptionScheduler);
+    }
+
     public Receiver(ConnectionFactory connectionFactory) {
+        this(connectionFactory, Schedulers.parallel());
+    }
+
+    public Receiver(ConnectionFactory connectionFactory, Scheduler connectionSubscriptionScheduler) {
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = connectionFactory.newConnection();
             return connection;
         }).doOnSubscribe(c -> hasConnection.set(true))
-          .subscribeOn(scheduler)
+          .subscribeOn(connectionSubscriptionScheduler)
           .cache();
     }
 
