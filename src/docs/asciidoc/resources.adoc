@@ -3,7 +3,13 @@
 [[support]]
 === Getting help
 
-TODO
+If you are having trouble with Reactor RabbitMQ, you can ask for help on
+https://groups.google.com/forum/#!forum/rabbitmq-users[RabbitMQ community mailing list].
+
+Report bugs in Reactor RabbitMQ at https://github.com/reactor/reactor-rabbitmq/issues.
+
+Reactor Rabbitmq is open source and the code and documentation are available
+at https://github.com/reactor/reactor-rabbitmq.
 
 
 [[resources]]

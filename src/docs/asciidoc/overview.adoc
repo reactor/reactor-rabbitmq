@@ -3,20 +3,42 @@
 [[rabbitmq]]
 === RabbitMQ
 
-TODO
+https://rabbitmq.com/[RabbitMQ] is the most widely deployed open source message broker.
+
+With more than 35,000 production deployments of RabbitMQ world-wide
+at small startups and large enterprises, RabbitMQ is the most popular
+open source message broker.
+
+RabbitMQ is lightweight and easy to deploy on premises and in the cloud.
+It supports multiple messaging protocols. RabbitMQ can be deployed in
+distributed and federated configurations to meet high-scale, high-availability requirements.
 
 === Project Reactor
 
-https://projectreactor.io[Reactor] is a highly optimized reactive library for building efficient, non-blocking
-applications on the JVM based on the https://github.com/reactive-streams/reactive-streams-jvm[Reactive Streams Specification].
-Reactor based applications can sustain very high throughput message rates and operate with a very low memory footprint,
-making it suitable for building efficient event-driven applications using the microservices architecture.
+https://projectreactor.io[Reactor] is a highly optimized reactive library for
+building efficient, non-blocking applications on the JVM based on the
+https://github.com/reactive-streams/reactive-streams-jvm[Reactive Streams Specification].
+Reactor based applications can sustain very high throughput message rates
+and operate with a very low memory footprint,
+making it suitable for building efficient event-driven applications using
+the microservices architecture.
 
-Reactor implements two publishers https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Flux.html[Flux<T>] and
-https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Mono.html[Mono<T>], both of which support non-blocking back-pressure.
-This enables exchange of data between threads with well-defined memory usage, avoiding unnecessary intermediate buffering or blocking.
+Reactor implements two publishers
+https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Flux.html[Flux<T>] and
+https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Mono.html[Mono<T>],
+both of which support non-blocking back-pressure.
+This enables exchange of data between threads with well-defined memory usage,
+avoiding unnecessary intermediate buffering or blocking.
 
 === Reactive API for RabbitMQ
 
-TODO
+link:../api/index.html[Reactor RabbitMQ] is a reactive API for RabbitMQ
+based on Reactor and http://www.rabbitmq.com/api-guide.html[RabbitMQ Java Client].
+Reactor RabbitMQ API enables messages to be published to
+RabbitMQ and consumed from RabbitMQ using functional APIs
+with non-blocking back-pressure and very low overheads.
+This enables applications using Reactor to use RabbitMQ as a message bus or
+streaming platform and integrate with other systems to provide an end-to-end
+reactive pipeline.
+
 

@@ -17,7 +17,10 @@ The project uses https://github.com/reactor/reactor-core[Reactor Core] to expose
 [[api-guide-sender]]
 === Reactive RabbitMQ Sender
 
-TODO
+Outbound messages are sent to RabbitMQ using `reactor.rabbitmq.Sender`.
+A `Sender` is associated with one RabbitMQ `Connection` that is used
+to transport messages to the broker. A `Sender` can also manage resources
+(exchanges, queues, bindings).
 
 [[api-guide-receiver]]
 === Reactive RabbitMQ Receiver

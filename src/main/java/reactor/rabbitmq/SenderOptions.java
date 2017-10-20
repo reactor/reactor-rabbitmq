@@ -4,7 +4,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 /**
- *
+ * Options for {@link Sender}#consume* methods.
  */
 public class SenderOptions {
 

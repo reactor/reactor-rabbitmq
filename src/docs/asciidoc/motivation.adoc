@@ -1,4 +1,63 @@
 == Motivation
 
-TODO
+[[motivation-functional]]
+=== Functional interface for RabbitMQ
+
+Reactor RabbitMQ is a functional Java API for RabbitMQ.
+For applications that are written in functional style,
+this API enables RabbitMQ interactions to be integrated
+easily without requiring non-functional produce or consume APIs to be
+incorporated into the application logic.
+
+
+[[back-pressure]]
+=== Non-blocking Back-pressure
+
+The Reactor RabbitMQ API benefits from non-blocking back-pressure
+provided by Reactor. For example, in a pipeline, where
+messages received from an external source (e.g. an HTTP proxy) are published
+to RabbitMQ, back-pressure can be applied easily to the
+whole pipeline, limiting the number of messages in-flight and controlling memory usage.
+Messages flow through the pipeline as they are available,
+with Reactor taking care of limiting the flow rate to avoid overflow,
+keeping application logic simple.
+
+[[end-to-end-reactive]]
+=== End-to-end Reactive Pipeline
+
+The value proposition for Reactor RabbitMQ is the efficient utilization of resources
+in applications with multiple external interactions where RabbitMQ is one of the
+external systems. End-to-end reactive pipelines benefit from
+non-blocking back-pressure and efficient use of threads, enabling a
+large number of concurrent requests to be processed efficiently.
+The optimizations provided by Project Reactor enable development of reactive applications
+with very low overheads and predictable capacity planning to deliver low-latency,
+high-throughput pipelines.
+
+[[comparison]]
+=== Comparisons with other RabbitMQ Java libraries
+
+Reactor RabbitMQ is not intended to replace any of the existing Java libraries.
+Instead, it is aimed at providing an alternative API for reactive event-driven applications.
+
+==== RabbitMQ Java Client
+
+For non-reactive applications, http://www.rabbitmq.com/api-guide.html[RabbitMQ Java Client]
+provides the most complete API to manage resources, publish messages to and
+consume messages from RabbitMQ. Note Reactor RabbitMQ is based on RabbitMQ Java Client.
+
+Applications using RabbitMQ as a message bus using this API may consider
+switching to Reactor RabbitMQ if the application is implemented in a functional style.
+
+==== Spring AMQP
+
+https://projects.spring.io/spring-amqp/[Spring AMQP] applies core
+https://projects.spring.io/spring-framework/[Spring Framework]
+concepts to the development of AMQP-based messaging solutions.
+It provides a "template" as a high-level abstraction for sending and receiving messages.
+It also provides support for Message-driven POJOs with a "listener container".
+These libraries facilitate management of AMQP resources while promoting the use of
+dependency injection and declarative configuration. Spring AMQP is based on
+RabbitMQ Java Client.
+
 
