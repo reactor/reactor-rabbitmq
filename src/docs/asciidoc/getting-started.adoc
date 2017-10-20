@@ -36,6 +36,30 @@ TODO
 
 TODO
 
+==== Building Reactor RabbitMQ Applications
 
+To build your own application using the Reactor RabbitMQ API,
+you need to include a dependency to Reactor RabbitMQ.
+
+For gradle:
+
+[source]
+--------
+dependencies {
+    compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.BUILD-SNAPSHOT"
+}
+--------
+
+
+For maven:
+
+[source]
+--------
+<dependency>
+    <groupId>io.projectreactor.rabbitmq</groupId>
+    <artifactId>reactor-rabbitmq</artifactId>
+    <version>1.0.0.BUILD-SNAPSHOT</version>
+</dependency>
+--------
 
 

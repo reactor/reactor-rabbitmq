@@ -22,8 +22,106 @@ A `Sender` is associated with one RabbitMQ `Connection` that is used
 to transport messages to the broker. A `Sender` can also manage resources
 (exchanges, queues, bindings).
 
+A `Sender` is created with an instance of sender configuration options
+`reactor.rabbitmq.SenderOptions`.
+The properties of `SenderOptions` contains the `ConnectionFactory` that creates
+connections to the broker and some Reactor `Scheduler`s used by the `Sender`.
+
+[source,java]
+--------
+SenderOptions senderOptions =  new SenderOptions()
+    .connectionFactory(new ConnectionFactory())                 // <1>
+    .resourceCreationScheduler(Schedulers.elastic());           // <2>
+--------
+<1> Specify connection factory
+<2> Specify scheduler for resource creation
+
+Once the required options have been configured on the options instance,
+a new `Sender` instance can be created with the options already
+configured in `senderOptions`.
+
+[source,java]
+--------
+Sender sender = ReactorRabbitMq.sender(senderOptions);
+--------
+
+The `Sender` is now ready to send messages to RabbitMQ.
+The underlying `Connection` instance is created lazily
+when a first call is made to create a resource or to send messages.
+At this point, a `Sender` instance has been created,
+but no connections to RabbitMQ have been made yet.
+
+Let's now create a sequence of messages to send to RabbitMQ.
+Each outbound message to be sent to RabbitMQ is represented as a `OutboundMessage`.
+An `OutboundMessage` contains routing information (exchange to send to and routing key)
+as well as the message itself (properties and body).
+
+A https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Flux.html[Flux<OutboundMessage>]
+of messages is created for sending to RabbitMQ.
+For beginners, https://github.com/reactor/lite-rx-api-hands-on[Lite Rx API Hands-on]
+provides a hands-on tutorial on using the Reactor classes `Flux` and `Mono`.
+
+[source,java]
+--------
+Flux<OutboundMessage> outboundFlux  =
+    Flux.range(1, 10)
+        .map(i -> new OutboundMessage("amq.direct", "routing.key", ("Message " + i).getBytes());
+--------
+
+The code segment above creates a sequence of messages to send to RabbitMQ.
+The outbound Flux can now be sent to RabbitMQ using the
+`Sender` created earlier.
+
+The code segment below sends the messages to RabbitMQ. The final `subscribe()` in the code block
+requests upstream to send the messages to RabbitMQ.
+
+[source,java]
+--------
+sender.send(outboundFlux)                           // <1>
+      .doOnError(e -> log.error("Send failed", e))  // <2>
+      .subscribe();                                 // <3>
+--------
+<1> Reactive send operation for the outbound Flux
+<2> If the sending fails, log an error
+<3> Subscribe to trigger the actual flow of records from `outboundFlux` to RabbitMQ.
+
 [[api-guide-receiver]]
 === Reactive RabbitMQ Receiver
 
-TODO
+Messages stored in RabbitMQ queues are consumed using the reactive
+receiver `reactor.rabbitmq.Receiver`.
+Each instance of `Receiver` is associated with a single instance
+of `Connection` created by the options-provided `ConnectionFactory`.
+
+A receiver is created with an instance of receiver configuration options
+`reactor.rabbitmq.ReceiverOptions`. The properties of `SenderOptions`
+contains the `ConnectionFactory` that creates connections to the broker
+and a Reactor `Scheduler`s used for the connection creation.
+
+[source,java]
+--------
+ReceiverOptions receiverOptions =  new ReceiverOptions()
+    .connectionFactory(new ConnectionFactory())                 // <1>
+    .connectionSubscriptionScheduler(Schedulers.elastic());     // <2>
+--------
+<1> Specify connection factory
+<2> Specify scheduler for connection creation
+
+Once the required configuration options have been configured on the options instance,
+a new `Receiver` instance can be created with these options to consume inbound messages.
+The code snippet below creates a receiver instance and creates an inbound Flux for the receiver.
+The underlying `Connection` and `Consumer` instances are created lazily
+later when the inbound `Flux` is subscribed to.
+
+[source,java]
+--------
+Flux<Delivery> inboundFlux =
+    ReactorRabbitMq.receiver(receiverOptions)
+                   .consumeNoAck("reactive.queue");
+--------
+
+The inbound RabbitMQ `Flux` is ready to be consumed.
+Each inbound message delivered by the Flux is represented as a
+http://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/com/rabbitmq/client/Delivery.html[`Delivery`].
+
 
