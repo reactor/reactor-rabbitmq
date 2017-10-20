@@ -23,16 +23,16 @@ import com.rabbitmq.client.ConnectionFactory;
  */
 public class ReactorRabbitMq {
 
-    public static Receiver createReceiver(ConnectionFactory connectionFactory) {
-        return new Receiver(connectionFactory);
+    public static Receiver createReceiver(ReceiverOptions options) {
+        return new Receiver(options);
     }
 
     public static Receiver createReceiver() {
         return new Receiver();
     }
 
-    public static Sender createSender(ConnectionFactory connectionFactory) {
-        return new Sender(connectionFactory);
+    public static Sender createSender(SenderOptions options) {
+        return new Sender(options);
     }
 
     public static Sender createSender() {

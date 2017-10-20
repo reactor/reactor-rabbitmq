@@ -19,7 +19,6 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 import com.rabbitmq.client.Delivery;
 import org.slf4j.Logger;
@@ -27,15 +26,12 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * Reactive abstraction to consume messages as a {@link Flux}.
@@ -51,31 +47,15 @@ public class Receiver implements Closeable {
     private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
     public Receiver() {
-        this(() -> {
-           ConnectionFactory connectionFactory = new ConnectionFactory();
-           connectionFactory.useNio();
-           return connectionFactory;
-        });
+        this(new ReceiverOptions());
     }
 
-    public Receiver(Supplier<ConnectionFactory> connectionFactorySupplier) {
-        this(connectionFactorySupplier.get());
-    }
-
-    public Receiver(Supplier<ConnectionFactory> connectionFactorySupplier, Scheduler connectionSubscriptionScheduler) {
-        this(connectionFactorySupplier.get(), connectionSubscriptionScheduler);
-    }
-
-    public Receiver(ConnectionFactory connectionFactory) {
-        this(connectionFactory, Schedulers.parallel());
-    }
-
-    public Receiver(ConnectionFactory connectionFactory, Scheduler connectionSubscriptionScheduler) {
+    public Receiver(ReceiverOptions options) {
         this.connectionMono = Mono.fromCallable(() -> {
-            Connection connection = connectionFactory.newConnection();
+            Connection connection = options.getConnectionFactory().newConnection();
             return connection;
         }).doOnSubscribe(c -> hasConnection.set(true))
-          .subscribeOn(connectionSubscriptionScheduler)
+          .subscribeOn(options.getConnectionSubscriptionScheduler())
           .cache();
     }
 
@@ -83,10 +63,10 @@ public class Receiver implements Closeable {
     //  - with a Supplier<Boolean> or Predicate<FluxSink> or Predicate<Delivery> to complete the Flux
 
     public Flux<Delivery> consumeNoAck(final String queue) {
-        return consumeNoAck(queue, new ReceiverOptions().overflowStrategy(FluxSink.OverflowStrategy.IGNORE));
+        return consumeNoAck(queue, new ConsumeOptions().overflowStrategy(FluxSink.OverflowStrategy.IGNORE));
     }
 
-    public Flux<Delivery> consumeNoAck(final String queue, ReceiverOptions options) {
+    public Flux<Delivery> consumeNoAck(final String queue, ConsumeOptions options) {
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
         return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {
@@ -122,19 +102,19 @@ public class Receiver implements Closeable {
     }
 
     public Flux<Delivery> consumeAutoAck(final String queue) {
-        return consumeAutoAck(queue, new ReceiverOptions().overflowStrategy(FluxSink.OverflowStrategy.BUFFER));
+        return consumeAutoAck(queue, new ConsumeOptions().overflowStrategy(FluxSink.OverflowStrategy.BUFFER));
     }
 
-    public Flux<Delivery> consumeAutoAck(final String queue, ReceiverOptions options) {
+    public Flux<Delivery> consumeAutoAck(final String queue, ConsumeOptions options) {
         // TODO why acking here and not just after emitter.next()?
         return consumeManuelAck(queue, options).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
     }
 
     public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue) {
-        return consumeManuelAck(queue, new ReceiverOptions().overflowStrategy(FluxSink.OverflowStrategy.BUFFER));
+        return consumeManuelAck(queue, new ConsumeOptions().overflowStrategy(FluxSink.OverflowStrategy.BUFFER));
     }
 
-    public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue, ReceiverOptions options) {
+    public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue, ConsumeOptions options) {
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
         return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {

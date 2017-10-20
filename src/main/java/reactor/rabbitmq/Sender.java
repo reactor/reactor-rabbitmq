@@ -20,7 +20,6 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.impl.AMQImpl;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -33,7 +32,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
 import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -46,7 +44,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * Reactive abstraction to create resources and send messages.
@@ -66,28 +63,12 @@ public class Sender implements AutoCloseable {
     private final Scheduler resourceCreationScheduler;
 
     public Sender() {
-        this(() -> {
-            ConnectionFactory connectionFactory = new ConnectionFactory();
-            connectionFactory.useNio();
-            return connectionFactory;
-        });
+        this(new SenderOptions());
     }
 
-    public Sender(Supplier<ConnectionFactory> connectionFactorySupplier) {
-        this(connectionFactorySupplier.get());
-    }
-
-    public Sender(Supplier<ConnectionFactory> connectionFactorySupplier, SenderOptions options) {
-        this(connectionFactorySupplier.get(), options);
-    }
-
-    public Sender(ConnectionFactory connectionFactory) {
-        this(connectionFactory, new SenderOptions());
-    }
-
-    public Sender(ConnectionFactory connectionFactory, SenderOptions options) {
+    public Sender(SenderOptions options) {
         this.connectionMono = Mono.fromCallable(() -> {
-            Connection connection = connectionFactory.newConnection();
+            Connection connection = options.getConnectionFactory().newConnection();
             return connection;
         })
             .doOnSubscribe(c -> hasConnection.set(true))

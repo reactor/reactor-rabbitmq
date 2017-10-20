@@ -158,7 +158,7 @@ public class ReactorRabbitMqTests {
         receiver = ReactorRabbitMq.createReceiver();
 
         for (int $ : IntStream.range(0, 1).toArray()) {
-            Flux<Delivery> flux = receiver.consumeNoAck(queue, new ReceiverOptions().overflowStrategy(
+            Flux<Delivery> flux = receiver.consumeNoAck(queue, new ConsumeOptions().overflowStrategy(
                 FluxSink.OverflowStrategy.BUFFER
             ));
             for (int $$ : IntStream.range(0, nbMessages).toArray()) {
@@ -270,7 +270,7 @@ public class ReactorRabbitMqTests {
 
         CountDownLatch ackedNackedLatch = new CountDownLatch(2 * nbMessages - 1);
 
-        Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue, new ReceiverOptions()
+        Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue, new ConsumeOptions()
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
             .hookBeforeEmit((emitter, message) -> {
                 if(emitter.requestedFromDownstream() == 0) {
@@ -338,7 +338,7 @@ public class ReactorRabbitMqTests {
 
         CountDownLatch ackedDroppedLatch = new CountDownLatch(2 * nbMessages - 1);
 
-        Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue, new ReceiverOptions()
+        Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue, new ConsumeOptions()
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
             .hookBeforeEmit((emitter, message) -> {
                 if(emitter.requestedFromDownstream() == 0) {
@@ -455,7 +455,7 @@ public class ReactorRabbitMqTests {
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
         int nbMessagesAckNack = 2;
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
-        sender = ReactorRabbitMq.createSender(mockConnectionFactory);
+        sender = ReactorRabbitMq.createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
         CountDownLatch subscriptionLatch = new CountDownLatch(1);
         sender.sendWithPublishConfirms(msgFlux)
             .subscribe(outboundMessageResult -> confirmLatch.countDown(),
@@ -527,7 +527,7 @@ public class ReactorRabbitMqTests {
                     .map(i -> new OutboundMessage(exchangeName, routingKey, i.toString().getBytes()))))
                 .thenMany(receiver.consumeNoAck(
                     queueName,
-                    new ReceiverOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)))
+                    new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)))
                 .subscribe(msg -> {
                     count.incrementAndGet();
                     latch.countDown();
@@ -563,7 +563,7 @@ public class ReactorRabbitMqTests {
                 (i -> new OutboundMessage("", sourceQueue, i.toString().getBytes()))))
                 .thenMany(receiver.consumeNoAck(
                         sourceQueue,
-                        new ReceiverOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
+                        new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
                     ).map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()))
                      .transform(messages -> sender.send(messages)))
                 .thenMany(receiver.consumeNoAck(destinationQueue)).subscribe(msg -> {
