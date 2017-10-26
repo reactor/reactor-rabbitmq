@@ -27,6 +27,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -49,18 +50,26 @@ public class Receiver implements Closeable {
 
     private final Scheduler connectionSubscriptionScheduler;
 
+    private final boolean privateConnectionSubscriptionScheduler;
+
     public Receiver() {
         this(new ReceiverOptions());
     }
 
     public Receiver(ReceiverOptions options) {
-        this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler();
+        this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
+        this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
+            createScheduler() : options.getConnectionSubscriptionScheduler();
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = options.getConnectionFactory().newConnection();
             return connection;
         }).doOnSubscribe(c -> hasConnection.set(true))
           .subscribeOn(this.connectionSubscriptionScheduler)
           .cache();
+    }
+
+    protected Scheduler createScheduler() {
+        return Schedulers.elastic();
     }
 
     // TODO more consumeNoAck functions:
@@ -170,7 +179,9 @@ public class Receiver implements Closeable {
                 throw new ReactorRabbitMqException(e);
             }
         }
-        this.connectionSubscriptionScheduler.dispose();
+        if (privateConnectionSubscriptionScheduler) {
+            this.connectionSubscriptionScheduler.dispose();
+        }
     }
 
     private static class ChannelCreationFunction implements Function<Connection, Channel> {

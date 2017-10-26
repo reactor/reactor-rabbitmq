@@ -34,6 +34,12 @@ public class SenderOptions {
         return resourceCreationScheduler;
     }
 
+    /**
+     * Resource creation scheduler.
+     * It is developer's responsibility to close it if set.
+     * @param resourceCreationScheduler
+     * @return
+     */
     public SenderOptions resourceCreationScheduler(Scheduler resourceCreationScheduler) {
         this.resourceCreationScheduler = resourceCreationScheduler;
         return this;
@@ -43,6 +49,12 @@ public class SenderOptions {
         return connectionSubscriptionScheduler;
     }
 
+    /**
+     * Scheduler used on connection creation subscription.
+     * It is developer's responsibility to close it if set.
+     * @param connectionSubscriptionScheduler
+     * @return
+     */
     public SenderOptions connectionSubscriptionScheduler(Scheduler connectionSubscriptionScheduler) {
         this.connectionSubscriptionScheduler = connectionSubscriptionScheduler;
         return this;

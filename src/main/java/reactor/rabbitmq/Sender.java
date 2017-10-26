@@ -32,6 +32,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
 import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -62,14 +63,20 @@ public class Sender implements AutoCloseable {
 
     private final Scheduler resourceCreationScheduler;
 
+    private final boolean privateResourceCreationScheduler;
+
     private final Scheduler connectionSubscriptionScheduler;
+
+    private final boolean privateConnectionSubscriptionScheduler;
 
     public Sender() {
         this(new SenderOptions());
     }
 
     public Sender(SenderOptions options) {
-        this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler();
+        this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
+        this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
+            createScheduler() : options.getConnectionSubscriptionScheduler();
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = options.getConnectionFactory().newConnection();
             return connection;
@@ -77,8 +84,14 @@ public class Sender implements AutoCloseable {
             .doOnSubscribe(c -> hasConnection.set(true))
             .subscribeOn(this.connectionSubscriptionScheduler)
             .cache();
-        this.resourceCreationScheduler = options.getResourceCreationScheduler();
+        this.privateResourceCreationScheduler = options.getResourceCreationScheduler() == null;
+        this.resourceCreationScheduler = options.getResourceCreationScheduler() == null ?
+            createScheduler() : options.getResourceCreationScheduler();
         this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
+    }
+
+    protected Scheduler createScheduler() {
+        return Schedulers.elastic();
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {
@@ -234,8 +247,12 @@ public class Sender implements AutoCloseable {
                 throw new ReactorRabbitMqException(e);
             }
         }
-        this.connectionSubscriptionScheduler.dispose();
-        this.resourceCreationScheduler.dispose();
+        if (this.privateConnectionSubscriptionScheduler) {
+            this.connectionSubscriptionScheduler.dispose();
+        }
+        if (this.privateResourceCreationScheduler) {
+            this.resourceCreationScheduler.dispose();
+        }
     }
 
     private enum SubscriberState {

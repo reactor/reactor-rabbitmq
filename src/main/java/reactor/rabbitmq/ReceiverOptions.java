@@ -17,7 +17,7 @@ public class ReceiverOptions {
         return connectionFactory;
     }).get();
 
-    private Scheduler connectionSubscriptionScheduler = Schedulers.elastic();
+    private Scheduler connectionSubscriptionScheduler;
 
     public ConnectionFactory getConnectionFactory() {
         return connectionFactory;
@@ -32,6 +32,12 @@ public class ReceiverOptions {
         return connectionSubscriptionScheduler;
     }
 
+    /**
+     * Scheduler used on connection creation subscription.
+     * It is developer's responsibility to close it if set.
+     * @param connectionSubscriptionScheduler
+     * @return
+     */
     public ReceiverOptions connectionSubscriptionScheduler(Scheduler connectionSubscriptionScheduler) {
         this.connectionSubscriptionScheduler = connectionSubscriptionScheduler;
         return this;
