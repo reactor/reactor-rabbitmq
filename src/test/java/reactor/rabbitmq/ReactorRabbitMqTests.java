@@ -446,6 +446,7 @@ public class ReactorRabbitMqTests {
 
         AtomicLong publishSequence = new AtomicLong();
         when(mockChannel.getNextPublishSeqNo()).thenAnswer(invocation -> publishSequence.incrementAndGet());
+        when(mockChannel.isOpen()).thenReturn(true);
 
         doNothing()
             .doThrow(new IOException("simulated error while publishing"))

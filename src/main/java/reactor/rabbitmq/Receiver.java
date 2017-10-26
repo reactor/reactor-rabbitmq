@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -46,16 +47,19 @@ public class Receiver implements Closeable {
 
     private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
+    private final Scheduler connectionSubscriptionScheduler;
+
     public Receiver() {
         this(new ReceiverOptions());
     }
 
     public Receiver(ReceiverOptions options) {
+        this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler();
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = options.getConnectionFactory().newConnection();
             return connection;
         }).doOnSubscribe(c -> hasConnection.set(true))
-          .subscribeOn(options.getConnectionSubscriptionScheduler())
+          .subscribeOn(this.connectionSubscriptionScheduler)
           .cache();
     }
 
@@ -166,6 +170,7 @@ public class Receiver implements Closeable {
                 throw new ReactorRabbitMqException(e);
             }
         }
+        this.connectionSubscriptionScheduler.dispose();
     }
 
     private static class ChannelCreationFunction implements Function<Connection, Channel> {

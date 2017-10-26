@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,37 +19,33 @@ task wrapper(type: Wrapper, description: "Create a Gradle self-download wrapper"
 	gradleVersion = "$gradleVersion"
 }
 
-configure(rootProject) { subproject ->
-	if(subproject.name == 'docs') return
+configure(allprojects) { project ->
 
 	apply plugin: 'propdeps-maven'
 	apply plugin: 'maven'
-
 	install {
 		repositories.mavenInstaller {
-			customizePom(pom, subproject)
+			customizePom(pom, project)
 		}
 	}
 
 	jar {
 		manifest.attributes["Created-By"] = "${System.getProperty("java.version")} (${System.getProperty("java.specification.vendor")})"
-		manifest.attributes["Implementation-Title"] = subproject.name
-		manifest.attributes["Implementation-Version"] = subproject.version
+		manifest.attributes["Implementation-Title"] = project.name
+		manifest.attributes["Implementation-Version"] = project.version
+		from '../NOTICE'
 	}
 
 	task sourcesJar(type: Jar) {
 		classifier = 'sources'
 		from sourceSets.main.allSource
+		from '../NOTICE'
 	}
 
 	task javadocJar(type: Jar) {
 		classifier = 'javadoc'
 		from javadoc
-	}
-
-	artifacts {
-		archives sourcesJar
-		archives javadocJar
+		from '../NOTICE'
 	}
 }
 
@@ -69,7 +65,7 @@ def customizePom(def pom, def gradleProject) {
 		generatedPom.project {
 			name = gradleProject.description
 			description = gradleProject.description
-			url = 'https://github.com/reactor/reactor'
+			url = 'https://github.com/reactor/reactor-rabbitmq'
 			organization {
 				name = 'reactor'
 				url = 'http://github.com/reactor'
@@ -82,24 +78,20 @@ def customizePom(def pom, def gradleProject) {
 				}
 			}
 			scm {
-				url = 'https://github.com/reactor/reactor-ipc'
-				connection = 'scm:git:git://github.com/reactor/reactor-ipc'
-				developerConnection = 'scm:git:git://github.com/reactor/reactor-ipc'
+				url = 'https://github.com/reactor/reactor-rabbitmq'
+				connection = 'scm:git:git://github.com/reactor/reactor-rabbitmq'
+				developerConnection = 'scm:git:git://github.com/reactor/reactor-rabbitmq'
 			}
 			developers {
 				developer {
-					id = 'smaldini'
-					name = 'Stephane Maldini'
-					email = 'smaldini@pivotal.io'
-				}
-				developer {
-					id = 'kadyana'
-					name = 'Anatoly Kadyshev'
+					id = 'acogoluegnes'
+					name = 'Arnaud Cogoluègnes'
+					email = 'acogoluegnes@pivotal.io'
 				}
 			}
 			issueManagement {
 				system = "GitHub Issues"
-				url = "https://github.com/reactor/reactor/issues"
+				url = "https://github.com/reactor/reactor-rabbitmq/issues"
 			}
 		}
 	}

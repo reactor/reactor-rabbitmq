@@ -62,17 +62,20 @@ public class Sender implements AutoCloseable {
 
     private final Scheduler resourceCreationScheduler;
 
+    private final Scheduler connectionSubscriptionScheduler;
+
     public Sender() {
         this(new SenderOptions());
     }
 
     public Sender(SenderOptions options) {
+        this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler();
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = options.getConnectionFactory().newConnection();
             return connection;
         })
             .doOnSubscribe(c -> hasConnection.set(true))
-            .subscribeOn(options.getConnectionSubscriptionScheduler())
+            .subscribeOn(this.connectionSubscriptionScheduler)
             .cache();
         this.resourceCreationScheduler = options.getResourceCreationScheduler();
         this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
@@ -231,6 +234,8 @@ public class Sender implements AutoCloseable {
                 throw new ReactorRabbitMqException(e);
             }
         }
+        this.connectionSubscriptionScheduler.dispose();
+        this.resourceCreationScheduler.dispose();
     }
 
     private enum SubscriberState {
@@ -244,8 +249,6 @@ public class Sender implements AutoCloseable {
         CoreSubscriber<OutboundMessage> {
 
         private final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
-
-        private final ExecutorService executorService = Executors.newFixedThreadPool(1);
 
         private final AtomicReference<Throwable> firstException = new AtomicReference<Throwable>();
 
@@ -296,11 +299,11 @@ public class Sender implements AutoCloseable {
                         }
                     }
                     if (unconfirmed.size() == 0) {
-                        executorService.submit(() -> {
+                        new Thread(() -> {
                             // confirmation listeners are executed in the IO reading thread
                             // so we need to complete in another thread
                             maybeComplete();
-                        });
+                        }).start();
                     }
                 }
             });
@@ -361,7 +364,8 @@ public class Sender implements AutoCloseable {
         }
 
         private void maybeComplete() {
-            if (state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
+            boolean done = state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE);
+            if (done) {
                 closeResources();
                 subscriber.onComplete();
             }
@@ -369,9 +373,11 @@ public class Sender implements AutoCloseable {
 
         private void closeResources() {
             try {
-                channel.close();
-            } catch (TimeoutException | IOException e) {
-                throw new ReactorRabbitMqException(e);
+                if (channel.isOpen()) {
+                    channel.close();
+                }
+            } catch (Exception e) {
+                // not much we can do here
             }
         }
 

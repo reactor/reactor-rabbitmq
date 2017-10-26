@@ -15,6 +15,240 @@
  */
 
 buildscript {
+	repositories {
+		maven { url "http://repo.spring.io/plugins-release" }
+	}
+	dependencies {
+		classpath 'org.asciidoctor:asciidoctorj-pdf:1.5.0-alpha.11',
+				'org.springframework.build.gradle:propdeps-plugin:0.0.7',
+				'io.spring.gradle:spring-io-plugin:0.0.4.RELEASE',
+				'org.junit.platform:junit-platform-gradle-plugin:1.0.0'
+	}
+}
+plugins {
+	id 'org.asciidoctor.convert' version '1.5.3'
+}
+
+ext {
+	gradleVersion = '3.1'
+	gradleScriptDir = "${rootProject.projectDir}/gradle"
+
+	reactorCoreVersion = "3.1.1.RELEASE"
+
+	// Logging
+	slf4jVersion = '1.7.25'
+	logbackVersion = '1.2.3'
+
+	// Libraries
+	rabbitMqJavaClientVersion = '5.0.0'
+
+	// Testing
+	mockitoVersion = '1.10.19'
+	awaitilityVersion = '3.0.0'
+	junitPlatformVersion = '1.0.0'
+	junitJupiterVersion  = '5.0.0'
+
+	javadocLinks = ["http://docs.oracle.com/javase/7/docs/api/",
+					"http://docs.oracle.com/javaee/6/api/",
+					"http://www.reactive-streams.org/reactive-streams-1.0.1-javadoc/",
+					"http://projectreactor.io/docs/core/release/api/",
+					"http://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/",] as String[]
+}
+
+apply from: "$gradleScriptDir/setup.gradle"
+apply from: "$gradleScriptDir/doc.gradle"
+
+configurations.all {
+	// check for snapshot updates every time
+	resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+}
+
+allprojects {
+	apply plugin: 'jacoco'
+	jacoco {
+		toolVersion = '0.7.7.201606060606'
+	}
+}
+
+configure(allprojects) { project ->
+	group = 'io.projectreactor.rabbitmq'
+
+	repositories {
+		maven { url 'http://repo.spring.io/libs-release' }
+		maven { url 'http://repo.spring.io/libs-snapshot' }
+		mavenCentral()
+		jcenter()
+	}
+
+	apply plugin: 'maven'
+	apply plugin: 'eclipse'
+	apply plugin: 'idea'
+	apply plugin: 'propdeps'
+	apply plugin: 'java'
+	apply plugin: 'org.junit.platform.gradle.plugin'
+
+	sourceCompatibility = targetCompatibility = 1.8
+
+	[compileJava, compileTestJava]*.options*.compilerArgs = ["-Xlint:varargs",
+															 "-Xlint:cast",
+															 "-Xlint:classfile",
+															 "-Xlint:dep-ann",
+															 "-Xlint:divzero",
+															 "-Xlint:empty",
+															 "-Xlint:finally",
+															 "-Xlint:overrides",
+															 "-Xlint:path",
+															 "-Xlint:processing",
+															 "-Xlint:static",
+															 "-Xlint:try",
+															 "-Xlint:deprecation",
+															 "-Xlint:unchecked",
+															 "-Xlint:-serial",      // intentionally disabled
+															 "-Xlint:-options",     // intentionally disabled
+															 "-Xlint:-fallthrough", // intentionally disabled
+															 "-Xlint:-rawtypes"     // TODO enable and fix warnings
+	]
+
+	junitPlatform {
+		filters {
+			includeClassNamePattern '.*Tests'
+		}
+		// store test results where Bamboo expects them or the build will fail
+		reportsDir file('build/test-results/test')
+	}
+
+	// to generate HTML test reports
+	// from https://stackoverflow.com/questions/39444908/how-to-create-an-html-report-for-junit-5-tests/39455463#39455463
+	configurations {
+		junitXmlToHtml
+	}
+
+	task generateHtmlTestReports << {
+		def reportsDir = new File(buildDir, 'reports/tests/test')
+		reportsDir.mkdirs()
+
+		ant.taskdef(
+				name: 'junitReport',
+				classname: 'org.apache.tools.ant.taskdefs.optional.junit.XMLResultAggregator',
+				classpath: configurations.junitXmlToHtml.asPath
+		)
+
+		ant.junitReport(todir: "$buildDir/test-results/test", tofile: "aggregated-test-results.xml") {
+			fileset(dir: "$buildDir/test-results/test")
+			report(format: 'frames', todir: reportsDir)
+		}
+	}
+
+	afterEvaluate {
+		def junitPlatformTestTask = tasks.getByName('junitPlatformTest')
+		generateHtmlTestReports.dependsOn(junitPlatformTestTask)
+		test.dependsOn(generateHtmlTestReports)
+	}
+	// end of HTML test reports
+
+	jacocoTestReport {
+		dependsOn test
+		sourceSets sourceSets.main
+		reports {
+			html.enabled = true
+			xml.enabled = true
+		}
+	}
+	jacocoTestReport.dependsOn test
+
+	dependencies {
+		compile "io.projectreactor:reactor-core:$reactorCoreVersion"
+		compile "com.rabbitmq:amqp-client:$rabbitMqJavaClientVersion"
+
+		// Testing
+		// JUnit Jupiter API and TestEngine implementation
+		testCompile("org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}")
+		testRuntime("org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}")
+		// Only needed to run tests in an (IntelliJ) IDE(A) that bundles an older version
+		testRuntime("org.junit.platform:junit-platform-launcher:${junitPlatformVersion}")
+
+		testCompile "io.projectreactor:reactor-test:$reactorCoreVersion"
+		testCompile "org.awaitility:awaitility:$awaitilityVersion",
+				"org.mockito:mockito-core:$mockitoVersion"
+		testRuntime "org.slf4j:jcl-over-slf4j:$slf4jVersion"
+		testRuntime "org.slf4j:slf4j-api:$slf4jVersion"
+		testRuntime "ch.qos.logback:logback-classic:$logbackVersion"
+
+		// to generate HTML test reports
+		junitXmlToHtml 'org.apache.ant:ant-junit:1.9.7'
+	}
+
+	project.tasks.withType(Test).all {
+		systemProperty("java.awt.headless", "true")
+		systemProperty("reactor.trace.cancel", "true")
+		systemProperty("reactor.trace.nocapacity", "true")
+		systemProperty("testGroups", project.properties.get("testGroups"))
+		scanForTestClasses = false
+		include '**/*Tests.*'
+		include '**/*Spec.*'
+		exclude '**/*Abstract*.*'
+	}
+
+	// force test runs even when there are no test changes
+	test.outputs.upToDateWhen { false }
+
+	if (project.hasProperty('platformVersion')) {
+		apply plugin: 'spring-io'
+
+		repositories {
+			maven { url 'http://repo.spring.io/libs-snapshot' }
+		}
+
+		dependencyManagement {
+			springIoTestRuntime {
+				imports {
+					mavenBom "io.spring.platform:platform-bom:$platformVersion"
+				}
+			}
+		}
+	}
+
+}
+
+configure(rootProject) {
+	archivesBaseName = 'reactor-rabbitmq'
+	description = 'Reactor RabbitMQ: A reactive API for RabbitMQ'
+
+	artifacts {
+		archives sourcesJar
+		archives javadocJar
+//		archives docsZip
+	}
+}
+
+project(':reactor-rabbitmq-samples') {
+	archivesBaseName = 'reactor-rabbitmq-samples'
+	description = 'Samples for Reactor RabbitMQ'
+	dependencies {
+		compile rootProject
+		runtime "ch.qos.logback:logback-classic:$logbackVersion"
+
+		testCompile rootProject.sourceSets.test.output
+	}
+
+	task classpath << {
+		println sourceSets.main.runtimeClasspath.asPath
+	}
+
+	test {
+		jacoco {
+			enabled = false
+		}
+	}
+
+	artifacts {
+		archives sourcesJar
+		archives javadocJar
+	}
+}
+
+/*
+buildscript {
   repositories {
 	maven { url "http://repo.spring.io/plugins-release" }
   }
@@ -160,10 +394,13 @@ configure(rootProject) { project ->
 	systemProperty("reactor.trace.nocapacity", "true")
 	systemProperty("testGroups", project.properties.get("testGroups"))
 	scanForTestClasses = false
-	include '**/*Tests.*'
-	include '**/*Spec.*'
-	exclude '**/*Abstract*.*'
-  }
+	*/
+//	include '**/*Tests.*'
+//	include '**/*Spec.*'
+//	exclude '**/*Abstract*.*'
+//  }
+
+/**
 
   repositories {
 	if (version.endsWith('BUILD-SNAPSHOT') || project.hasProperty('platformVersion')) {
@@ -233,3 +470,5 @@ configurations.all {
   // check for updates every build
   resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
 }
+
+*/
