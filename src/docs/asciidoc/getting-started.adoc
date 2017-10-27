@@ -30,11 +30,74 @@ Download Reactor RabbitMQ from https://github.com/reactor/reactor-rabbitmq/.
 
 ===== Sample Sender
 
-TODO
+The https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleSender.java[`SampleSender`]
+code is on GitHub.
+
+Run the sample sender:
+
+[source]
+--------
+> ./gradlew -q sender
+10:20:12.590 INFO r.rabbitmq.samples.SampleSender - Message Message_1 sent successfully
+10:20:12.596 INFO r.rabbitmq.samples.SampleSender - Message Message_2 sent successfully
+10:20:12.596 INFO r.rabbitmq.samples.SampleSender - Message Message_3 sent successfully
+10:20:12.596 INFO r.rabbitmq.samples.SampleSender - Message Message_4 sent successfully
+10:20:12.596 INFO r.rabbitmq.samples.SampleSender - Message Message_5 sent successfully
+10:20:12.596 INFO r.rabbitmq.samples.SampleSender - Message Message_6 sent successfully
+10:20:12.596 INFO r.rabbitmq.samples.SampleSender - Message Message_7 sent successfully
+10:20:12.596 INFO r.rabbitmq.samples.SampleSender - Message Message_8 sent successfully
+10:20:12.596 INFO r.rabbitmq.samples.SampleSender - Message Message_9 sent successfully
+10:20:12.597 INFO r.rabbitmq.samples.SampleSender - Message Message_10 sent successfully
+10:20:12.597 INFO r.rabbitmq.samples.SampleSender - Message Message_11 sent successfully
+10:20:12.597 INFO r.rabbitmq.samples.SampleSender - Message Message_12 sent successfully
+10:20:12.599 INFO r.rabbitmq.samples.SampleSender - Message Message_13 sent successfully
+10:20:12.600 INFO r.rabbitmq.samples.SampleSender - Message Message_14 sent successfully
+10:20:12.600 INFO r.rabbitmq.samples.SampleSender - Message Message_15 sent successfully
+10:20:12.600 INFO r.rabbitmq.samples.SampleSender - Message Message_16 sent successfully
+10:20:12.600 INFO r.rabbitmq.samples.SampleSender - Message Message_17 sent successfully
+10:20:12.600 INFO r.rabbitmq.samples.SampleSender - Message Message_18 sent successfully
+10:20:12.601 INFO r.rabbitmq.samples.SampleSender - Message Message_19 sent successfully
+10:20:12.601 INFO r.rabbitmq.samples.SampleSender - Message Message_20 sent successfully
+--------
+
+The `SampleSender` sends 20 messages to the `demo-queue` queue, with publisher
+confirms enabled. The log line for a given message is printed to the console
+when the publisher confirmation is received from the broker.
 
 ===== Sample Receiver
 
-TODO
+The https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleSender.java[`SampleReceiver`]
+code is on GitHub.
+
+Run the sample receiver:
+
+[source]
+--------
+> ./gradlew -q receiver
+10:22:43.568 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_1
+10:22:43.575 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_2
+10:22:43.576 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_3
+10:22:43.576 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_4
+10:22:43.576 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_5
+10:22:43.576 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_6
+10:22:43.576 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_7
+10:22:43.576 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_8
+10:22:43.577 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_9
+10:22:43.577 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_10
+10:22:43.577 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_11
+10:22:43.577 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_12
+10:22:43.577 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_13
+10:22:43.577 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_14
+10:22:43.577 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_15
+10:22:43.578 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_16
+10:22:43.578 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_17
+10:22:43.578 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_18
+10:22:43.578 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_19
+10:22:43.578 INFO r.rabbitmq.samples.SampleReceiver - Received message Message_20
+--------
+
+The `SampleReceiver` consumes messages from the `demo-queue` queue and logs
+the message content in the console.
 
 ==== Building Reactor RabbitMQ Applications
 

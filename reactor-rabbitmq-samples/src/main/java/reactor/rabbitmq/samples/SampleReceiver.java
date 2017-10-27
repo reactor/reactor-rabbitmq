@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 public class SampleReceiver {
 
     private static final String QUEUE = "demo-queue";
-    private static final Logger LOGGER = LoggerFactory.getLogger(SampleSender.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SampleReceiver.class);
 
     private final Receiver receiver;
     private final Sender sender;
