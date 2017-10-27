@@ -130,7 +130,22 @@ sender.createExchange(exchange("my.exchange"))
 
 ==== Reliable publishing with publisher confirms
 
-TODO
+`Sender` offers also the `sendWithPublishConfirms` method to send
+messages and receive https://www.rabbitmq.com/confirms.html#publisher-confirms[publisher
+confirms] to make sure the broker has taken into account the outbound messages.
+
+[source, java]
+-------
+Flux<OutboundMessage> outboundFlux  = ...;
+sender.sendWithPublishConfirms(outboundFlux)
+      .subscribe(outboundMessageResult -> {
+        // outbound message has reached the broker
+      });
+-------
+
+`Sender#sendWithPublishConfirms` returns a `Flux<OutboundMessageResult>`
+that can be subscribed to to know that outbound messages
+have successfully reached the broker.
 
 ==== Threading model
 
