@@ -85,6 +85,69 @@ sender.send(outboundFlux)                           // <1>
 <2> If the sending fails, log an error
 <3> Subscribe to trigger the actual flow of records from `outboundFlux` to RabbitMQ.
 
+See https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleSender.java[SampleSender]
+for a full code listing for a `Sender`.
+
+==== Managing resources (exchanges, queues, and bindings)
+
+The `Sender` is also able to create AMQP resources the reactive way.
+You can learn more about the https://www.rabbitmq.com/tutorials/amqp-concepts.html[AMQP
+model on RabbitMQ website].
+
+`Sender` has a `create*` method for each type of resource
+(exchange, binding, and queue) and there's also a respective `*Specification`
+class to describe each creation.
+
+[source, java]
+--------
+Mono<AMQP.Exchange.DeclareOk> exchange = sender.createExchange(
+  ExchangeSpecification.exchange("my.exchange")
+);
+Mono<AMQP.Queue.DeclareOk> queue = sender.createQueue(
+  QueueSpecification.queue("my.queue")
+);
+Mono<AMQP.Queue.BindOk> binding = sender.bind(
+  BindingSpecification.binding().exchange("my.exchange").queue("my.queue").routingKey("a.b")
+);
+--------
+
+Note the `Sender#create*` methods return their respective AMQP results
+wrapped into a `Mono`.
+
+One can also use the `ResourcesSpecification` factory class
+with a static import to reduce boilerplate code. Combined with
+`Mono` chaining it allows for condensed syntax:
+
+[source, java]
+-------
+import static reactor.rabbitmq.ResourcesSpecification.*;
+...
+sender.createExchange(exchange("my.exchange"))
+    .then(sender.createQueue(queue("my.queue")))
+    .then(sender.bind(binding("my.exchange", "a.b", "my.queue")))
+    .subscribe(r -> System.out.println("Exchange and queue created and bound"));
+-------
+
+==== Reliable publishing with publisher confirms
+
+TODO
+
+==== Threading model
+
+TODO
+
+==== Non-blocking back-pressure
+
+TODO
+
+==== Error handling
+
+TODO
+
+==== Closing the `Sender`
+
+TODO
+
 [[api-guide-receiver]]
 === Reactive RabbitMQ Receiver
 
