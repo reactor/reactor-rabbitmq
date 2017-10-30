@@ -149,19 +149,27 @@ have successfully reached the broker.
 
 ==== Threading model
 
-TODO
+Reactor RabbitMQ configure by default the Java Client to use NIO, i.e. there's only
+one thread that deals with IO. This can be changed by specifying a `ConnectionFactory`
+in the `SenderOptions`.
 
-==== Non-blocking back-pressure
-
-TODO
-
-==== Error handling
-
-TODO
+The `Sender` uses 2 Reactor's `Scheduler`s: one for the subscription when creating the
+connection and another one for resources management. The `Sender`s defaults
+to 2 elastic scheduler, this can be overriden in the `SenderOptions`. The `Sender`
+takes care of disposing the default schedulers when closing. If not using the default
+schedulers, it's developer's job to dispose schedulers they passed in to the
+`SenderOptions`.
 
 ==== Closing the `Sender`
 
-TODO
+When the `Sender` is no longer required, the instance can be closed.
+The underlying `Connection` is closed, as well as the default
+schedulers if none has been explicitly provided.
+
+[source,java]
+--------
+sender.close();
+--------
 
 [[api-guide-receiver]]
 === Reactive RabbitMQ Receiver
