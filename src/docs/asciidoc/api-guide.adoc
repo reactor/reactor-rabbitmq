@@ -25,7 +25,7 @@ to transport messages to the broker. A `Sender` can also manage resources
 A `Sender` is created with an instance of sender configuration options
 `reactor.rabbitmq.SenderOptions`.
 The properties of `SenderOptions` contains the `ConnectionFactory` that creates
-connections to the broker and some Reactor `Scheduler`s used by the `Sender`.
+connections to the broker and some Reactor `Scheduler` used by the `Sender`.
 
 [source,java]
 --------
@@ -46,10 +46,10 @@ Sender sender = ReactorRabbitMq.sender(senderOptions);
 --------
 
 The `Sender` is now ready to send messages to RabbitMQ.
-The underlying `Connection` instance is created lazily
-when a first call is made to create a resource or to send messages.
 At this point, a `Sender` instance has been created,
 but no connections to RabbitMQ have been made yet.
+The underlying `Connection` instance is created lazily
+when a first call is made to create a resource or to send messages.
 
 Let's now create a sequence of messages to send to RabbitMQ.
 Each outbound message to be sent to RabbitMQ is represented as a `OutboundMessage`.
@@ -153,9 +153,9 @@ Reactor RabbitMQ configure by default the Java Client to use NIO, i.e. there's o
 one thread that deals with IO. This can be changed by specifying a `ConnectionFactory`
 in the `SenderOptions`.
 
-The `Sender` uses 2 Reactor's `Scheduler`s: one for the subscription when creating the
-connection and another one for resources management. The `Sender`s defaults
-to 2 elastic scheduler, this can be overriden in the `SenderOptions`. The `Sender`
+The `Sender` uses 2 Reactor's `Scheduler`: one for the subscription when creating the
+connection and another one for resources management. The `Sender` defaults
+to 2 elastic schedulers, this can be overriden in the `SenderOptions`. The `Sender`
 takes care of disposing the default schedulers when closing. If not using the default
 schedulers, it's developer's job to dispose schedulers they passed in to the
 `SenderOptions`.
@@ -182,7 +182,7 @@ of `Connection` created by the options-provided `ConnectionFactory`.
 A receiver is created with an instance of receiver configuration options
 `reactor.rabbitmq.ReceiverOptions`. The properties of `SenderOptions`
 contains the `ConnectionFactory` that creates connections to the broker
-and a Reactor `Scheduler`s used for the connection creation.
+and a Reactor `Scheduler` used for the connection creation.
 
 [source,java]
 --------
@@ -195,7 +195,7 @@ ReceiverOptions receiverOptions =  new ReceiverOptions()
 
 Once the required configuration options have been configured on the options instance,
 a new `Receiver` instance can be created with these options to consume inbound messages.
-The code snippet below creates a receiver instance and creates an inbound Flux for the receiver.
+The code snippet below creates a receiver instance and an inbound `Flux` for the receiver.
 The underlying `Connection` and `Consumer` instances are created lazily
 later when the inbound `Flux` is subscribed to.
 
@@ -210,4 +210,58 @@ The inbound RabbitMQ `Flux` is ready to be consumed.
 Each inbound message delivered by the Flux is represented as a
 http://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/com/rabbitmq/client/Delivery.html[`Delivery`].
 
+See https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleReceiver.java[`SampleReceiver`]
+for a full code listing for a `Receiver`.
 
+==== Consuming options
+
+The `Receiver` class has different flavors of the `receive*` method and each of them
+can accept a `ConsumeOptions` instance. Here are the different options:
+
+* `overflowStrategy`: the http://projectreactor.io/docs/core/release/api/reactor/core/publisher/FluxSink.OverflowStrategy.html[`OverflowStrategy`]
+used when creating the `Flux` of messages. Default is `BUFFER`.
+* `qos`: the prefetch count used when message acknowledgment is enabled. Default is 250.
+* `hookBeforeEmitBiFunction`: a `BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean>` to decide
+whether a message should be emitted downstream or not. Default is to always emit.
+* `stopConsumingBiFunction`: a `BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean>` to decide
+whether the flux should be completed after the emission of the message. Default is to never complete.
+
+==== Acknowledgment
+
+`Receiver` has several `receive*` methods that differ on the way consumer are acknowledged
+back to the broker. Acknowledgment mode can have profound impacts on performance and memory
+consumption.
+
+* `consumeNoAck`: the broker forgets about a message as soon as it has sent it to the consumer.
+Use this mode if downstream subscribers are very fast, at least faster than the flow of inbound
+messages. Messages will pile up in the JVM process memory if subscribers are not
+able to cope with the flow of messages, leading to out-of-memory errors. Note this mode
+uses the auto-acknowledgment mode when registering the RabbitMQ `Consumer`.
+* `consumeAutoAck`: with this mode, messages are acknowledged right after their arrival,
+in the `Flux#doOnNext` callback. This can help to cope with the flow of messages, avoiding
+the downstream subscribers to be overwhelmed. Note this mode
+*does not use* the auto-acknowledgment mode when registering the RabbitMQ `Consumer`.
+In this case, `consumeAutoAck` means messages are automatically acknowledged by the library
+in one the `Flux` hooks.
+* `consumeManuelAck`: this method returns a `Flux<AcknowledgableDelivery>` and messages
+must be manually acknowledged or rejected downstream with `AcknowledgableDelivery#ack`
+or `AcknowledgableDelivery#nack`, respectively. This mode lets the developer
+acknowledge messages in the most efficient way, e.g. by acknowledging several messages
+at the same time with `AcknowledgableDelivery#ack(true)` and letting Reactor control
+the batch size with one of the `Flux#buffer` methods.
+
+To learn more on how the `ConsumeOptions#qos` setting can impact the behavior
+of `Receiver#consumeAutoAck` and `Receiver#consumeManualAck`, have a look at
+https://www.rabbitmq.com/blog/2012/05/11/some-queuing-theory-throughput-latency-and-bandwidth/[this
+post about queuing theory].
+
+==== Closing the `Receiver`
+
+When the `Receiver` is no longer required, the instance can be closed.
+The underlying `Connection` is closed, as well as the default scheduler
+if none has been explicitly provided.
+
+[source, java]
+------
+receiver.close();
+------

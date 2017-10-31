@@ -35,10 +35,10 @@ public class ConsumeOptions {
     private FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
 
     /** whether the message should be emitted downstream or not */
-    private BiFunction<FluxSink<?>, ? super Delivery, Boolean> hookBeforeEmit = (fluxSink, message) -> true;
+    private BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> hookBeforeEmitBiFunction = (fluxSink, message) -> true;
 
     /** whether the flux should be completed after the emission of the message */
-    private BiFunction<FluxSink<?>, Delivery, Boolean> stopConsumingBiFunction = (fluxSink, message) -> false;
+    private BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> stopConsumingBiFunction = (fluxSink, message) -> false;
 
     public int getQos() {
         return qos;
@@ -46,7 +46,7 @@ public class ConsumeOptions {
 
     public ConsumeOptions qos(int qos) {
         if(qos < 0) {
-            throw new IllegalArgumentException("QoS must greater or equal to 0");
+            throw new IllegalArgumentException("QoS must be greater or equal to 0");
         }
         this.qos = qos;
         return this;
@@ -61,21 +61,21 @@ public class ConsumeOptions {
         return this;
     }
 
-    public BiFunction<FluxSink<?>, ? super Delivery, Boolean> getHookBeforeEmit() {
-        return hookBeforeEmit;
+    public BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> getHookBeforeEmitBiFunction() {
+        return hookBeforeEmitBiFunction;
     }
 
-    public ConsumeOptions hookBeforeEmit(BiFunction<FluxSink<?>, ? super Delivery, Boolean> hookBeforeEmit) {
-        this.hookBeforeEmit = hookBeforeEmit;
+    public ConsumeOptions hookBeforeEmitBiFunction(BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> hookBeforeEmit) {
+        this.hookBeforeEmitBiFunction = hookBeforeEmit;
         return this;
     }
 
-    public BiFunction<FluxSink<?>, Delivery, Boolean> getStopConsumingBiFunction() {
+    public BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> getStopConsumingBiFunction() {
         return stopConsumingBiFunction;
     }
 
     public ConsumeOptions stopConsumingBiFunction(
-        BiFunction<FluxSink<?>, Delivery, Boolean> stopConsumingBiFunction) {
+        BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> stopConsumingBiFunction) {
         this.stopConsumingBiFunction = stopConsumingBiFunction;
         return this;
     }

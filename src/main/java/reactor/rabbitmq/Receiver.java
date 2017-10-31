@@ -76,7 +76,7 @@ public class Receiver implements Closeable {
     //  - with a Supplier<Boolean> or Predicate<FluxSink> or Predicate<Delivery> to complete the Flux
 
     public Flux<Delivery> consumeNoAck(final String queue) {
-        return consumeNoAck(queue, new ConsumeOptions().overflowStrategy(FluxSink.OverflowStrategy.IGNORE));
+        return consumeNoAck(queue, new ConsumeOptions());
     }
 
     public Flux<Delivery> consumeNoAck(final String queue, ConsumeOptions options) {
@@ -115,7 +115,7 @@ public class Receiver implements Closeable {
     }
 
     public Flux<Delivery> consumeAutoAck(final String queue) {
-        return consumeAutoAck(queue, new ConsumeOptions().overflowStrategy(FluxSink.OverflowStrategy.BUFFER));
+        return consumeAutoAck(queue, new ConsumeOptions());
     }
 
     public Flux<Delivery> consumeAutoAck(final String queue, ConsumeOptions options) {
@@ -124,7 +124,7 @@ public class Receiver implements Closeable {
     }
 
     public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue) {
-        return consumeManuelAck(queue, new ConsumeOptions().overflowStrategy(FluxSink.OverflowStrategy.BUFFER));
+        return consumeManuelAck(queue, new ConsumeOptions());
     }
 
     public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue, ConsumeOptions options) {
@@ -138,7 +138,7 @@ public class Receiver implements Closeable {
 
                 DeliverCallback deliverCallback = (consumerTag, message) -> {
                     AcknowledgableDelivery delivery = new AcknowledgableDelivery(message, channel);
-                    if(options.getHookBeforeEmit().apply(emitter, delivery)) {
+                    if(options.getHookBeforeEmitBiFunction().apply(emitter, delivery)) {
                         emitter.next(delivery);
                     }
                     if (options.getStopConsumingBiFunction().apply(emitter, message)) {

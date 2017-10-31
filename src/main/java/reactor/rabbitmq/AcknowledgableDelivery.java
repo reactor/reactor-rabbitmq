@@ -42,10 +42,24 @@ public class AcknowledgableDelivery extends Delivery {
         this.channel = channel;
     }
 
-    public void ack() {
+    public void ack(boolean multiple) {
         if(notAckedOrNacked.getAndSet(false)) {
             try {
-                channel.basicAck(getEnvelope().getDeliveryTag(), false);
+                channel.basicAck(getEnvelope().getDeliveryTag(), multiple);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException(e);
+            }
+        }
+    }
+
+    public void ack() {
+        ack(false);
+    }
+
+    public void nack(boolean multiple, boolean requeue) {
+        if(notAckedOrNacked.getAndSet(false)) {
+            try {
+                channel.basicNack(getEnvelope().getDeliveryTag(), multiple, requeue);
             } catch (IOException e) {
                 throw new ReactorRabbitMqException(e);
             }
@@ -53,12 +67,6 @@ public class AcknowledgableDelivery extends Delivery {
     }
 
     public void nack(boolean requeue) {
-        if(notAckedOrNacked.getAndSet(false)) {
-            try {
-                channel.basicNack(getEnvelope().getDeliveryTag(), false, requeue);
-            } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
-            }
-        }
+        nack(false, requeue);
     }
 }

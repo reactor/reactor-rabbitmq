@@ -66,7 +66,7 @@ when the publisher confirmation is received from the broker.
 
 ===== Sample Receiver
 
-The https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleSender.java[`SampleReceiver`]
+The https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleReceiver.java[`SampleReceiver`]
 code is on GitHub.
 
 Run the sample receiver:
