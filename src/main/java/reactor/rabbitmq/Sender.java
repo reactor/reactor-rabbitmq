@@ -16,6 +16,16 @@
 
 package reactor.rabbitmq;
 
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
@@ -27,24 +37,12 @@ import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.CoreSubscriber;
-import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxOperator;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
-
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 /**
  * Reactive abstraction to create resources and send messages.
@@ -142,14 +140,7 @@ public class Sender implements AutoCloseable {
                 return channel;
             });
 
-        return channelMono.flatMapMany(channel -> new Flux<OutboundMessageResult>() {
-
-            @Override
-            public void subscribe(CoreSubscriber<? super OutboundMessageResult>
-                subscriber) {
-                messages.subscribe(new PublishConfirmSubscriber(channel, subscriber));
-            }
-        });
+        return channelMono.flatMapMany(channel -> new PublishConfirmOperator(messages, channel));
     }
 
     public Mono<AMQP.Queue.DeclareOk> createQueue(QueueSpecification specification) {
@@ -244,6 +235,22 @@ public class Sender implements AutoCloseable {
         ACTIVE,
         OUTBOUND_DONE,
         COMPLETE
+    }
+
+    private static class PublishConfirmOperator
+            extends FluxOperator<OutboundMessage, OutboundMessageResult> {
+
+        private final Channel channel;
+
+        public PublishConfirmOperator(Publisher<OutboundMessage> source, Channel channel) {
+            super(Flux.from(source));
+            this.channel = channel;
+        }
+
+        @Override
+        public void subscribe(CoreSubscriber<? super OutboundMessageResult> actual) {
+            source.subscribe(new PublishConfirmSubscriber(channel, actual));
+        }
     }
 
     private static class PublishConfirmSubscriber implements
