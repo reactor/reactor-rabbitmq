@@ -99,49 +99,33 @@ public class Sender implements AutoCloseable {
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
         final Mono<Channel> currentChannelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
-        return new Flux<Void>() {
 
-            @Override
-            public void subscribe(CoreSubscriber<? super Void> s) {
-                messages.subscribe(new BaseSubscriber<OutboundMessage>() {
-
-                    @Override
-                    protected void hookOnSubscribe(Subscription subscription) {
-                        s.onSubscribe(subscription);
-                    }
-
-                    @Override
-                    protected void hookOnNext(OutboundMessage message) {
+        return currentChannelMono.flatMapMany(channel ->
+                Flux.from(messages)
+                    .doOnNext(message -> {
                         try {
-                            currentChannelMono.block().basicPublish(
-                                message.getExchange(),
-                                message.getRoutingKey(),
-                                message.getProperties(),
-                                message.getBody()
+                            channel.basicPublish(
+                                    message.getExchange(),
+                                    message.getRoutingKey(),
+                                    message.getProperties(),
+                                    message.getBody()
                             );
                         } catch (IOException e) {
+                            //TODO swallow errors? any message error interrupts the Flux
                             throw new ReactorRabbitMqException(e);
                         }
-                    }
-
-                    @Override
-                    protected void hookOnError(Throwable throwable) {
-                        LOGGER.warn("Send failed with exception {}", throwable);
-                    }
-
-                    @Override
-                    protected void hookOnComplete() {
+                    })
+                    .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
+                    .doFinally(st -> {
+                        int channelNumber = channel.getChannelNumber();
+                        LOGGER.info("closing channel {} by signal {}", channelNumber, st);
                         try {
-                            LOGGER.info("closing channel {}", currentChannelMono.block().getChannelNumber());
-                            currentChannelMono.block().close();
+                            channel.close();
                         } catch (TimeoutException | IOException e) {
-                            LOGGER.warn("Channel {} didn't close normally: {}", channelMono.block().getChannelNumber(), e.getMessage());
+                            LOGGER.warn("Channel {} didn't close normally: {}", channelNumber, e.getMessage());
                         }
-                        s.onComplete();
-                    }
-                });
-            }
-        }.then();
+                    })
+        ).then();
     }
 
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages) {
