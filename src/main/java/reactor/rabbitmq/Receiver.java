@@ -24,7 +24,6 @@ import com.rabbitmq.client.Delivery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -69,7 +68,7 @@ public class Receiver implements Closeable {
     }
 
     protected Scheduler createScheduler() {
-        return Schedulers.elastic();
+        return Schedulers.newElastic("rabbitmq-receiver-");
     }
 
     // TODO more consumeNoAck functions:
@@ -80,8 +79,6 @@ public class Receiver implements Closeable {
     }
 
     public Flux<Delivery> consumeNoAck(final String queue, ConsumeOptions options) {
-        // TODO track flux so it can be disposed when the sender is closed?
-        // could be also developer responsibility
         return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {
             try {
                 DeliverCallback deliverCallback = (consumerTag, message) -> {
@@ -96,16 +93,19 @@ public class Receiver implements Closeable {
                 };
 
                 final String consumerTag = channel.basicConsume(queue, true, deliverCallback, cancelCallback);
+                AtomicBoolean cancelled = new AtomicBoolean(false);
                 LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                 emitter.onDispose(() -> {
                     LOGGER.info("Cancelling consumer {} consuming from {}", consumerTag, queue);
-                    try {
-                        if(channel.isOpen() && channel.getConnection().isOpen()) {
-                            channel.basicCancel(consumerTag);
-                            channel.close();
+                    if (cancelled.compareAndSet(false, true)) {
+                        try {
+                            if(channel.isOpen() && channel.getConnection().isOpen()) {
+                                channel.basicCancel(consumerTag);
+                                channel.close();
+                            }
+                        } catch (TimeoutException | IOException e) {
+                            throw new ReactorRabbitMqException(e);
                         }
-                    } catch (TimeoutException | IOException e) {
-                        throw new ReactorRabbitMqException(e);
                     }
                 });
             } catch (IOException e) {
@@ -120,14 +120,14 @@ public class Receiver implements Closeable {
 
     public Flux<Delivery> consumeAutoAck(final String queue, ConsumeOptions options) {
         // TODO why acking here and not just after emitter.next()?
-        return consumeManuelAck(queue, options).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
+        return consumeManualAck(queue, options).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
     }
 
-    public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue) {
-        return consumeManuelAck(queue, new ConsumeOptions());
+    public Flux<AcknowledgableDelivery> consumeManualAck(final String queue) {
+        return consumeManualAck(queue, new ConsumeOptions());
     }
 
-    public Flux<AcknowledgableDelivery> consumeManuelAck(final String queue, ConsumeOptions options) {
+    public Flux<AcknowledgableDelivery> consumeManualAck(final String queue, ConsumeOptions options) {
         // TODO track flux so it can be disposed when the sender is closed?
         // could be also developer responsibility
         return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {
@@ -151,15 +151,18 @@ public class Receiver implements Closeable {
                 };
 
                 final String consumerTag = channel.basicConsume(queue, false, deliverCallback, cancelCallback);
+                AtomicBoolean cancelled = new AtomicBoolean(false);
                 emitter.onDispose(() -> {
-
-                    try {
-                        if (channel.isOpen() && channel.getConnection().isOpen()) {
-                            channel.basicCancel(consumerTag);
-                            channel.close();
+                    LOGGER.info("Cancelling consumer {} consuming from {}", consumerTag, queue);
+                    if (cancelled.compareAndSet(false, true)) {
+                        try {
+                            if (channel.isOpen() && channel.getConnection().isOpen()) {
+                                channel.basicCancel(consumerTag);
+                                channel.close();
+                            }
+                        } catch (TimeoutException | IOException e) {
+                            throw new ReactorRabbitMqException(e);
                         }
-                    } catch (TimeoutException | IOException e) {
-                        throw new ReactorRabbitMqException(e);
                     }
                 });
             } catch (IOException e) {

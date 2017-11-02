@@ -91,7 +91,7 @@ public class Sender implements AutoCloseable {
     }
 
     protected Scheduler createScheduler() {
-        return Schedulers.elastic();
+        return Schedulers.newElastic("rabbitmq-sender-");
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {

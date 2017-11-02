@@ -243,7 +243,7 @@ the downstream subscribers to be overwhelmed. Note this mode
 *does not use* the auto-acknowledgment mode when registering the RabbitMQ `Consumer`.
 In this case, `consumeAutoAck` means messages are automatically acknowledged by the library
 in one the `Flux` hooks.
-* `consumeManuelAck`: this method returns a `Flux<AcknowledgableDelivery>` and messages
+* `consumeManualAck`: this method returns a `Flux<AcknowledgableDelivery>` and messages
 must be manually acknowledged or rejected downstream with `AcknowledgableDelivery#ack`
 or `AcknowledgableDelivery#nack`, respectively. This mode lets the developer
 acknowledge messages in the most efficient way, e.g. by acknowledging several messages

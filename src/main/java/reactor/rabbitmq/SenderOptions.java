@@ -2,7 +2,6 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.ConnectionFactory;
 import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 
 import java.util.function.Supplier;
 
@@ -17,9 +16,9 @@ public class SenderOptions {
         return connectionFactory;
     }).get();
 
-    private Scheduler resourceCreationScheduler = Schedulers.elastic();
+    private Scheduler resourceCreationScheduler;
 
-    private Scheduler connectionSubscriptionScheduler = Schedulers.elastic();
+    private Scheduler connectionSubscriptionScheduler;
 
     public ConnectionFactory getConnectionFactory() {
         return connectionFactory;

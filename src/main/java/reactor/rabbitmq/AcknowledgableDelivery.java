@@ -32,12 +32,12 @@ public class AcknowledgableDelivery extends Delivery {
     private final AtomicBoolean notAckedOrNacked = new AtomicBoolean(true);
 
     /**
-     * Made public only for testing purposes.
+     * Made package-protected only for testing purposes.
      * Only the library is supposed to create instances.
      * @param delivery
      * @param channel
      */
-    public AcknowledgableDelivery(Delivery delivery, Channel channel) {
+    AcknowledgableDelivery(Delivery delivery, Channel channel) {
         super(delivery.getEnvelope(), delivery.getProperties(), delivery.getBody());
         this.channel = channel;
     }

@@ -224,7 +224,7 @@ public class ReactorRabbitMqTests {
         receiver = ReactorRabbitMq.createReceiver();
 
         for (int $ : IntStream.range(0, 10).toArray()) {
-            Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue);
+            Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue);
 
             for (int $$ : IntStream.range(0, nbMessages).toArray()) {
                 channel.basicPublish("", queue, null, "Hello".getBytes());
@@ -270,7 +270,7 @@ public class ReactorRabbitMqTests {
 
         CountDownLatch ackedNackedLatch = new CountDownLatch(2 * nbMessages - 1);
 
-        Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue, new ConsumeOptions()
+        Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue, new ConsumeOptions()
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
             .hookBeforeEmitBiFunction((emitter, message) -> {
                 if(emitter.requestedFromDownstream() == 0) {
@@ -338,7 +338,7 @@ public class ReactorRabbitMqTests {
 
         CountDownLatch ackedDroppedLatch = new CountDownLatch(2 * nbMessages - 1);
 
-        Flux<AcknowledgableDelivery> flux = receiver.consumeManuelAck(queue, new ConsumeOptions()
+        Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue, new ConsumeOptions()
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
             .hookBeforeEmitBiFunction((emitter, message) -> {
                 if(emitter.requestedFromDownstream() == 0) {
