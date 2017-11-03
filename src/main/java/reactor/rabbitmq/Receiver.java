@@ -83,7 +83,7 @@ public class Receiver implements Closeable {
             try {
                 DeliverCallback deliverCallback = (consumerTag, message) -> {
                     emitter.next(message);
-                    if (options.getStopConsumingBiFunction().apply(emitter, message)) {
+                    if (options.getStopConsumingBiFunction().apply(emitter.requestedFromDownstream(), message)) {
                         emitter.complete();
                     }
                 };
@@ -138,10 +138,10 @@ public class Receiver implements Closeable {
 
                 DeliverCallback deliverCallback = (consumerTag, message) -> {
                     AcknowledgableDelivery delivery = new AcknowledgableDelivery(message, channel);
-                    if(options.getHookBeforeEmitBiFunction().apply(emitter, delivery)) {
+                    if(options.getHookBeforeEmitBiFunction().apply(emitter.requestedFromDownstream(), delivery)) {
                         emitter.next(delivery);
                     }
-                    if (options.getStopConsumingBiFunction().apply(emitter, message)) {
+                    if (options.getStopConsumingBiFunction().apply(emitter.requestedFromDownstream(), message)) {
                         emitter.complete();
                     }
                 };

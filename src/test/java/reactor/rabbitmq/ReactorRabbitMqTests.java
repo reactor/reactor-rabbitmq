@@ -272,8 +272,8 @@ public class ReactorRabbitMqTests {
 
         Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue, new ConsumeOptions()
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
-            .hookBeforeEmitBiFunction((emitter, message) -> {
-                if(emitter.requestedFromDownstream() == 0) {
+            .hookBeforeEmitBiFunction((requestedFromDownstream, message) -> {
+                if(requestedFromDownstream == 0) {
                     ((AcknowledgableDelivery) message).nack(true);
                     ackedNackedLatch.countDown();
                     return false;
@@ -340,8 +340,8 @@ public class ReactorRabbitMqTests {
 
         Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue, new ConsumeOptions()
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
-            .hookBeforeEmitBiFunction((emitter, message) -> {
-                if(emitter.requestedFromDownstream() == 0) {
+            .hookBeforeEmitBiFunction((requestedFromDownstream, message) -> {
+                if(requestedFromDownstream == 0) {
                     ((AcknowledgableDelivery) message).ack();
                     ackedDroppedLatch.countDown();
                 }

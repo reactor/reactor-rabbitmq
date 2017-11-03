@@ -35,10 +35,10 @@ public class ConsumeOptions {
     private FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
 
     /** whether the message should be emitted downstream or not */
-    private BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> hookBeforeEmitBiFunction = (fluxSink, message) -> true;
+    private BiFunction<Long, ? super Delivery, Boolean> hookBeforeEmitBiFunction = (requestedFromDownstream, message) -> true;
 
     /** whether the flux should be completed after the emission of the message */
-    private BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> stopConsumingBiFunction = (fluxSink, message) -> false;
+    private BiFunction<Long, ? super Delivery, Boolean> stopConsumingBiFunction = (requestedFromDownstream, message) -> false;
 
     public int getQos() {
         return qos;
@@ -61,21 +61,21 @@ public class ConsumeOptions {
         return this;
     }
 
-    public BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> getHookBeforeEmitBiFunction() {
+    public BiFunction<Long,  ? super Delivery, Boolean> getHookBeforeEmitBiFunction() {
         return hookBeforeEmitBiFunction;
     }
 
-    public ConsumeOptions hookBeforeEmitBiFunction(BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> hookBeforeEmit) {
+    public ConsumeOptions hookBeforeEmitBiFunction(BiFunction<Long, ? super Delivery, Boolean> hookBeforeEmit) {
         this.hookBeforeEmitBiFunction = hookBeforeEmit;
         return this;
     }
 
-    public BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> getStopConsumingBiFunction() {
+    public BiFunction<Long,  ? super Delivery, Boolean> getStopConsumingBiFunction() {
         return stopConsumingBiFunction;
     }
 
     public ConsumeOptions stopConsumingBiFunction(
-        BiFunction<FluxSink<? extends Delivery>, ? super Delivery, Boolean> stopConsumingBiFunction) {
+        BiFunction<Long,  ? super Delivery, Boolean> stopConsumingBiFunction) {
         this.stopConsumingBiFunction = stopConsumingBiFunction;
         return this;
     }
