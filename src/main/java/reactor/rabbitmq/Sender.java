@@ -76,7 +76,7 @@ public class Sender implements AutoCloseable {
     public Sender(SenderOptions options) {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
-            createScheduler() : options.getConnectionSubscriptionScheduler();
+            createScheduler("rabbitmq-sender-conn-sub") : options.getConnectionSubscriptionScheduler();
         this.connectionMono = Mono.fromCallable(() -> {
             Connection connection = options.getConnectionFactory().newConnection();
             return connection;
@@ -86,12 +86,12 @@ public class Sender implements AutoCloseable {
             .cache();
         this.privateResourceCreationScheduler = options.getResourceCreationScheduler() == null;
         this.resourceCreationScheduler = options.getResourceCreationScheduler() == null ?
-            createScheduler() : options.getResourceCreationScheduler();
+            createScheduler("rabbitmq-sender-res-creat") : options.getResourceCreationScheduler();
         this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
     }
 
-    protected Scheduler createScheduler() {
-        return Schedulers.newElastic("rabbitmq-sender-");
+    protected Scheduler createScheduler(String name) {
+        return Schedulers.newElastic(name);
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {
