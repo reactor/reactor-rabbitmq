@@ -109,8 +109,7 @@ public class Sender implements AutoCloseable {
                                     message.getBody()
                             );
                         } catch (IOException e) {
-                            //TODO swallow errors? any message error interrupts the Flux
-                            throw new ReactorRabbitMqException(e);
+                            LOGGER.warn("Error when publishing message: {}", e.getMessage());
                         }
                     })
                     .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
@@ -118,7 +117,9 @@ public class Sender implements AutoCloseable {
                         int channelNumber = channel.getChannelNumber();
                         LOGGER.info("closing channel {} by signal {}", channelNumber, st);
                         try {
-                            channel.close();
+                            if(channel.isOpen() && channel.getConnection().isOpen()) {
+                                channel.close();
+                            }
                         } catch (TimeoutException | IOException e) {
                             LOGGER.warn("Channel {} didn't close normally: {}", channelNumber, e.getMessage());
                         }
