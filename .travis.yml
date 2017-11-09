@@ -2,7 +2,9 @@ dist: trusty
 sudo: required
 
 language: java
-jdk: oraclejdk8
+jdk:
+  - oraclejdk8
+  - oraclejdk9
 
 notifications:
   email: acogoluegnes@pivotal.io
