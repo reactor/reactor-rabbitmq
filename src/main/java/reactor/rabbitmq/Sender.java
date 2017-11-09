@@ -16,16 +16,6 @@
 
 package reactor.rabbitmq;
 
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
@@ -43,6 +33,16 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 /**
  * Reactive abstraction to create resources and send messages.
@@ -179,6 +179,32 @@ public class Sender implements AutoCloseable {
           .publishOn(resourceCreationScheduler);
     }
 
+    public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification) {
+        return this.delete(specification, false, false);
+    }
+
+    public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, boolean ifUnused, boolean ifEmpty) {
+        return this.deleteQueue(specification, ifUnused, ifEmpty);
+    }
+
+    public Mono<AMQP.Queue.DeleteOk> deleteQueue(QueueSpecification specification, boolean ifUnused, boolean ifEmpty) {
+        AMQP.Queue.Delete delete = new AMQImpl.Queue.Delete.Builder()
+            .queue(specification.getName())
+            .ifUnused(ifUnused)
+            .ifEmpty(ifEmpty)
+            .build();
+
+        return channelMono.map(channel -> {
+            try {
+                return channel.asyncCompletableRpc(delete);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error during RPC call", e);
+            }
+        }).flatMap(future -> Mono.fromCompletionStage(future))
+            .flatMap(command -> Mono.just((AMQP.Queue.DeleteOk) command.getMethod()))
+            .publishOn(resourceCreationScheduler);
+    }
+
     public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification) {
         return this.declareExchange(specification);
     }
@@ -201,6 +227,49 @@ public class Sender implements AutoCloseable {
         }).flatMap(future -> Mono.fromCompletionStage(future))
           .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()))
           .publishOn(resourceCreationScheduler);
+    }
+
+    public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification) {
+        return this.delete(specification, false);
+    }
+
+    public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, boolean ifUnused) {
+        return this.deleteExchange(specification, ifUnused);
+    }
+
+    public Mono<AMQP.Exchange.DeleteOk> deleteExchange(ExchangeSpecification specification, boolean ifUnused) {
+        AMQP.Exchange.Delete delete = new AMQImpl.Exchange.Delete.Builder()
+            .exchange(specification.getName())
+            .ifUnused(ifUnused)
+            .build();
+        return channelMono.map(channel -> {
+            try {
+                return channel.asyncCompletableRpc(delete);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error during RPC call", e);
+            }
+        }).flatMap(future -> Mono.fromCompletionStage(future))
+            .flatMap(command -> Mono.just((AMQP.Exchange.DeleteOk) command.getMethod()))
+            .publishOn(resourceCreationScheduler);
+    }
+
+    public Mono<AMQP.Queue.UnbindOk> unbind(BindingSpecification specification) {
+        AMQP.Queue.Unbind unbinding = new AMQImpl.Queue.Unbind.Builder()
+            .exchange(specification.getExchange())
+            .queue(specification.getQueue())
+            .routingKey(specification.getRoutingKey())
+            .arguments(specification.getArguments())
+            .build();
+
+        return channelMono.map(channel -> {
+            try {
+                return channel.asyncCompletableRpc(unbinding);
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error during RPC call",e);
+            }
+        }).flatMap(future -> Mono.fromCompletionStage(future))
+            .flatMap(command -> Mono.just((AMQP.Queue.UnbindOk) command.getMethod()))
+            .publishOn(resourceCreationScheduler);
     }
 
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {

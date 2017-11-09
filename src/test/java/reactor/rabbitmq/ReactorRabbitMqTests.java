@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.any;
@@ -483,30 +484,52 @@ public class ReactorRabbitMqTests {
     }
 
     @Test
-    public void createResources() throws Exception {
-        final Channel channel = connection.createChannel();
+    public void declareDeleteResources() throws Exception {
+        Channel channel = connection.createChannel();
 
         final String queueName = UUID.randomUUID().toString();
         final String exchangeName = UUID.randomUUID().toString();
 
         try {
-            CountDownLatch latch = new CountDownLatch(1);
+            CountDownLatch latchCreation = new CountDownLatch(1);
             sender = ReactorRabbitMq.createSender();
             Disposable resourceCreation = sender.declare(exchange(exchangeName))
                 .then(sender.declare(queue(queueName)))
                 .then(sender.bind(binding(exchangeName, "a.b", queueName)))
-                .doAfterTerminate(() -> latch.countDown())
+                .doAfterTerminate(() -> latchCreation.countDown())
                 .subscribe();
 
-            assertTrue(latch.await(1, TimeUnit.SECONDS));
+            assertTrue(latchCreation.await(1, TimeUnit.SECONDS));
 
             channel.exchangeDeclarePassive(exchangeName);
             channel.queueDeclarePassive(queueName);
             resourceCreation.dispose();
+
+            CountDownLatch latchDeletion = new CountDownLatch(1);
+
+            Disposable resourceDeletion = sender.unbind(binding(exchangeName, "a.b", queueName))
+                .then(sender.delete(exchange(exchangeName)))
+                .then(sender.delete(queue(queueName)))
+                .doAfterTerminate(() -> latchDeletion.countDown())
+                .subscribe();
+
+            assertTrue(latchDeletion.await(1, TimeUnit.SECONDS));
+            resourceDeletion.dispose();
+
         } finally {
-            channel.exchangeDelete(exchangeName);
-            channel.queueDelete(queueName);
-            channel.close();
+            try {
+                channel.exchangeDeclarePassive(exchangeName);
+                fail("The exchange should have been deleted, exchangeDeclarePassive should have thrown an exception");
+            } catch (IOException e) {
+                // OK
+                channel = connection.createChannel();
+            }
+            try {
+                channel.queueDeclarePassive(queueName);
+                fail("The queue should have been deleted, queueDeclarePassive should thrown an exception");
+            } catch (IOException e) {
+                // OK
+            }
         }
     }
 

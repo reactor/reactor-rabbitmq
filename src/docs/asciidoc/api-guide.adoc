@@ -90,7 +90,7 @@ for a full code listing for a `Sender`.
 
 ==== Managing resources (exchanges, queues, and bindings)
 
-The `Sender` is also able to create AMQP resources the reactive way.
+The `Sender` is also able to declare and delete AMQP resources the reactive way.
 You can learn more about the https://www.rabbitmq.com/tutorials/amqp-concepts.html[AMQP
 model on RabbitMQ website].
 
@@ -126,6 +126,19 @@ sender.declare(exchange("my.exchange"))
     .then(sender.declare(queue("my.queue")))
     .then(sender.bind(binding("my.exchange", "a.b", "my.queue")))
     .subscribe(r -> System.out.println("Exchange and queue declared and bound"));
+-------
+
+`Sender` has `delete*` and `delete` methods as well. Here is an example with
+the short method forms:
+
+[source, java]
+-------
+import static reactor.rabbitmq.ResourcesSpecification.*;
+...
+sender.unbind(binding("my.exchange", "a.b", "my.queue"))
+    .then(sender.delete(exchange(my.exchange)))
+    .then(sender.delete(queue("my.queue")))
+    .subscribe(r -> System.out.println("Exchange and queue unbound and deleted"));
 -------
 
 ==== Reliable publishing with publisher confirms
