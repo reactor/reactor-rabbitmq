@@ -94,16 +94,16 @@ The `Sender` is also able to create AMQP resources the reactive way.
 You can learn more about the https://www.rabbitmq.com/tutorials/amqp-concepts.html[AMQP
 model on RabbitMQ website].
 
-`Sender` has a `create*` method for each type of resource
+`Sender` has a `declare*` method for each type of resource
 (exchange, binding, and queue) and there's also a respective `*Specification`
 class to describe each creation.
 
 [source, java]
 --------
-Mono<AMQP.Exchange.DeclareOk> exchange = sender.createExchange(
+Mono<AMQP.Exchange.DeclareOk> exchange = sender.declareExchange(
   ExchangeSpecification.exchange("my.exchange")
 );
-Mono<AMQP.Queue.DeclareOk> queue = sender.createQueue(
+Mono<AMQP.Queue.DeclareOk> queue = sender.declareQueue(
   QueueSpecification.queue("my.queue")
 );
 Mono<AMQP.Queue.BindOk> binding = sender.bind(
@@ -111,21 +111,21 @@ Mono<AMQP.Queue.BindOk> binding = sender.bind(
 );
 --------
 
-Note the `Sender#create*` methods return their respective AMQP results
+Note the `Sender#declare*` methods return their respective AMQP results
 wrapped into a `Mono`.
 
 One can also use the `ResourcesSpecification` factory class
 with a static import to reduce boilerplate code. Combined with
-`Mono` chaining it allows for condensed syntax:
+`Mono` chaining and `Sender#declare` shortcuts, it allows for condensed syntax:
 
 [source, java]
 -------
 import static reactor.rabbitmq.ResourcesSpecification.*;
 ...
-sender.createExchange(exchange("my.exchange"))
-    .then(sender.createQueue(queue("my.queue")))
+sender.declare(exchange("my.exchange"))
+    .then(sender.declare(queue("my.queue")))
     .then(sender.bind(binding("my.exchange", "a.b", "my.queue")))
-    .subscribe(r -> System.out.println("Exchange and queue created and bound"));
+    .subscribe(r -> System.out.println("Exchange and queue declared and bound"));
 -------
 
 ==== Reliable publishing with publisher confirms

@@ -46,7 +46,7 @@ public class SampleSender {
         Flux<OutboundMessageResult> confirmations = sender.sendWithPublishConfirms(Flux.range(1, count)
             .map(i -> new OutboundMessage("", queue, ("Message_" + i).getBytes())));
 
-        sender.createQueue(QueueSpecification.queue(queue))
+        sender.declareQueue(QueueSpecification.queue(queue))
             .thenMany(confirmations)
                 .doOnError(e -> LOGGER.error("Send failed", e))
                 .subscribe(r -> {

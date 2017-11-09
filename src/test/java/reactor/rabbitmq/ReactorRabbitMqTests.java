@@ -64,6 +64,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static reactor.rabbitmq.ResourcesSpecification.binding;
+import static reactor.rabbitmq.ResourcesSpecification.exchange;
+import static reactor.rabbitmq.ResourcesSpecification.queue;
 
 /**
  *
@@ -489,9 +492,9 @@ public class ReactorRabbitMqTests {
         try {
             CountDownLatch latch = new CountDownLatch(1);
             sender = ReactorRabbitMq.createSender();
-            Disposable resourceCreation = sender.createExchange(ExchangeSpecification.exchange().name(exchangeName))
-                .then(sender.createQueue(QueueSpecification.queue(queueName)))
-                .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey("a.b")))
+            Disposable resourceCreation = sender.declare(exchange(exchangeName))
+                .then(sender.declare(queue(queueName)))
+                .then(sender.bind(binding(exchangeName, "a.b", queueName)))
                 .doAfterTerminate(() -> latch.countDown())
                 .subscribe();
 
@@ -520,10 +523,9 @@ public class ReactorRabbitMqTests {
             CountDownLatch latch = new CountDownLatch(nbMessages);
             AtomicInteger count = new AtomicInteger();
 
-            Disposable resourceSendingConsuming = sender.createExchange(ExchangeSpecification.exchange
-                (exchangeName))
-                .then(sender.createQueue(QueueSpecification.queue(queueName)))
-                .then(sender.bind(BindingSpecification.binding().queue(queueName).exchange(exchangeName).routingKey(routingKey)))
+            Disposable resourceSendingConsuming = sender.declare(exchange(exchangeName))
+                .then(sender.declare(queue(queueName)))
+                .then(sender.bind(binding(exchangeName, routingKey, queueName)))
                 .thenMany(sender.send(Flux.range(0, nbMessages)
                     .map(i -> new OutboundMessage(exchangeName, routingKey, i.toString().getBytes()))))
                 .thenMany(receiver.consumeNoAck(
@@ -552,8 +554,8 @@ public class ReactorRabbitMqTests {
         try {
             sender = ReactorRabbitMq.createSender();
             receiver = ReactorRabbitMq.createReceiver();
-            Mono<AMQP.Queue.DeclareOk> resources = sender.createQueue(QueueSpecification.queue(sourceQueue))
-                .then(sender.createQueue(QueueSpecification.queue(destinationQueue)));
+            Mono<AMQP.Queue.DeclareOk> resources = sender.declare(queue(sourceQueue))
+                .then(sender.declare(queue(destinationQueue)));
 
             int nbMessages = 100;
 
@@ -589,12 +591,12 @@ public class ReactorRabbitMqTests {
         int nbMessages = 100;
 
         Flux<Tuple2<Integer, String>> queues = Flux.range(0, nbPartitions)
-            .flatMap(partition -> sender.createQueue(QueueSpecification.queue("partitions"+partition).autoDelete(true))
+            .flatMap(partition -> sender.declare(queue("partitions"+partition).autoDelete(true))
                                                 .map(q -> Tuples.of(partition, q.getQueue())))
             .cache();
 
         Flux<AMQP.Queue.BindOk> bindings = queues
-            .flatMap(q -> sender.bind(BindingSpecification.binding("amq.direct", "" + q.getT1(), q.getT2())));
+            .flatMap(q -> sender.bind(binding("amq.direct", "" + q.getT1(), q.getT2())));
 
         Flux<OutboundMessage> messages = Flux.range(0, nbMessages).groupBy(v -> v % nbPartitions)
             .flatMap(partitionFlux -> partitionFlux.publishOn(Schedulers.elastic())

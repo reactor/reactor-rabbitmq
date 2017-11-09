@@ -144,7 +144,11 @@ public class Sender implements AutoCloseable {
         return channelMono.flatMapMany(channel -> new PublishConfirmOperator(messages, channel));
     }
 
-    public Mono<AMQP.Queue.DeclareOk> createQueue(QueueSpecification specification) {
+    public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification) {
+        return this.declareQueue(specification);
+    }
+
+    public Mono<AMQP.Queue.DeclareOk> declareQueue(QueueSpecification specification) {
         AMQP.Queue.Declare declare;
         if (specification.getName() == null) {
             declare = new AMQImpl.Queue.Declare.Builder()
@@ -175,7 +179,11 @@ public class Sender implements AutoCloseable {
           .publishOn(resourceCreationScheduler);
     }
 
-    public Mono<AMQP.Exchange.DeclareOk> createExchange(ExchangeSpecification specification) {
+    public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification) {
+        return this.declareExchange(specification);
+    }
+
+    public Mono<AMQP.Exchange.DeclareOk> declareExchange(ExchangeSpecification specification) {
         AMQP.Exchange.Declare declare = new AMQImpl.Exchange.Declare.Builder()
             .exchange(specification.getName())
             .type(specification.getType())
