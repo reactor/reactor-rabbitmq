@@ -3,5 +3,6 @@
 [[new]]
 === What's new in Reactor RabbitMQ 1.0
 
-* First release of Reactor RabbitMQ
+* 1.0.0.M1
+** Introduction of the `Sender` and `Receiver` API
 
