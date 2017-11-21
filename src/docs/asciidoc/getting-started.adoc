@@ -3,7 +3,7 @@
 [[Requirements]]
 === Requirements
 
-You need Java JRE installed (Java 8 or later), as well as Maven.
+You need Java JRE installed (Java 8 or later).
 
 You also need to install RabbitMQ. Follow the
 http://www.rabbitmq.com/download.html[instructions from the website].
@@ -106,23 +106,49 @@ you need to include a dependency to Reactor RabbitMQ.
 
 For gradle:
 
-[source]
+[source,groovy]
 --------
 dependencies {
-    compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.BUILD-SNAPSHOT"
+    compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.M1"
 }
 --------
 
 
 For maven:
 
-[source]
+[source,xml]
 --------
 <dependency>
     <groupId>io.projectreactor.rabbitmq</groupId>
     <artifactId>reactor-rabbitmq</artifactId>
-    <version>1.0.0.BUILD-SNAPSHOT</version>
+    <version>1.0.0.M1</version>
 </dependency>
 --------
 
+When using a milestone or a release candidate, you need to add the Spring IO
+milestone repository.
 
+For gradle:
+
+[source,groovy]
+--------
+repositories {
+  maven { url 'http://repo.spring.io/milestone' }
+}
+--------
+
+For maven:
+
+[source,xml]
+--------
+<repositories>
+    <repository>
+        <id>spring-milestones</id>
+        <name>Spring Milestones</name>
+        <url>http://repo.spring.io/milestone</url>
+        <snapshots>
+            <enabled>false</enabled>
+        </snapshots>
+    </repository>
+</repositories>
+--------
