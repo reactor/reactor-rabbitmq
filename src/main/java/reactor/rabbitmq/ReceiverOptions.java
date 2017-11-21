@@ -36,7 +36,7 @@ public class ReceiverOptions {
      * Scheduler used on connection creation subscription.
      * It is developer's responsibility to close it if set.
      * @param connectionSubscriptionScheduler
-     * @return
+     * @return the current {@link ReceiverOptions} instance
      */
     public ReceiverOptions connectionSubscriptionScheduler(Scheduler connectionSubscriptionScheduler) {
         this.connectionSubscriptionScheduler = connectionSubscriptionScheduler;

@@ -69,5 +69,11 @@ configure(rootProject) {
 			  renameTo("$outputDir/pdf/rabbitmq-reference-guide-${version}.pdf")
 	}
   }
+  task docsZip(type: Zip, dependsOn: asciidoctor) {
+	baseName = 'reactor-rabbitmq-docs'
+	from("$buildDir/asciidoc/pdf/reactor-rabbitmq-reference-guide-${version}.pdf") { into("docs/") }
+	from("$buildDir/asciidoc/html5/index.html") { into("docs/") }
+	from("$buildDir/asciidoc/html5/images") { into("images/") }
+  }
 }
 

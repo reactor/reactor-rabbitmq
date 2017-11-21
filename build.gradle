@@ -224,7 +224,7 @@ configure(rootProject) {
 	artifacts {
 		archives sourcesJar
 		archives javadocJar
-//		archives docsZip
+		archives docsZip
 	}
 }
 
