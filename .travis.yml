@@ -17,7 +17,7 @@ addons:
         key_url: https://dl.bintray.com/rabbitmq/Keys/rabbitmq-release-signing-key.asc
     packages:
       - esl-erlang=1:20.1
-      - rabbitmq-server:3.7.0
+      - rabbitmq-server=3.7.0-1
 services:
   - rabbitmq
 branches:
