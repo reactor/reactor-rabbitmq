@@ -50,8 +50,10 @@ public class SampleSender {
             .thenMany(confirmations)
                 .doOnError(e -> LOGGER.error("Send failed", e))
                 .subscribe(r -> {
-                    LOGGER.info("Message {} sent successfully", new String(r.getOutboundMessage().getBody()));
-                    latch.countDown();
+                    if (r.isAck()) {
+                        LOGGER.info("Message {} sent successfully", new String(r.getOutboundMessage().getBody()));
+                        latch.countDown();
+                    }
                 });
     }
 
