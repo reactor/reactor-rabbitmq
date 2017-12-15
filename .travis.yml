@@ -1,5 +1,4 @@
 dist: trusty
-group: deprecated-2017Q4
 sudo: required
 
 language: java
@@ -18,7 +17,11 @@ addons:
         key_url: https://dl.bintray.com/rabbitmq/Keys/rabbitmq-release-signing-key.asc
     packages:
       - esl-erlang=1:20.1
-      - rabbitmq-server=3.7.0-1
+# because of https://github.com/travis-ci/travis-ci/issues/8906
+before_install:
+  - sudo mv /opt/jdk_switcher/jdk_switcher.sh /tmp
+  - sudo apt-get install rabbitmq-server=3.7.0-1
+  - sudo mv /tmp/jdk_switcher.sh /opt/jdk_switcher/
 services:
   - rabbitmq
 branches:
