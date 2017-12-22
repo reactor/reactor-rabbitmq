@@ -29,8 +29,11 @@ connections to the broker and some Reactor `Scheduler` used by the `Sender`.
 
 [source,java]
 --------
+ConnectionFactory connectionFactory = new ConnectionFactory();
+connectionFactory.useNio();
+
 SenderOptions senderOptions =  new SenderOptions()
-    .connectionFactory(new ConnectionFactory())                 // <1>
+    .connectionFactory(connectionFactory)                       // <1>
     .resourceCreationScheduler(Schedulers.elastic());           // <2>
 --------
 <1> Specify connection factory
@@ -199,8 +202,11 @@ and a Reactor `Scheduler` used for the connection creation.
 
 [source,java]
 --------
+ConnectionFactory connectionFactory = new ConnectionFactory();
+connectionFactory.useNio();
+
 ReceiverOptions receiverOptions =  new ReceiverOptions()
-    .connectionFactory(new ConnectionFactory())                 // <1>
+    .connectionFactory(connectionFactory)                       // <1>
     .connectionSubscriptionScheduler(Schedulers.elastic());     // <2>
 --------
 <1> Specify connection factory
