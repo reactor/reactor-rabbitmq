@@ -42,7 +42,7 @@ configured in `senderOptions`.
 
 [source,java]
 --------
-Sender sender = ReactorRabbitMq.sender(senderOptions);
+Sender sender = ReactorRabbitMq.createSender(senderOptions);
 --------
 
 The `Sender` is now ready to send messages to RabbitMQ.
@@ -65,7 +65,7 @@ provides a hands-on tutorial on using the Reactor classes `Flux` and `Mono`.
 --------
 Flux<OutboundMessage> outboundFlux  =
     Flux.range(1, 10)
-        .map(i -> new OutboundMessage("amq.direct", "routing.key", ("Message " + i).getBytes());
+        .map(i -> new OutboundMessage("amq.direct", "routing.key", ("Message " + i).getBytes()));
 --------
 
 The code segment above creates a sequence of messages to send to RabbitMQ.
@@ -215,7 +215,7 @@ later when the inbound `Flux` is subscribed to.
 [source,java]
 --------
 Flux<Delivery> inboundFlux =
-    ReactorRabbitMq.receiver(receiverOptions)
+    ReactorRabbitMq.createReceiver(receiverOptions)
                    .consumeNoAck("reactive.queue");
 --------
 
