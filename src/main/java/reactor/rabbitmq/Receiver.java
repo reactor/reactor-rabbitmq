@@ -160,7 +160,10 @@ public class Receiver implements Closeable {
                                 channel.close();
                             }
                         } catch (TimeoutException | IOException e) {
-                            throw new ReactorRabbitMqException(e);
+                            // Not sure what to do, not much we can do,
+                            // logging should be enough.
+                            // Maybe one good reason to introduce an exception handler to choose more easily.
+                            LOGGER.warn("Error while closing channel: " + e.getMessage());
                         }
                     }
                 });
