@@ -50,14 +50,48 @@ With Maven:
 
 With Gradle:
 ```groovy
-    repositories {
-      maven { url 'http://repo.spring.io/milestone' }
-      mavenCentral()
-    }
+repositories {
+  maven { url 'https://repo.spring.io/milestone' }
+  mavenCentral()
+}
 
-    dependencies {
-      compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.M1"
-    }
+dependencies {
+  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.M1"
+}
+```
+
+## Snapshots
+
+With Maven:
+```xml
+<dependency>
+    <groupId>io.projectreactor.rabbitmq</groupId>
+    <artifactId>reactor-rabbitmq</artifactId>
+    <version>1.0.0.BUILD-SNAPSHOT</version>
+</dependency>
+
+<repositories>
+    <repository>
+        <id>spring-snapshots</id>
+        <name>Spring Snapshots</name>
+        <url>https://repo.spring.io/libs-snapshot</url>
+        <snapshots>
+            <enabled>true</enabled>
+        </snapshots>
+    </repository>
+</repositories>
+```
+
+With Gradle:
+```groovy
+repositories {
+  maven { url 'https://repo.spring.io/libs-snapshot' }
+  mavenCentral()
+}
+
+dependencies {
+  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.BUILD-SNAPSHOT"
+}
 ```
 
 ## Build intructions
