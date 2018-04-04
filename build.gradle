@@ -30,10 +30,9 @@ plugins {
 }
 
 ext {
-	gradleVersion = '3.1'
 	gradleScriptDir = "${rootProject.projectDir}/gradle"
 
-	reactorCoreVersion = "3.1.1.RELEASE"
+	reactorCoreVersion = "3.1.6.RELEASE"
 
 	// Logging
 	slf4jVersion = '1.7.25'
@@ -44,9 +43,9 @@ ext {
 
 	// Testing
 	mockitoVersion = '1.10.19'
-	awaitilityVersion = '3.0.0'
-	junitPlatformVersion = '1.0.0'
-	junitJupiterVersion  = '5.0.0'
+	awaitilityVersion = '3.1.0'
+	junitPlatformVersion = '1.1.0'
+	junitJupiterVersion  = '5.1.0'
 
 	javadocLinks = ["http://docs.oracle.com/javase/7/docs/api/",
 					"http://docs.oracle.com/javaee/6/api/",
