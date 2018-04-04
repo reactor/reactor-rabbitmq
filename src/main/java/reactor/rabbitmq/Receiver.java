@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2018 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Receiver implements Closeable {
 
     private static final Function<Connection, Channel> CHANNEL_CREATION_FUNCTION = new Receiver.ChannelCreationFunction();
 
-    private final Mono<Connection> connectionMono;
+    private final Mono<? extends Connection> connectionMono;
 
     private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
@@ -59,12 +59,11 @@ public class Receiver implements Closeable {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
             createScheduler() : options.getConnectionSubscriptionScheduler();
-        this.connectionMono = Mono.fromCallable(() -> {
-            Connection connection = options.getConnectionFactory().newConnection();
-            return connection;
-        }).doOnSubscribe(c -> hasConnection.set(true))
-          .subscribeOn(this.connectionSubscriptionScheduler)
-          .cache();
+        this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
+            Mono.fromCallable(() -> options.getConnectionFactory().newConnection())
+                .doOnSubscribe(c -> hasConnection.set(true))
+                .subscribeOn(this.connectionSubscriptionScheduler)
+                .cache();
     }
 
     protected Scheduler createScheduler() {
@@ -99,7 +98,7 @@ public class Receiver implements Closeable {
                     LOGGER.info("Cancelling consumer {} consuming from {}", consumerTag, queue);
                     if (cancelled.compareAndSet(false, true)) {
                         try {
-                            if(channel.isOpen() && channel.getConnection().isOpen()) {
+                            if (channel.isOpen() && channel.getConnection().isOpen()) {
                                 channel.basicCancel(consumerTag);
                                 channel.close();
                             }
@@ -132,13 +131,13 @@ public class Receiver implements Closeable {
         // could be also developer responsibility
         return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {
             try {
-                if(options.getQos() != 0) {
+                if (options.getQos() != 0) {
                     channel.basicQos(options.getQos());
                 }
 
                 DeliverCallback deliverCallback = (consumerTag, message) -> {
                     AcknowledgableDelivery delivery = new AcknowledgableDelivery(message, channel);
-                    if(options.getHookBeforeEmitBiFunction().apply(emitter.requestedFromDownstream(), delivery)) {
+                    if (options.getHookBeforeEmitBiFunction().apply(emitter.requestedFromDownstream(), delivery)) {
                         emitter.next(delivery);
                     }
                     if (options.getStopConsumingBiFunction().apply(emitter.requestedFromDownstream(), message)) {
@@ -198,5 +197,4 @@ public class Receiver implements Closeable {
             }
         }
     }
-
 }

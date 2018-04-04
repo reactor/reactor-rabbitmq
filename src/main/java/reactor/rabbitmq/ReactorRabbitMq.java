@@ -16,8 +16,6 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.ConnectionFactory;
-
 /**
  * Factory for {@link Sender} and {@link Receiver}.
  */

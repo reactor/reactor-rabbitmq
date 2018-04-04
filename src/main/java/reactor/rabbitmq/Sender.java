@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2018 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public class Sender implements AutoCloseable {
 
     private static final Function<Connection, Channel> CHANNEL_CREATION_FUNCTION = new ChannelCreationFunction();
 
-    private final Mono<Connection> connectionMono;
+    private final Mono<? extends Connection> connectionMono;
 
     private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
@@ -75,13 +75,11 @@ public class Sender implements AutoCloseable {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
             createScheduler("rabbitmq-sender-conn-sub") : options.getConnectionSubscriptionScheduler();
-        this.connectionMono = Mono.fromCallable(() -> {
-            Connection connection = options.getConnectionFactory().newConnection();
-            return connection;
-        })
-            .doOnSubscribe(c -> hasConnection.set(true))
-            .subscribeOn(this.connectionSubscriptionScheduler)
-            .cache();
+        this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
+            Mono.fromCallable(() -> options.getConnectionFactory().newConnection())
+                .doOnSubscribe(c -> hasConnection.set(true))
+                .subscribeOn(this.connectionSubscriptionScheduler)
+                .cache();
         this.privateResourceCreationScheduler = options.getResourceCreationScheduler() == null;
         this.resourceCreationScheduler = options.getResourceCreationScheduler() == null ?
             createScheduler("rabbitmq-sender-res-creat") : options.getResourceCreationScheduler();
@@ -99,31 +97,31 @@ public class Sender implements AutoCloseable {
         final Mono<Channel> currentChannelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
 
         return currentChannelMono.flatMapMany(channel ->
-                Flux.from(messages)
-                    .doOnNext(message -> {
-                        try {
-                            channel.basicPublish(
-                                    message.getExchange(),
-                                    message.getRoutingKey(),
-                                    message.getProperties(),
-                                    message.getBody()
-                            );
-                        } catch (IOException e) {
-                            LOGGER.warn("Error when publishing message: {}", e.getMessage());
+            Flux.from(messages)
+                .doOnNext(message -> {
+                    try {
+                        channel.basicPublish(
+                            message.getExchange(),
+                            message.getRoutingKey(),
+                            message.getProperties(),
+                            message.getBody()
+                        );
+                    } catch (IOException e) {
+                        LOGGER.warn("Error when publishing message: {}", e.getMessage());
+                    }
+                })
+                .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
+                .doFinally(st -> {
+                    int channelNumber = channel.getChannelNumber();
+                    LOGGER.info("closing channel {} by signal {}", channelNumber, st);
+                    try {
+                        if (channel.isOpen() && channel.getConnection().isOpen()) {
+                            channel.close();
                         }
-                    })
-                    .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
-                    .doFinally(st -> {
-                        int channelNumber = channel.getChannelNumber();
-                        LOGGER.info("closing channel {} by signal {}", channelNumber, st);
-                        try {
-                            if(channel.isOpen() && channel.getConnection().isOpen()) {
-                                channel.close();
-                            }
-                        } catch (TimeoutException | IOException e) {
-                            LOGGER.warn("Channel {} didn't close normally: {}", channelNumber, e.getMessage());
-                        }
-                    })
+                    } catch (TimeoutException | IOException e) {
+                        LOGGER.warn("Channel {} didn't close normally: {}", channelNumber, e.getMessage());
+                    }
+                })
         ).then();
     }
 
@@ -175,8 +173,8 @@ public class Sender implements AutoCloseable {
                 throw new ReactorRabbitMqException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
-          .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
-          .publishOn(resourceCreationScheduler);
+            .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
+            .publishOn(resourceCreationScheduler);
     }
 
     public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification) {
@@ -225,8 +223,8 @@ public class Sender implements AutoCloseable {
                 throw new ReactorRabbitMqException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
-          .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()))
-          .publishOn(resourceCreationScheduler);
+            .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()))
+            .publishOn(resourceCreationScheduler);
     }
 
     public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification) {
@@ -265,7 +263,7 @@ public class Sender implements AutoCloseable {
             try {
                 return channel.asyncCompletableRpc(unbinding);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error during RPC call",e);
+                throw new ReactorRabbitMqException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.UnbindOk) command.getMethod()))
@@ -284,11 +282,11 @@ public class Sender implements AutoCloseable {
             try {
                 return channel.asyncCompletableRpc(binding);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error during RPC call",e);
+                throw new ReactorRabbitMqException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
-          .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
-          .publishOn(resourceCreationScheduler);
+            .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
+            .publishOn(resourceCreationScheduler);
     }
 
     public void close() {
@@ -316,7 +314,7 @@ public class Sender implements AutoCloseable {
     }
 
     private static class PublishConfirmOperator
-            extends FluxOperator<OutboundMessage, OutboundMessageResult> {
+        extends FluxOperator<OutboundMessage, OutboundMessageResult> {
 
         private final Channel channel;
 

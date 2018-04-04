@@ -39,6 +39,23 @@ SenderOptions senderOptions =  new SenderOptions()
 <1> Specify connection factory
 <2> Specify scheduler for resource creation
 
+Note you can control the creation of the `Connection` thanks to the
+`connectionSupplier(ConnectionFactory)` method:
+
+[source,java]
+--------
+SenderOptions senderOptions =  new SenderOptions()
+    .connectionFactory(connectionFactory)
+    .connectionSupplier(cf -> cf.newConnection(                                  // <1>
+        new Address[] {new Address("192.168.0.1"), new Address("192.168.0.2")},
+        "reactive-sender"))
+    .resourceCreationScheduler(Schedulers.elastic());
+--------
+<1> Specify array of addresses and connection name
+
+In the snippet above the connection can be created from 2 different nodes (useful for
+failover) and the connection name is set up.
+
 Once the required options have been configured on the options instance,
 a new `Sender` instance can be created with the options already
 configured in `senderOptions`.
@@ -212,6 +229,23 @@ ReceiverOptions receiverOptions =  new ReceiverOptions()
 <1> Specify connection factory
 <2> Specify scheduler for connection creation
 
+Note you can control the creation of the `Connection` thanks to the
+`connectionSupplier(ConnectionFactory)` method:
+
+[source,java]
+--------
+SenderOptions senderOptions =  new SenderOptions()
+    .connectionFactory(connectionFactory)
+    .connectionSupplier(cf -> cf.newConnection(                                  // <1>
+        new Address[] {new Address("192.168.0.1"), new Address("192.168.0.2")},
+        "reactive-sender"))
+    .resourceCreationScheduler(Schedulers.elastic());
+--------
+<1> Specify array of addresses and connection name
+
+In the snippet above the connection can be created from 2 different nodes (useful for
+failover) and the connection name is set up.
+
 Once the required configuration options have been configured on the options instance,
 a new `Receiver` instance can be created with these options to consume inbound messages.
 The code snippet below creates a receiver instance and an inbound `Flux` for the receiver.
@@ -284,3 +318,73 @@ if none has been explicitly provided.
 ------
 receiver.close();
 ------
+
+[[api-guide-advanced-features]]
+=== Advanced features
+
+This section covers advanced uses of the Reactor RabbitMQ API.
+
+==== Creating a connection with a custom `Mono`
+
+It is possible to specify only a `ConnectionFactory` for `Sender/ReceiverOptions` and
+let Reactor RabbitMQ create connection from this `ConnectionFactory`.
+If you want more control over the creation of connections, you can use
+`Sender/ReceiverOptions#connectionSupplier(ConnectionFactory)`. This is fine for most cases
+and doesn't use any reactive API. Both `Sender` and `Receiver` use internally a `Mono<Connection>`
+to open the connection only when needed. It is possible to provide this `Mono<Connection>`
+through the appropriate `*Options` class:
+
+[source,java]
+--------
+ConnectionFactory connectionFactory = new ConnectionFactory();                // <1>
+connectionFactory.useNio();
+
+Sender sender = ReactorRabbitMq.createSender(new SenderOptions()
+    .connectionMono(
+        Mono.fromCallable(() -> connectionFactory.newConnection("sender")))   // <2>
+);
+
+Receiver receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions()
+    .connectionMono(
+        Mono.fromCallable(() -> connectionFactory.newConnection("receiver"))) // <3>
+);
+--------
+<1> Create and configure connection factory
+<2> Create `Mono` that creates connection with a name
+<3> Create `Mono` that creates connection with a name
+
+Providing your own `Mono<Connection>` lets you take advantage of all the Reactor API
+(e.g. for caching).
+
+==== Sharing the same connection between `Sender` and `Receiver`
+
+`Sender` and `Receiver` instances create their own `Connection` but it's possible to use
+only one or a few `Connection` instances to be able to use exclusive resources between a `Sender`
+and a `Receiver` or simply to control the number of created connections.
+
+Both `SenderOptions` and `ReceiverOptions` have a `connectionMono` method that can encapsulate
+any logic to create the `Mono<Connection>` the `Sender` or `Receiver` will end up using. Reactor
+RabbitMQ provides a way to share the exact same connection instance from a `Mono<Connection>`:
+
+[source,java]
+--------
+ConnectionFactory connectionFactory = new ConnectionFactory();           // <1>
+connectionFactory.useNio();
+Mono<? extends Connection> connectionMono = Utils.singleConnectionMono(  // <2>
+    connectionFactory, cf -> cf.newConnection()
+);
+
+Sender sender = ReactorRabbitMq.createSender(
+    new SenderOptions().connectionMono(connectionMono)                   // <3>
+);
+Receiver receiver = ReactorRabbitMq.createReceiver(
+    new ReceiverOptions().connectionMono(connectionMono)                 // <4>
+);
+--------
+<1> Create and configure connection factory
+<2> Create `Mono` that re-uses the same connection instance
+<3> Create sender with connection `Mono`
+<4> Create receiver with connection `Mono`
+
+Be aware that closing the first `Sender` or `Receiver` will close the underlying
+AMQP connection for all the others.
