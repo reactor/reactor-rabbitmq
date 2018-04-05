@@ -26,7 +26,7 @@ buildscript {
 	}
 }
 plugins {
-	id 'org.asciidoctor.convert' version '1.5.3'
+	id 'org.asciidoctor.convert' version '1.5.6'
 }
 
 ext {
@@ -122,19 +122,21 @@ configure(allprojects) { project ->
 		junitXmlToHtml
 	}
 
-	task generateHtmlTestReports << {
-		def reportsDir = new File(buildDir, 'reports/tests/test')
-		reportsDir.mkdirs()
+	task generateHtmlTestReports {
+		doLast {
+			def reportsDir = new File(buildDir, 'reports/tests/test')
+			reportsDir.mkdirs()
 
-		ant.taskdef(
-				name: 'junitReport',
-				classname: 'org.apache.tools.ant.taskdefs.optional.junit.XMLResultAggregator',
-				classpath: configurations.junitXmlToHtml.asPath
-		)
+			ant.taskdef(
+					name: 'junitReport',
+					classname: 'org.apache.tools.ant.taskdefs.optional.junit.XMLResultAggregator',
+					classpath: configurations.junitXmlToHtml.asPath
+			)
 
-		ant.junitReport(todir: "$buildDir/test-results/test", tofile: "aggregated-test-results.xml") {
-			fileset(dir: "$buildDir/test-results/test")
-			report(format: 'frames', todir: reportsDir)
+			ant.junitReport(todir: "$buildDir/test-results/test", tofile: "aggregated-test-results.xml") {
+				fileset(dir: "$buildDir/test-results/test")
+				report(format: 'frames', todir: reportsDir)
+			}
 		}
 	}
 
@@ -247,8 +249,10 @@ project(':reactor-rabbitmq-samples') {
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
-	task classpath << {
-		println sourceSets.main.runtimeClasspath.asPath
+	task classpath {
+		doLast {
+			println sourceSets.main.runtimeClasspath.asPath
+		}
 	}
 
 	test {
