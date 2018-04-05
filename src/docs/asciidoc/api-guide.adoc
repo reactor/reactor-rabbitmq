@@ -27,14 +27,9 @@ A `Sender` is created with an instance of sender configuration options
 The properties of `SenderOptions` contains the `ConnectionFactory` that creates
 connections to the broker and some Reactor `Scheduler` used by the `Sender`.
 
-[source,java]
+[source,java,indent=0]
 --------
-ConnectionFactory connectionFactory = new ConnectionFactory();
-connectionFactory.useNio();
-
-SenderOptions senderOptions =  new SenderOptions()
-    .connectionFactory(connectionFactory)                       // <1>
-    .resourceCreationScheduler(Schedulers.elastic());           // <2>
+include::{test-examples}/ApiGuideSender.java[tag=options-simple]
 --------
 <1> Specify connection factory
 <2> Specify scheduler for resource creation
@@ -42,14 +37,9 @@ SenderOptions senderOptions =  new SenderOptions()
 Note you can control the creation of the `Connection` thanks to the
 `connectionSupplier(ConnectionFactory)` method:
 
-[source,java]
+[source,java,indent=0]
 --------
-SenderOptions senderOptions =  new SenderOptions()
-    .connectionFactory(connectionFactory)
-    .connectionSupplier(cf -> cf.newConnection(                                  // <1>
-        new Address[] {new Address("192.168.0.1"), new Address("192.168.0.2")},
-        "reactive-sender"))
-    .resourceCreationScheduler(Schedulers.elastic());
+include::{test-examples}/ApiGuideSender.java[tag=options-connection-supplier]
 --------
 <1> Specify array of addresses and connection name
 
@@ -60,9 +50,9 @@ Once the required options have been configured on the options instance,
 a new `Sender` instance can be created with the options already
 configured in `senderOptions`.
 
-[source,java]
+[source,java,indent=0]
 --------
-Sender sender = ReactorRabbitMq.createSender(senderOptions);
+include::{test-examples}/ApiGuideSender.java[tag=instanciation]
 --------
 
 The `Sender` is now ready to send messages to RabbitMQ.
@@ -81,11 +71,9 @@ of messages is created for sending to RabbitMQ.
 For beginners, https://github.com/reactor/lite-rx-api-hands-on[Lite Rx API Hands-on]
 provides a hands-on tutorial on using the Reactor classes `Flux` and `Mono`.
 
-[source,java]
+[source,java,indent=0]
 --------
-Flux<OutboundMessage> outboundFlux  =
-    Flux.range(1, 10)
-        .map(i -> new OutboundMessage("amq.direct", "routing.key", ("Message " + i).getBytes()));
+include::{test-examples}/ApiGuideSender.java[tag=outbound-message-flux]
 --------
 
 The code segment above creates a sequence of messages to send to RabbitMQ.
@@ -95,11 +83,9 @@ The outbound Flux can now be sent to RabbitMQ using the
 The code segment below sends the messages to RabbitMQ. The final `subscribe()` in the code block
 requests upstream to send the messages to RabbitMQ.
 
-[source,java]
+[source,java,indent=0]
 --------
-sender.send(outboundFlux)                           // <1>
-      .doOnError(e -> log.error("Send failed", e))  // <2>
-      .subscribe();                                 // <3>
+include::{test-examples}/ApiGuideSender.java[tag=send-flux]
 --------
 <1> Reactive send operation for the outbound Flux
 <2> If the sending fails, log an error
@@ -118,17 +104,9 @@ model on RabbitMQ website].
 (exchange, binding, and queue) and there's also a respective `*Specification`
 class to describe each creation.
 
-[source, java]
+[source,java,indent=0]
 --------
-Mono<AMQP.Exchange.DeclareOk> exchange = sender.declareExchange(
-  ExchangeSpecification.exchange("my.exchange")
-);
-Mono<AMQP.Queue.DeclareOk> queue = sender.declareQueue(
-  QueueSpecification.queue("my.queue")
-);
-Mono<AMQP.Queue.BindOk> binding = sender.bind(
-  BindingSpecification.binding().exchange("my.exchange").queue("my.queue").routingKey("a.b")
-);
+include::{test-examples}/ApiGuideSender.java[tag=resource-declaration]
 --------
 
 Note the `Sender#declare*` methods return their respective AMQP results
@@ -138,27 +116,21 @@ One can also use the `ResourcesSpecification` factory class
 with a static import to reduce boilerplate code. Combined with
 `Mono` chaining and `Sender#declare` shortcuts, it allows for condensed syntax:
 
-[source, java]
+[source,java,indent=0]
 -------
-import static reactor.rabbitmq.ResourcesSpecification.*;
+include::{test-examples}/ApiGuideSender.java[tag=static-import]
 ...
-sender.declare(exchange("my.exchange"))
-    .then(sender.declare(queue("my.queue")))
-    .then(sender.bind(binding("my.exchange", "a.b", "my.queue")))
-    .subscribe(r -> System.out.println("Exchange and queue declared and bound"));
+include::{test-examples}/ApiGuideSender.java[tag=resource-declaration-static-import,indent=0]
 -------
 
 `Sender` has `delete*` and `delete` methods as well. Here is an example with
 the short method forms:
 
-[source, java]
+[source,java,indent=0]
 -------
-import static reactor.rabbitmq.ResourcesSpecification.*;
+include::{test-examples}/ApiGuideSender.java[tag=static-import]
 ...
-sender.unbind(binding("my.exchange", "a.b", "my.queue"))
-    .then(sender.delete(exchange(my.exchange)))
-    .then(sender.delete(queue("my.queue")))
-    .subscribe(r -> System.out.println("Exchange and queue unbound and deleted"));
+include::{test-examples}/ApiGuideSender.java[tag=resource-deletion,indent=0]
 -------
 
 ==== Reliable publishing with publisher confirms
@@ -167,13 +139,9 @@ sender.unbind(binding("my.exchange", "a.b", "my.queue"))
 messages and receive https://www.rabbitmq.com/confirms.html#publisher-confirms[publisher
 confirms] to make sure the broker has taken into account the outbound messages.
 
-[source, java]
+[source,java,indent=0]
 -------
-Flux<OutboundMessage> outboundFlux  = ...;
-sender.sendWithPublishConfirms(outboundFlux)
-      .subscribe(outboundMessageResult -> {
-        // outbound message has reached the broker
-      });
+include::{test-examples}/ApiGuideSender.java[tag=publisher-confirms]
 -------
 
 `Sender#sendWithPublishConfirms` returns a `Flux<OutboundMessageResult>`
@@ -199,9 +167,9 @@ When the `Sender` is no longer required, the instance can be closed.
 The underlying `Connection` is closed, as well as the default
 schedulers if none has been explicitly provided.
 
-[source,java]
+[source,java,indent=0]
 --------
-sender.close();
+include::{test-examples}/ApiGuideSender.java[tag=closing]
 --------
 
 [[api-guide-receiver]]
@@ -217,14 +185,9 @@ A receiver is created with an instance of receiver configuration options
 contains the `ConnectionFactory` that creates connections to the broker
 and a Reactor `Scheduler` used for the connection creation.
 
-[source,java]
+[source,java,indent=0]
 --------
-ConnectionFactory connectionFactory = new ConnectionFactory();
-connectionFactory.useNio();
-
-ReceiverOptions receiverOptions =  new ReceiverOptions()
-    .connectionFactory(connectionFactory)                       // <1>
-    .connectionSubscriptionScheduler(Schedulers.elastic());     // <2>
+include::{test-examples}/ApiGuideReceiver.java[tag=options-simple]
 --------
 <1> Specify connection factory
 <2> Specify scheduler for connection creation
@@ -232,14 +195,9 @@ ReceiverOptions receiverOptions =  new ReceiverOptions()
 Note you can control the creation of the `Connection` thanks to the
 `connectionSupplier(ConnectionFactory)` method:
 
-[source,java]
+[source,java,indent=0]
 --------
-SenderOptions senderOptions =  new SenderOptions()
-    .connectionFactory(connectionFactory)
-    .connectionSupplier(cf -> cf.newConnection(                                  // <1>
-        new Address[] {new Address("192.168.0.1"), new Address("192.168.0.2")},
-        "reactive-sender"))
-    .resourceCreationScheduler(Schedulers.elastic());
+include::{test-examples}/ApiGuideReceiver.java[tag=options-connection-supplier]
 --------
 <1> Specify array of addresses and connection name
 
@@ -252,11 +210,9 @@ The code snippet below creates a receiver instance and an inbound `Flux` for the
 The underlying `Connection` and `Consumer` instances are created lazily
 later when the inbound `Flux` is subscribed to.
 
-[source,java]
+[source,java,indent=0]
 --------
-Flux<Delivery> inboundFlux =
-    ReactorRabbitMq.createReceiver(receiverOptions)
-                   .consumeNoAck("reactive.queue");
+include::{test-examples}/ApiGuideReceiver.java[tag=inbound-flux]
 --------
 
 The inbound RabbitMQ `Flux` is ready to be consumed.
@@ -314,9 +270,9 @@ When the `Receiver` is no longer required, the instance can be closed.
 The underlying `Connection` is closed, as well as the default scheduler
 if none has been explicitly provided.
 
-[source, java]
+[source,java,indent=0]
 ------
-receiver.close();
+include::{test-examples}/ApiGuideReceiver.java[tag=closing]
 ------
 
 [[api-guide-advanced-features]]
@@ -334,20 +290,9 @@ and doesn't use any reactive API. Both `Sender` and `Receiver` use internally a 
 to open the connection only when needed. It is possible to provide this `Mono<Connection>`
 through the appropriate `*Options` class:
 
-[source,java]
+[source,java,indent=0]
 --------
-ConnectionFactory connectionFactory = new ConnectionFactory();                // <1>
-connectionFactory.useNio();
-
-Sender sender = ReactorRabbitMq.createSender(new SenderOptions()
-    .connectionMono(
-        Mono.fromCallable(() -> connectionFactory.newConnection("sender")))   // <2>
-);
-
-Receiver receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions()
-    .connectionMono(
-        Mono.fromCallable(() -> connectionFactory.newConnection("receiver"))) // <3>
-);
+include::{test-examples}/AdvancedFeatures.java[tag=connection-mono]
 --------
 <1> Create and configure connection factory
 <2> Create `Mono` that creates connection with a name
@@ -355,6 +300,7 @@ Receiver receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions()
 
 Providing your own `Mono<Connection>` lets you take advantage of all the Reactor API
 (e.g. for caching).
+
 
 ==== Sharing the same connection between `Sender` and `Receiver`
 
@@ -366,20 +312,9 @@ Both `SenderOptions` and `ReceiverOptions` have a `connectionMono` method that c
 any logic to create the `Mono<Connection>` the `Sender` or `Receiver` will end up using. Reactor
 RabbitMQ provides a way to share the exact same connection instance from a `Mono<Connection>`:
 
-[source,java]
+[source,java,indent=0]
 --------
-ConnectionFactory connectionFactory = new ConnectionFactory();           // <1>
-connectionFactory.useNio();
-Mono<? extends Connection> connectionMono = Utils.singleConnectionMono(  // <2>
-    connectionFactory, cf -> cf.newConnection()
-);
-
-Sender sender = ReactorRabbitMq.createSender(
-    new SenderOptions().connectionMono(connectionMono)                   // <3>
-);
-Receiver receiver = ReactorRabbitMq.createReceiver(
-    new ReceiverOptions().connectionMono(connectionMono)                 // <4>
-);
+include::{test-examples}/AdvancedFeatures.java[tag=shared-connection]
 --------
 <1> Create and configure connection factory
 <2> Create `Mono` that re-uses the same connection instance

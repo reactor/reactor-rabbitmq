@@ -15,6 +15,8 @@ ifndef::host-github[:ext-relative: {outfilesuffix}]
 :github-repo: reactor/reactor-rabbitmq
 :github-code: http://github.com/{github-repo}
 
+:test-examples: ../../test/java/reactor/rabbitmq/docs
+
 // ======================================================================================
 = Introduction
 include::overview.adoc[]
