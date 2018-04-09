@@ -142,6 +142,10 @@ public class Sender implements AutoCloseable {
         return channelMono.flatMapMany(channel -> new PublishConfirmOperator(messages, channel));
     }
 
+    public RpcClient rpcClient(String exchange, String routingKey) {
+        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).cache(), exchange, routingKey);
+    }
+
     public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification) {
         return this.declareQueue(specification);
     }
@@ -306,13 +310,6 @@ public class Sender implements AutoCloseable {
         }
     }
 
-    private enum SubscriberState {
-        INIT,
-        ACTIVE,
-        OUTBOUND_DONE,
-        COMPLETE
-    }
-
     private static class PublishConfirmOperator
         extends FluxOperator<OutboundMessage, OutboundMessageResult> {
 
@@ -397,8 +394,9 @@ public class Sender implements AutoCloseable {
 
         @Override
         public void onNext(OutboundMessage message) {
-            if (checkComplete(message))
+            if (checkComplete(message)) {
                 return;
+            }
 
             long nextPublishSeqNo = channel.getNextPublishSeqNo();
             try {

@@ -19,6 +19,7 @@ package reactor.rabbitmq.docs;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Address;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Delivery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -29,6 +30,7 @@ import reactor.rabbitmq.ExchangeSpecification;
 import reactor.rabbitmq.OutboundMessage;
 import reactor.rabbitmq.QueueSpecification;
 import reactor.rabbitmq.ReactorRabbitMq;
+import reactor.rabbitmq.RpcClient;
 import reactor.rabbitmq.Sender;
 import reactor.rabbitmq.SenderOptions;
 
@@ -129,6 +131,18 @@ public class ApiGuideSender {
                 // outbound message has reached the broker
             });
         // end::publisher-confirms[]
+    }
+
+    void rpc() {
+        // tag::rpc[]
+        String queue = "rpc.server.queue";
+        Sender sender = ReactorRabbitMq.createSender();
+        RpcClient rpcClient = sender.rpcClient("", queue);  // <1>
+        Mono<Delivery> reply = rpcClient.rpc(Mono.just(
+            new RpcClient.RpcRequest("hello".getBytes())    // <2>
+        ));
+        rpcClient.close();                                  // <3>
+        // end::rpc[]
     }
 
 }

@@ -5,4 +5,6 @@
 
 * 1.0.0.M1
 ** Introduction of the `Sender` and `Receiver` API
+* 1.0.0.M2
+** Support for request/reply
 
