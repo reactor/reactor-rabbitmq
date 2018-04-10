@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class RequestReplyTests {
 
-    static String QUEUE = "rpc.QUEUE";
+    static String QUEUE = "rpc.queue";
 
     Connection serverConnection;
     Channel serverChannel;
