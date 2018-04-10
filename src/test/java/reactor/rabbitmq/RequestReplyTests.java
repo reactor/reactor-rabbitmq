@@ -24,13 +24,17 @@ import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.RpcServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,13 +42,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  *
  */
-public class RequestReplyTest {
+public class RequestReplyTests {
+
+    static String QUEUE = "rpc.QUEUE";
 
     Connection serverConnection;
     Channel serverChannel;
-    String queue = "rpc.queue";
     RpcServer rpcServer;
     Sender sender;
+
+    public static Stream<Function<Sender, RpcClient>> requestReplyParameters() {
+        return Stream.of(
+            sender -> sender.rpcClient("", QUEUE),
+            sender -> sender.rpcClient("", QUEUE, () -> UUID.randomUUID().toString())
+        );
+    }
 
     @BeforeEach
     public void init() throws Exception {
@@ -52,7 +64,7 @@ public class RequestReplyTest {
         connectionFactory.useNio();
         serverConnection = connectionFactory.newConnection();
         serverChannel = serverConnection.createChannel();
-        serverChannel.queueDeclare(queue, false, false, false, null);
+        serverChannel.queueDeclare(QUEUE, false, false, false, null);
     }
 
     @AfterEach
@@ -61,16 +73,17 @@ public class RequestReplyTest {
             rpcServer.terminateMainloop();
         }
         if (serverChannel != null) {
-            serverChannel.queueDelete(queue);
+            serverChannel.queueDelete(QUEUE);
         }
         if (sender != null) {
             sender.close();
         }
     }
 
-    @Test
-    public void requestReply() throws Exception {
-        rpcServer = new TestRpcServer(serverChannel, queue);
+    @ParameterizedTest
+    @MethodSource("requestReplyParameters")
+    public void requestReply(Function<Sender, RpcClient> rpcClientCreator) throws Exception {
+        rpcServer = new TestRpcServer(serverChannel, QUEUE);
         new Thread(() -> {
             try {
                 rpcServer.mainloop();
@@ -83,7 +96,7 @@ public class RequestReplyTest {
 
         int nbRequests = 10;
         CountDownLatch latch = new CountDownLatch(nbRequests);
-        try (RpcClient rpcClient = sender.rpcClient("", queue)) {
+        try (RpcClient rpcClient = rpcClientCreator.apply(sender)) {
             IntStream.range(0, nbRequests).forEach(i -> {
                 new Thread(() -> {
                     String content = "hello " + i;

@@ -45,7 +45,7 @@ ext {
 	mockitoVersion = '1.10.19'
 	awaitilityVersion = '3.1.0'
 	junitPlatformVersion = '1.1.0'
-	junitJupiterVersion  = '5.1.0'
+	junitJupiterVersion  = '5.1.1'
 
 	javadocLinks = ["http://docs.oracle.com/javase/7/docs/api/",
 					"http://docs.oracle.com/javaee/6/api/",
@@ -165,6 +165,7 @@ configure(allprojects) { project ->
 		// JUnit Jupiter API and TestEngine implementation
 		testCompile("org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}")
 		testRuntime("org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}")
+		testRuntime("org.junit.jupiter:junit-jupiter-params:${junitJupiterVersion}")
 		// Only needed to run tests in an (IntelliJ) IDE(A) that bundles an older version
 		testRuntime("org.junit.platform:junit-platform-launcher:${junitPlatformVersion}")
 

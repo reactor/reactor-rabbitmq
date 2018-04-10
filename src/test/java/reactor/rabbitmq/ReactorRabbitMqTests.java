@@ -529,7 +529,7 @@ public class ReactorRabbitMqTests {
             }
             try {
                 channel.queueDeclarePassive(queueName);
-                fail("The queue should have been deleted, queueDeclarePassive should have thrown an exception");
+                fail("The QUEUE should have been deleted, queueDeclarePassive should have thrown an exception");
             } catch (IOException e) {
                 // OK
             }

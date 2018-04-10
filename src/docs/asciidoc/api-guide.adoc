@@ -206,6 +206,17 @@ Note a RPC client isn't meant to be used for only 1 request, it can be a long-li
 handling different requests, as long as they're directed to the same destination (defined
 by the exchange and the routing key passed in when the `RpcClient` is created).
 
+A `RpcClient` uses a sequence of `Long` for correlation, but this can be changed
+by passing in a `Supplier<String>` when creating the `RpcClient`:
+
+[source,java,indent=0]
+--------
+include::{test-examples}/ApiGuideSender.java[tag=rpc-supplier]
+--------
+<1> Use random UUID correlation ID supplier
+<2> Pass in supplier on `RpcClient` creation
+
+This can be useful e.g. when the RPC server can make sense of the correlation ID.
 
 [[api-guide-receiver]]
 === Reactive RabbitMQ Receiver

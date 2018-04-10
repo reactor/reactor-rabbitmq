@@ -43,6 +43,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Reactive abstraction to create resources and send messages.
@@ -118,7 +119,7 @@ public class Sender implements AutoCloseable {
                         if (channel.isOpen() && channel.getConnection().isOpen()) {
                             channel.close();
                         }
-                    } catch (TimeoutException | IOException e) {
+                    } catch (Exception e) {
                         LOGGER.warn("Channel {} didn't close normally: {}", channelNumber, e.getMessage());
                     }
                 })
@@ -144,6 +145,10 @@ public class Sender implements AutoCloseable {
 
     public RpcClient rpcClient(String exchange, String routingKey) {
         return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).cache(), exchange, routingKey);
+    }
+
+    public RpcClient rpcClient(String exchange, String routingKey, Supplier<String> correlationIdProvider) {
+        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).cache(), exchange, routingKey, correlationIdProvider);
     }
 
     public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification) {

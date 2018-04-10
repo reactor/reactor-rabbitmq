@@ -35,6 +35,9 @@ import reactor.rabbitmq.Sender;
 import reactor.rabbitmq.SenderOptions;
 
 // tag::static-import[]
+import java.util.UUID;
+import java.util.function.Supplier;
+
 import static reactor.rabbitmq.ResourcesSpecification.*;
 // end::static-import[]
 
@@ -143,6 +146,21 @@ public class ApiGuideSender {
         ));
         rpcClient.close();                                  // <3>
         // end::rpc[]
+    }
+
+    void rpcCorrelationIdProvider() {
+        // tag::rpc-supplier[]
+        String queue = "rpc.server.queue";
+        Supplier<String> correlationIdSupplier = () -> UUID.randomUUID().toString(); // <1>
+        Sender sender = ReactorRabbitMq.createSender();
+        RpcClient rpcClient = sender.rpcClient(
+            "", queue, correlationIdSupplier                                         // <2>
+        );
+        Mono<Delivery> reply = rpcClient.rpc(Mono.just(
+            new RpcClient.RpcRequest("hello".getBytes())
+        ));
+        rpcClient.close();
+        // end::rpc-supplier[]
     }
 
 }

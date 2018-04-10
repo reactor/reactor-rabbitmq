@@ -36,6 +36,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  *
@@ -45,8 +46,6 @@ public class RpcClient implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(RpcClient.class);
 
     private final Mono<Channel> channelMono;
-
-    private final AtomicLong correlationId = new AtomicLong(0);
 
     private final String exchange;
 
@@ -60,10 +59,22 @@ public class RpcClient implements AutoCloseable {
 
     private final AtomicReference<String> consumerTag = new AtomicReference<>();
 
-    public RpcClient(Mono<Channel> channelMono, String exchange, String routingKey) {
+    private final Supplier<String> correlationIdSupplier;
+
+    public RpcClient(Mono<Channel> channelMono, String exchange, String routingKey, Supplier<String> correlationIdSupplier) {
         this.channelMono = channelMono;
         this.exchange = exchange;
         this.routingKey = routingKey;
+        this.correlationIdSupplier = correlationIdSupplier;
+    }
+
+    public RpcClient(Mono<Channel> channelMono, String exchange, String routingKey) {
+        this(channelMono, exchange, routingKey, defaultCorrelationProvider());
+    }
+
+    private static final Supplier<String> defaultCorrelationProvider() {
+        final AtomicLong correlationId = new AtomicLong(0);
+        return () -> String.valueOf(correlationId.getAndIncrement());
     }
 
     public Mono<Delivery> rpc(Publisher<RpcRequest> request) {
@@ -71,6 +82,9 @@ public class RpcClient implements AutoCloseable {
     }
 
     public void close() {
+        if (subscribers.isEmpty()) {
+            LOGGER.warn("Closing RPC client with outstanding request(s): " + subscribers.keySet());
+        }
         if (consumerTag.get() != null) {
             try {
                 this.channelMono.block().basicCancel(consumerTag.get());
@@ -114,24 +128,23 @@ public class RpcClient implements AutoCloseable {
 
         @Override
         public void onSubscribe(Subscription s) {
-            // FIXME try to set up global consumer outside of a given call
+            // FIXME set up global consumer outside of a given call
             if (consumerSetUp.compareAndSet(false, true)) {
                 DeliverCallback deliver = (consumerTag, delivery) -> {
                     String correlationId = delivery.getProperties().getCorrelationId();
                     RpcSubscriber rpcSubscriber = subscribers.remove(correlationId);
                     if (rpcSubscriber == null) {
-                        // FIXME handle null outstanding RPC
+                        throw new ReactorRabbitMqException("No outstanding request for correlation ID " + correlationId);
                     } else {
                         rpcSubscriber.subscriber.onNext(delivery);
                         rpcSubscriber.received.set(true);
                     }
                 };
                 try {
-                    String ctag = channel.basicConsume(replyTo, true, deliver, consumerTag -> {
-                    });
+                    String ctag = channel.basicConsume(replyTo, true, deliver, consumerTag -> { });
                     consumerTag.set(ctag);
                 } catch (IOException e) {
-                    handleError(e, null);
+                    handleError(e);
                 }
             }
             state.set(SubscriberState.ACTIVE);
@@ -144,14 +157,14 @@ public class RpcClient implements AutoCloseable {
                 return;
             }
             try {
-                String correlationId = "" + RpcClient.this.correlationId.getAndIncrement();
-                AMQP.BasicProperties props = request.properties;
-                props = ((props == null) ? new AMQP.BasicProperties.Builder() : props.builder())
+                String correlationId = correlationIdSupplier.get();
+                AMQP.BasicProperties properties = request.properties;
+                properties = ((properties == null) ? new AMQP.BasicProperties.Builder() : properties.builder())
                     .correlationId(correlationId).replyTo(replyTo).build();
                 subscribers.put(correlationId, this);
-                channel.basicPublish(exchange, routingKey, props, request.body);
+                channel.basicPublish(exchange, routingKey, properties, request.body);
             } catch (IOException e) {
-                handleError(e, request);
+                handleError(e);
             }
         }
 
@@ -193,7 +206,7 @@ public class RpcClient implements AutoCloseable {
             }
         }
 
-        private void handleError(Exception e, RpcRequest request) {
+        private void handleError(Exception e) {
             LOGGER.error("error during RPC", e);
             boolean complete = checkComplete(e);
             firstException.compareAndSet(null, e);
