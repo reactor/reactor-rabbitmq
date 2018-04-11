@@ -82,7 +82,7 @@ public class RpcClient implements AutoCloseable {
     }
 
     public void close() {
-        if (subscribers.isEmpty()) {
+        if (!subscribers.isEmpty()) {
             LOGGER.warn("Closing RPC client with outstanding request(s): " + subscribers.keySet());
         }
         if (consumerTag.get() != null) {
