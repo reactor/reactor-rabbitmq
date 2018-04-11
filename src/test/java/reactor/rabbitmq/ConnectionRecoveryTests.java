@@ -16,10 +16,13 @@
 
 package reactor.rabbitmq;
 
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Delivery;
+import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoverableConnection;
 import com.rabbitmq.client.RecoveryListener;
@@ -27,6 +30,7 @@ import com.rabbitmq.client.impl.NetworkConnection;
 import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import reactor.core.Disposable;
@@ -35,6 +39,7 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +51,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static reactor.rabbitmq.ReactorRabbitMq.createSender;
 
 /**
  *
@@ -109,7 +115,7 @@ public class ConnectionRecoveryTests {
 
     @ParameterizedTest
     @MethodSource("consumeNoAckArguments")
-    public void consumeNoAck(BiFunction<Receiver, String, Flux<? extends Delivery>> deliveryFactory) throws Exception {
+    public void consume(BiFunction<Receiver, String, Flux<? extends Delivery>> deliveryFactory) throws Exception {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
@@ -142,6 +148,59 @@ public class ConnectionRecoveryTests {
             assertEquals(nbMessages * 2, counter.get());
         }
         assertNull(connection.createChannel().basicGet(queue, true));
+    }
+
+    @Test
+    public void sendRetryOnFailure() throws Exception {
+        int nbMessages = 10;
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        AtomicInteger counter = new AtomicInteger();
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, new DefaultConsumer(channel) {
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                counter.incrementAndGet();
+                latch.countDown();
+            }
+        });
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages)
+            .map(i -> new OutboundMessage("", queue, "".getBytes()))
+            .delayElements(Duration.ofMillis(200))
+            ;
+
+        sender = createSender(new SenderOptions().connectionMono(connectionMono));
+        sender.send(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
+            int timeout = 10000;
+            int waitTime = 100;
+            int elapsedTime = 0;
+            final OutboundMessage message = ctx.getMessage();
+            while (elapsedTime < timeout) {
+                try {
+                    Thread.sleep(waitTime);
+                } catch (InterruptedException ie) {
+                    throw new ReactorRabbitMqException("Thread interrupted while retry on sending", e);
+                }
+                elapsedTime += waitTime;
+                try {
+                    channel.basicPublish(
+                        message.getExchange(),
+                        message.getRoutingKey(),
+                        message.getProperties(),
+                        message.getBody()
+                    );
+                    break;
+                } catch (Exception sendingException) {
+                    // ignoring exceptions during retry
+                }
+            }
+        }))
+            .subscribe();
+
+        closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        assertEquals(nbMessages, counter.get());
     }
 
     private void closeAndWaitForRecovery(RecoverableConnection connection) throws IOException, InterruptedException {

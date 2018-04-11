@@ -39,9 +39,9 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -75,7 +75,7 @@ public class Sender implements AutoCloseable {
     public Sender(SenderOptions options) {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
-            createScheduler("rabbitmq-sender-conn-sub") : options.getConnectionSubscriptionScheduler();
+            createScheduler("rabbitmq-sender-connection-subscription") : options.getConnectionSubscriptionScheduler();
         this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
             Mono.fromCallable(() -> options.getConnectionFactory().newConnection())
                 .doOnSubscribe(c -> hasConnection.set(true))
@@ -83,7 +83,7 @@ public class Sender implements AutoCloseable {
                 .cache();
         this.privateResourceCreationScheduler = options.getResourceCreationScheduler() == null;
         this.resourceCreationScheduler = options.getResourceCreationScheduler() == null ?
-            createScheduler("rabbitmq-sender-res-creat") : options.getResourceCreationScheduler();
+            createScheduler("rabbitmq-sender-resource-creation") : options.getResourceCreationScheduler();
         this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
     }
 
@@ -92,11 +92,15 @@ public class Sender implements AutoCloseable {
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {
+        return send(messages, new SendOptions());
+    }
+
+    public Mono<Void> send(Publisher<OutboundMessage> messages, SendOptions options) {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
         final Mono<Channel> currentChannelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
-
+        final BiConsumer<SendContext, Exception> exceptionHandler = options.getExceptionHandler();
         return currentChannelMono.flatMapMany(channel ->
             Flux.from(messages)
                 .doOnNext(message -> {
@@ -107,8 +111,8 @@ public class Sender implements AutoCloseable {
                             message.getProperties(),
                             message.getBody()
                         );
-                    } catch (IOException e) {
-                        LOGGER.warn("Error when publishing message: {}", e.getMessage());
+                    } catch (Exception e) {
+                        exceptionHandler.accept(new SendContext(channel, message), e);
                     }
                 })
                 .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
@@ -312,6 +316,25 @@ public class Sender implements AutoCloseable {
         }
         if (this.privateResourceCreationScheduler) {
             this.resourceCreationScheduler.dispose();
+        }
+    }
+
+    public static class SendContext {
+
+        private final Channel channel;
+        private final OutboundMessage message;
+
+        public SendContext(Channel channel, OutboundMessage message) {
+            this.channel = channel;
+            this.message = message;
+        }
+
+        public Channel getChannel() {
+            return channel;
+        }
+
+        public OutboundMessage getMessage() {
+            return message;
         }
     }
 

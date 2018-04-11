@@ -660,7 +660,7 @@ public class ReactorRabbitMqTests {
         sender = createSender(new SenderOptions()
             .connectionFactory(connectionFactory)
             .connectionSupplier(cf -> cf.newConnection(
-                "reactive-sender")
+                "reactive-sendRetryOnFailure")
             )
         );
 
@@ -677,7 +677,7 @@ public class ReactorRabbitMqTests {
         connectionFactory.useNio();
 
         sender = createSender(new SenderOptions()
-            .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("reactive-sender")))
+            .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("reactive-sendRetryOnFailure")))
         );
 
         receiver = createReceiver(new ReceiverOptions()
