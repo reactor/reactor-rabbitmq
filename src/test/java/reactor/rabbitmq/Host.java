@@ -83,12 +83,7 @@ public class Host {
 
     public static Process rabbitmqctl(String command) throws IOException {
         return executeCommand(rabbitmqctlCommand() +
-            " -n \'" + nodenameA() + "\'" +
             " " + command);
-    }
-
-    public static String nodenameA() {
-        return System.getProperty("test-broker.nodename");
     }
 
     public static String rabbitmqctlCommand() {
