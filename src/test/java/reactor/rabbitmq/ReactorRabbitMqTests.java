@@ -468,9 +468,11 @@ public class ReactorRabbitMqTests {
         int nbMessagesAckNack = 2;
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
-        sender.sendWithPublishConfirms(msgFlux)
+        sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
+            throw new ReactorRabbitMqException(e);
+        }))
             .subscribe(outboundMessageResult -> {
-                if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                if (outboundMessageResult.getOutboundMessage() != null) {
                     confirmLatch.countDown();
                 }
             },
