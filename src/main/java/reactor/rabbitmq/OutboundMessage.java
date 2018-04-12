@@ -18,6 +18,8 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.AMQP.BasicProperties;
 
+import java.util.Arrays;
+
 /**
  * Outbound message meant to be sent by a {@link Sender}.
  */
@@ -59,5 +61,15 @@ public class OutboundMessage {
 
     public byte[] getBody() {
         return body;
+    }
+
+    @Override
+    public String toString() {
+        return "OutboundMessage{" +
+            "exchange='" + exchange + '\'' +
+            ", routingKey='" + routingKey + '\'' +
+            ", properties=" + properties +
+            ", body=" + Arrays.toString(body) +
+            '}';
     }
 }

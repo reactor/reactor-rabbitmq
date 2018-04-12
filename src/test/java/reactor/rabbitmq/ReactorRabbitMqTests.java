@@ -436,7 +436,11 @@ public class ReactorRabbitMqTests {
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 
         sender = createSender();
-        sender.sendWithPublishConfirms(msgFlux).subscribe(outboundMessageResult -> confirmedLatch.countDown());
+        sender.sendWithPublishConfirms(msgFlux).subscribe(outboundMessageResult -> {
+            if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                confirmedLatch.countDown();
+            }
+        });
 
         assertTrue(consumedLatch.await(1, TimeUnit.SECONDS));
         assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
@@ -464,9 +468,12 @@ public class ReactorRabbitMqTests {
         int nbMessagesAckNack = 2;
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
-        CountDownLatch subscriptionLatch = new CountDownLatch(1);
         sender.sendWithPublishConfirms(msgFlux)
-            .subscribe(outboundMessageResult -> confirmLatch.countDown(),
+            .subscribe(outboundMessageResult -> {
+                if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                    confirmLatch.countDown();
+                }
+            },
                 error -> { });
 
         // have to wait a bit the subscription propagates and add the confirm listener
