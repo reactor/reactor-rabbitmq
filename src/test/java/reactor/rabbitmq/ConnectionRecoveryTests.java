@@ -18,15 +18,18 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DefaultConsumer;
+import com.rabbitmq.client.DeliverCallback;
 import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoverableConnection;
 import com.rabbitmq.client.RecoveryListener;
+import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.client.impl.NetworkConnection;
 import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
 import org.junit.jupiter.api.AfterEach;
@@ -46,6 +49,9 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -53,6 +59,13 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static reactor.rabbitmq.ReactorRabbitMq.createSender;
 
 /**
@@ -153,6 +166,125 @@ public class ConnectionRecoveryTests {
     }
 
     @Test
+    void consumeAutoAckRetryOnAck() throws Exception {
+        ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
+        Connection mockConnection = mock(Connection.class);
+        Channel mockChannel = mock(Channel.class);
+        when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
+        when(mockConnection.createChannel()).thenReturn(mockChannel);
+
+        CountDownLatch consumerRegisteredLatch = new CountDownLatch(1);
+        AtomicReference<DeliverCallback> deliverCallbackAtomicReference = new AtomicReference<>();
+
+        when(mockChannel.basicConsume(
+            anyString(), anyBoolean(), any(DeliverCallback.class), any(CancelCallback.class)
+        )).thenAnswer(answer -> {
+            deliverCallbackAtomicReference.set(answer.getArgumentAt(2, DeliverCallback.class));
+            consumerRegisteredLatch.countDown();
+            return "ctag";
+        });
+
+        AtomicLong ackCount = new AtomicLong(0);
+        AtomicLong errorAck = new AtomicLong(0);
+        doAnswer(answer -> {
+            ackCount.incrementAndGet();
+            if (ackCount.get() == 3 || ackCount.get() == 4) {
+                errorAck.incrementAndGet();
+                throw new AlreadyClosedException(new ShutdownSignalException(true, true, null, null));
+            }
+            return null;
+        }).when(mockChannel).basicAck(anyLong(), anyBoolean());
+
+        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionSupplier(cf -> mockConnection));
+
+        AtomicInteger ackedMessages = new AtomicInteger(0);
+        receiver.consumeAutoAck("whatever",
+            new ConsumeOptions().exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(5_000, 100, Collections.singletonMap(
+                AlreadyClosedException.class, true))))
+            .subscribe(msg -> {
+                ackedMessages.incrementAndGet();
+            });
+
+        assertTrue(consumerRegisteredLatch.await(1, TimeUnit.SECONDS), "Consumer should have been registered by now");
+
+        int nbMessages = 10;
+        IntStream.range(0, nbMessages).forEach(i -> {
+            try {
+                deliverCallbackAtomicReference.get().handle("", new Delivery(new Envelope(i, true, null, null), null, null));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertEquals(nbMessages, ackedMessages.get(), "All messages should have been ack-ed, as ack is retried");
+        assertEquals(nbMessages + errorAck.get(), ackCount.get(),
+            "There should have been nbMessages+ackInError calls to basicAck as acknowledgments are retried"
+        );
+    }
+
+    @Test
+    void consumeManualAckRetryOnAck() throws Exception {
+        ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
+        Connection mockConnection = mock(Connection.class);
+        Channel mockChannel = mock(Channel.class);
+        when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
+        when(mockConnection.createChannel()).thenReturn(mockChannel);
+
+        CountDownLatch consumerRegisteredLatch = new CountDownLatch(1);
+        AtomicReference<DeliverCallback> deliverCallbackAtomicReference = new AtomicReference<>();
+
+        when(mockChannel.basicConsume(
+            anyString(), anyBoolean(), any(DeliverCallback.class), any(CancelCallback.class)
+        )).thenAnswer(answer -> {
+            deliverCallbackAtomicReference.set(answer.getArgumentAt(2, DeliverCallback.class));
+            consumerRegisteredLatch.countDown();
+            return "ctag";
+        });
+
+        AtomicLong ackCount = new AtomicLong(0);
+        doAnswer(answer -> {
+            ackCount.incrementAndGet();
+            if (ackCount.get() == 3 || ackCount.get() == 4) {
+                throw new AlreadyClosedException(new ShutdownSignalException(true, true, null, null));
+            }
+            return null;
+        }).when(mockChannel).basicAck(anyLong(), anyBoolean());
+
+        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionSupplier(cf -> mockConnection));
+
+        AtomicInteger ackedMessages = new AtomicInteger(0);
+        BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(5_000, 100, Collections.singletonMap(
+            AlreadyClosedException.class, true)
+        );
+        receiver.consumeManualAck("whatever")
+            .subscribe(msg -> {
+                // do business stuff
+                // ...
+                try {
+                    // trying to ack
+                    msg.ack();
+                } catch(Exception e) {
+                    // when ack-ing fail, retry-ing
+                    exceptionHandler.accept(new Receiver.AcknowledgmentContext(msg), e);
+                }
+                ackedMessages.incrementAndGet();
+            });
+
+        assertTrue(consumerRegisteredLatch.await(1, TimeUnit.SECONDS), "Consumer should have been registered by now");
+
+        int nbMessages = 10;
+        IntStream.range(0, nbMessages).forEach(i -> {
+            try {
+                deliverCallbackAtomicReference.get().handle("", new Delivery(new Envelope(i, true, null, null), null, null));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertEquals(nbMessages, ackedMessages.get(), "All messages should have been ack-ed, as ack is retried");
+    }
+
+    @Test
     public void sendRetryOnFailureAllFluxMessagesShouldBeSentAndConsumed() throws Exception {
         int nbMessages = 10;
         CountDownLatch latch = new CountDownLatch(nbMessages);
@@ -161,7 +293,7 @@ public class ConnectionRecoveryTests {
         channel.basicConsume(queue, true, new DefaultConsumer(channel) {
 
             @Override
-            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) {
                 counter.incrementAndGet();
                 latch.countDown();
             }

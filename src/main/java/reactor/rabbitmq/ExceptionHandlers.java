@@ -17,6 +17,7 @@
 package reactor.rabbitmq;
 
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
 
 /**
@@ -24,13 +25,13 @@ import java.util.function.BiConsumer;
  */
 public class ExceptionHandlers {
 
-    public static class RetrySendingExceptionHandler implements BiConsumer<Sender.SendContext, Exception> {
+    public static class SimpleRetryTemplate {
 
         private final long timeout;
         private final long waitingTime;
         private final Map<Class<? extends Throwable>, Boolean> retryableExceptions;
 
-        public RetrySendingExceptionHandler(long timeout, long waitingTime,
+        public SimpleRetryTemplate(long timeout, long waitingTime,
             Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
             if (timeout <= 0) {
                 throw new IllegalArgumentException("Timeout must be greater than 0");
@@ -46,24 +47,27 @@ public class ExceptionHandlers {
             this.retryableExceptions = retryableExceptions;
         }
 
-        @Override
-        public void accept(Sender.SendContext sendContext, Exception e) {
-            int elapsedTime = 0;
-            while (elapsedTime < timeout) {
-                try {
-                    Thread.sleep(waitingTime);
-                } catch (InterruptedException ie) {
-                    throw new ReactorRabbitMqException("Thread interrupted while retry on sending", e);
-                }
-                elapsedTime += waitingTime;
-                try {
-                    sendContext.publish();
-                    break;
-                } catch (Throwable sendingException) {
-                    if (!shouldRetry(sendingException)) {
-                        throw new ReactorRabbitMqException("None-retryable exception thrown during retry", sendingException);
+        public void retry(Callable<Void> operation, Exception e) {
+            if (shouldRetry(e)) {
+                int elapsedTime = 0;
+                while (elapsedTime < timeout) {
+                    try {
+                        Thread.sleep(waitingTime);
+                    } catch (InterruptedException ie) {
+                        throw new ReactorRabbitMqException("Thread interrupted while retry on sending", e);
+                    }
+                    elapsedTime += waitingTime;
+                    try {
+                        operation.call();
+                        break;
+                    } catch (Throwable sendingException) {
+                        if (!shouldRetry(sendingException)) {
+                            throw new ReactorRabbitMqException("Not retryable exception thrown during retry", sendingException);
+                        }
                     }
                 }
+            } else {
+                throw new ReactorRabbitMqException("Not retryable exception, cannot retry", e);
             }
         }
 
@@ -76,5 +80,47 @@ public class ExceptionHandlers {
             }
             return false;
         }
+
+    }
+
+    public static class RetryAcknowledgmentExceptionHandler implements BiConsumer<Receiver.AcknowledgmentContext, Exception> {
+
+        private final SimpleRetryTemplate retryTemplate;
+
+        public RetryAcknowledgmentExceptionHandler(long timeout, long waitingTime,
+            Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
+            this.retryTemplate = new SimpleRetryTemplate(
+                timeout, waitingTime, retryableExceptions
+            );
+        }
+
+        @Override
+        public void accept(Receiver.AcknowledgmentContext acknowledgmentContext, Exception e) {
+            retryTemplate.retry(() -> {
+                acknowledgmentContext.getDelivery().ack();
+                return null;
+            }, e);
+        }
+    }
+
+    public static class RetrySendingExceptionHandler implements BiConsumer<Sender.SendContext, Exception> {
+
+        private final SimpleRetryTemplate retryTemplate;
+
+        public RetrySendingExceptionHandler(long timeout, long waitingTime,
+            Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
+            this.retryTemplate = new SimpleRetryTemplate(
+              timeout, waitingTime, retryableExceptions
+            );
+        }
+
+        @Override
+        public void accept(Sender.SendContext sendContext, Exception e) {
+            retryTemplate.retry(() -> {
+                sendContext.publish();
+                return null;
+            }, e);
+        }
+
     }
 }

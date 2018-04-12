@@ -122,7 +122,13 @@ public class Receiver implements Closeable {
 
     public Flux<Delivery> consumeAutoAck(final String queue, ConsumeOptions options) {
         // TODO why acking here and not just after emitter.next()?
-        return consumeManualAck(queue, options).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
+        return consumeManualAck(queue, options).doOnNext(msg -> {
+            try {
+                msg.ack();
+            } catch (Exception e) {
+                options.getExceptionHandler().accept(new AcknowledgmentContext(msg), e);
+            }
+        }).map(ackableMsg -> ackableMsg);
     }
 
     public Flux<AcknowledgableDelivery> consumeManualAck(final String queue) {
@@ -189,6 +195,19 @@ public class Receiver implements Closeable {
         }
         if (privateConnectionSubscriptionScheduler) {
             this.connectionSubscriptionScheduler.dispose();
+        }
+    }
+
+    public static class AcknowledgmentContext {
+
+        private final AcknowledgableDelivery delivery;
+
+        public AcknowledgmentContext(AcknowledgableDelivery delivery) {
+            this.delivery = delivery;
+        }
+
+        public AcknowledgableDelivery getDelivery() {
+            return delivery;
         }
     }
 

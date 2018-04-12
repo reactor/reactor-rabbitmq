@@ -22,14 +22,15 @@ import com.rabbitmq.client.ShutdownSignalException;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static java.util.Collections.singletonMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -39,30 +40,38 @@ public class ExceptionHandlersTests {
 
     ExceptionHandlers.RetrySendingExceptionHandler exceptionHandler;
 
+    ExceptionHandlers.SimpleRetryTemplate retryTemplate;
+
     @Test
     public void retryableExceptions() {
-        exceptionHandler = retrySendingExceptionHandler(Collections.singletonMap(Exception.class, true));
-        assertTrue(exceptionHandler.shouldRetry(new AlreadyClosedException(new ShutdownSignalException(true, true, null, null))));
-        assertFalse(exceptionHandler.shouldRetry(new Throwable()));
+        retryTemplate = retryTemplate(singletonMap(Exception.class, true));
+        assertTrue(retryTemplate.shouldRetry(new AlreadyClosedException(new ShutdownSignalException(true, true, null, null))));
+        assertFalse(retryTemplate.shouldRetry(new Throwable()));
 
-        exceptionHandler = retrySendingExceptionHandler(new HashMap<Class<? extends Throwable>, Boolean>() {{
+        retryTemplate = retryTemplate(new HashMap<Class<? extends Throwable>, Boolean>() {{
             put(ShutdownSignalException.class, true);
             put(IOException.class, false);
             put(AuthenticationFailureException.class, true);
         }});
 
-        assertTrue(exceptionHandler.shouldRetry(new ShutdownSignalException(true, true, null, null)),
+        assertTrue(retryTemplate.shouldRetry(new ShutdownSignalException(true, true, null, null)),
             "directly retryable");
-        assertTrue(exceptionHandler.shouldRetry(new AlreadyClosedException(new ShutdownSignalException(true, true, null, null))),
+        assertTrue(retryTemplate.shouldRetry(new AlreadyClosedException(new ShutdownSignalException(true, true, null, null))),
             "retryable from its super-class");
-        assertFalse(exceptionHandler.shouldRetry(new IOException()), "not retryable");
-        assertTrue(exceptionHandler.shouldRetry(new AuthenticationFailureException("")), "directly retryable");
+        assertFalse(retryTemplate.shouldRetry(new IOException()), "not retryable");
+        assertTrue(retryTemplate.shouldRetry(new AuthenticationFailureException("")), "directly retryable");
+    }
+
+    @Test
+    public void shouldThrowWrapperExceptionIfNotImmediatlyRetryable() {
+        retryTemplate = retryTemplate(singletonMap(IOException.class, true));
+        assertThrows(ReactorRabbitMqException.class, () -> retryTemplate.retry(() -> null, new IllegalArgumentException()));
     }
 
     @Test
     void retryTimeoutIsReached() {
         exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-            100L, 10L, Collections.singletonMap(Exception.class, true)
+            100L, 10L, singletonMap(Exception.class, true)
         );
         exceptionHandler.accept(sendContext(() -> {
             throw new Exception();
@@ -72,7 +81,7 @@ public class ExceptionHandlersTests {
     @Test
     void retrySucceeds() {
         exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-            100L, 10L, Collections.singletonMap(Exception.class, true)
+            100L, 10L, singletonMap(Exception.class, true)
         );
         AtomicLong counter = new AtomicLong(0);
         exceptionHandler.accept(sendContext(() -> {
@@ -84,8 +93,8 @@ public class ExceptionHandlersTests {
         assertEquals(3, counter.get());
     }
 
-    private ExceptionHandlers.RetrySendingExceptionHandler retrySendingExceptionHandler(Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
-        return new ExceptionHandlers.RetrySendingExceptionHandler(
+    private ExceptionHandlers.SimpleRetryTemplate retryTemplate(Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
+        return new ExceptionHandlers.SimpleRetryTemplate(
             100L, 10L, retryableExceptions
         );
     }
