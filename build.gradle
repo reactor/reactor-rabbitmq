@@ -147,7 +147,7 @@ configure(allprojects) { project ->
 
 		// not related to HTML test reports
 		// to launch rabbitmqctl, to close connections for connection recovery tests
-		junitPlatformTestTask.systemProperty 'rabbitmqctl.bin', System.getProperty('rabbitmqctl.bin')
+		junitPlatformTestTask.systemProperty 'rabbitmqctl.bin', System.getProperty('rabbitmqctl.bin') ?: 'sudo rabbitmqctl'
 	}
 	// end of HTML test reports
 
