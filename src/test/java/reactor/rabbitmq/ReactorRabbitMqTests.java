@@ -436,7 +436,11 @@ public class ReactorRabbitMqTests {
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 
         sender = createSender();
-        sender.sendWithPublishConfirms(msgFlux).subscribe(outboundMessageResult -> confirmedLatch.countDown());
+        sender.sendWithPublishConfirms(msgFlux).subscribe(outboundMessageResult -> {
+            if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                confirmedLatch.countDown();
+            }
+        });
 
         assertTrue(consumedLatch.await(1, TimeUnit.SECONDS));
         assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
@@ -464,9 +468,14 @@ public class ReactorRabbitMqTests {
         int nbMessagesAckNack = 2;
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
-        CountDownLatch subscriptionLatch = new CountDownLatch(1);
-        sender.sendWithPublishConfirms(msgFlux)
-            .subscribe(outboundMessageResult -> confirmLatch.countDown(),
+        sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
+            throw new ReactorRabbitMqException(e);
+        }))
+            .subscribe(outboundMessageResult -> {
+                if (outboundMessageResult.getOutboundMessage() != null) {
+                    confirmLatch.countDown();
+                }
+            },
                 error -> { });
 
         // have to wait a bit the subscription propagates and add the confirm listener
@@ -660,7 +669,7 @@ public class ReactorRabbitMqTests {
         sender = createSender(new SenderOptions()
             .connectionFactory(connectionFactory)
             .connectionSupplier(cf -> cf.newConnection(
-                "reactive-sender")
+                "reactive-sendRetryOnFailure")
             )
         );
 
@@ -677,7 +686,7 @@ public class ReactorRabbitMqTests {
         connectionFactory.useNio();
 
         sender = createSender(new SenderOptions()
-            .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("reactive-sender")))
+            .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("reactive-sendRetryOnFailure")))
         );
 
         receiver = createReceiver(new ReceiverOptions()

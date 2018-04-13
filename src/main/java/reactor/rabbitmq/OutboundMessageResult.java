@@ -37,4 +37,12 @@ public class OutboundMessageResult {
     public boolean isAck() {
         return ack;
     }
+
+    @Override
+    public String toString() {
+        return "OutboundMessageResult{" +
+            "outboundMessage=" + outboundMessage +
+            ", ack=" + ack +
+            '}';
+    }
 }

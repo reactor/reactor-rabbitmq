@@ -34,6 +34,7 @@ public class AcknowledgableDelivery extends Delivery {
     /**
      * Made public only for testing purposes.
      * Only the library is supposed to create instances.
+     *
      * @param delivery
      * @param channel
      */
@@ -43,10 +44,14 @@ public class AcknowledgableDelivery extends Delivery {
     }
 
     public void ack(boolean multiple) {
-        if(notAckedOrNacked.getAndSet(false)) {
+        if (notAckedOrNacked.getAndSet(false)) {
             try {
                 channel.basicAck(getEnvelope().getDeliveryTag(), multiple);
+            } catch (RuntimeException e) {
+                notAckedOrNacked.set(true);
+                throw e;
             } catch (IOException e) {
+                notAckedOrNacked.set(true);
                 throw new ReactorRabbitMqException(e);
             }
         }
@@ -57,10 +62,14 @@ public class AcknowledgableDelivery extends Delivery {
     }
 
     public void nack(boolean multiple, boolean requeue) {
-        if(notAckedOrNacked.getAndSet(false)) {
+        if (notAckedOrNacked.getAndSet(false)) {
             try {
                 channel.basicNack(getEnvelope().getDeliveryTag(), multiple, requeue);
+            } catch (RuntimeException e) {
+                notAckedOrNacked.set(true);
+                throw e;
             } catch (IOException e) {
+                notAckedOrNacked.set(true);
                 throw new ReactorRabbitMqException(e);
             }
         }

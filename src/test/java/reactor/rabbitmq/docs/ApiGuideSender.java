@@ -26,15 +26,18 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.rabbitmq.BindingSpecification;
+import reactor.rabbitmq.ExceptionHandlers;
 import reactor.rabbitmq.ExchangeSpecification;
 import reactor.rabbitmq.OutboundMessage;
 import reactor.rabbitmq.QueueSpecification;
 import reactor.rabbitmq.ReactorRabbitMq;
 import reactor.rabbitmq.RpcClient;
+import reactor.rabbitmq.SendOptions;
 import reactor.rabbitmq.Sender;
 import reactor.rabbitmq.SenderOptions;
 
 // tag::static-import[]
+import java.time.Duration;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -161,6 +164,18 @@ public class ApiGuideSender {
         ));
         rpcClient.close();
         // end::rpc-supplier[]
+    }
+
+    void retryExceptionHandler() {
+        Flux<OutboundMessage> outboundFlux = null;
+        // tag::retry-settings[]
+        Sender sender = ReactorRabbitMq.createSender();
+        sender.send(outboundFlux, new SendOptions().exceptionHandler(
+           new ExceptionHandlers.RetrySendingExceptionHandler(
+               Duration.ofSeconds(20), Duration.ofMillis(500), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+           )
+        ));
+        // end::retry-settings[]
     }
 
 }

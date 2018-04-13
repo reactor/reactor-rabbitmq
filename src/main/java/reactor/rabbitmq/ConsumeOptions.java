@@ -19,6 +19,8 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.Delivery;
 import reactor.core.publisher.FluxSink;
 
+import java.time.Duration;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 /**
@@ -34,18 +36,26 @@ public class ConsumeOptions {
 
     private FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
 
-    /** whether the message should be emitted downstream or not */
+    /**
+     * whether the message should be emitted downstream or not
+     */
     private BiFunction<Long, ? super Delivery, Boolean> hookBeforeEmitBiFunction = (requestedFromDownstream, message) -> true;
 
-    /** whether the flux should be completed after the emission of the message */
+    /**
+     * whether the flux should be completed after the emission of the message
+     */
     private BiFunction<Long, ? super Delivery, Boolean> stopConsumingBiFunction = (requestedFromDownstream, message) -> false;
+
+    private BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
+        Duration.ofSeconds(10), Duration.ofMillis(200), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+    );
 
     public int getQos() {
         return qos;
     }
 
     public ConsumeOptions qos(int qos) {
-        if(qos < 0) {
+        if (qos < 0) {
             throw new IllegalArgumentException("QoS must be greater or equal to 0");
         }
         this.qos = qos;
@@ -61,7 +71,7 @@ public class ConsumeOptions {
         return this;
     }
 
-    public BiFunction<Long,  ? super Delivery, Boolean> getHookBeforeEmitBiFunction() {
+    public BiFunction<Long, ? super Delivery, Boolean> getHookBeforeEmitBiFunction() {
         return hookBeforeEmitBiFunction;
     }
 
@@ -70,14 +80,22 @@ public class ConsumeOptions {
         return this;
     }
 
-    public BiFunction<Long,  ? super Delivery, Boolean> getStopConsumingBiFunction() {
+    public BiFunction<Long, ? super Delivery, Boolean> getStopConsumingBiFunction() {
         return stopConsumingBiFunction;
     }
 
     public ConsumeOptions stopConsumingBiFunction(
-        BiFunction<Long,  ? super Delivery, Boolean> stopConsumingBiFunction) {
+        BiFunction<Long, ? super Delivery, Boolean> stopConsumingBiFunction) {
         this.stopConsumingBiFunction = stopConsumingBiFunction;
         return this;
     }
 
+    public ConsumeOptions exceptionHandler(BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler) {
+        this.exceptionHandler = exceptionHandler;
+        return this;
+    }
+
+    public BiConsumer<Receiver.AcknowledgmentContext, Exception> getExceptionHandler() {
+        return exceptionHandler;
+    }
 }

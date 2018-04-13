@@ -58,7 +58,7 @@ public class Receiver implements Closeable {
     public Receiver(ReceiverOptions options) {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
-            createScheduler() : options.getConnectionSubscriptionScheduler();
+            createScheduler("rabbitmq-receiver-connection-subscription") : options.getConnectionSubscriptionScheduler();
         this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
             Mono.fromCallable(() -> options.getConnectionFactory().newConnection())
                 .doOnSubscribe(c -> hasConnection.set(true))
@@ -66,8 +66,8 @@ public class Receiver implements Closeable {
                 .cache();
     }
 
-    protected Scheduler createScheduler() {
-        return Schedulers.newElastic("rabbitmq-receiver-");
+    protected Scheduler createScheduler(String name) {
+        return Schedulers.newElastic(name);
     }
 
     // TODO more consumeNoAck functions:
@@ -103,7 +103,10 @@ public class Receiver implements Closeable {
                                 channel.close();
                             }
                         } catch (TimeoutException | IOException e) {
-                            throw new ReactorRabbitMqException(e);
+                            // Not sure what to do, not much we can do,
+                            // logging should be enough.
+                            // Maybe one good reason to introduce an exception handler to choose more easily.
+                            LOGGER.warn("Error while closing channel: " + e.getMessage());
                         }
                     }
                 });
@@ -119,7 +122,13 @@ public class Receiver implements Closeable {
 
     public Flux<Delivery> consumeAutoAck(final String queue, ConsumeOptions options) {
         // TODO why acking here and not just after emitter.next()?
-        return consumeManualAck(queue, options).doOnNext(msg -> msg.ack()).map(ackableMsg -> (Delivery) ackableMsg);
+        return consumeManualAck(queue, options).doOnNext(msg -> {
+            try {
+                msg.ack();
+            } catch (Exception e) {
+                options.getExceptionHandler().accept(new AcknowledgmentContext(msg), e);
+            }
+        }).map(ackableMsg -> ackableMsg);
     }
 
     public Flux<AcknowledgableDelivery> consumeManualAck(final String queue) {
@@ -186,6 +195,19 @@ public class Receiver implements Closeable {
         }
         if (privateConnectionSubscriptionScheduler) {
             this.connectionSubscriptionScheduler.dispose();
+        }
+    }
+
+    public static class AcknowledgmentContext {
+
+        private final AcknowledgableDelivery delivery;
+
+        public AcknowledgmentContext(AcknowledgableDelivery delivery) {
+            this.delivery = delivery;
+        }
+
+        public AcknowledgableDelivery getDelivery() {
+            return delivery;
         }
     }
 

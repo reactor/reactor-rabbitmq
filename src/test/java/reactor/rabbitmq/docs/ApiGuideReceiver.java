@@ -21,10 +21,15 @@ import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
+import reactor.rabbitmq.ConsumeOptions;
+import reactor.rabbitmq.ExceptionHandlers;
 import reactor.rabbitmq.ReactorRabbitMq;
 import reactor.rabbitmq.Receiver;
 import reactor.rabbitmq.ReceiverOptions;
 import reactor.rabbitmq.SenderOptions;
+
+import java.time.Duration;
+import java.util.function.BiConsumer;
 
 /**
  *
@@ -63,6 +68,39 @@ public class ApiGuideReceiver {
                 "reactive-sender"))
             .resourceCreationScheduler(Schedulers.elastic());
         // end::options-connection-supplier[]
+    }
+
+    void ackExceptionHandler() {
+        // tag::auto-ack-retry-settings[]
+        Flux<Delivery> inboundFlux = ReactorRabbitMq
+            .createReceiver()
+            .consumeNoAck("reactive.queue", new ConsumeOptions()
+                .exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
+                    Duration.ofSeconds(20), Duration.ofMillis(500), // <1>
+                    ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+                ))
+            );
+        // end::auto-ack-retry-settings[]
+    }
+
+    void manualAckRetry() {
+        // tag::manual-ack-retry[]
+        Receiver receiver = ReactorRabbitMq.createReceiver();
+        BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler =
+            new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(                  // <1>
+                Duration.ofSeconds(20), Duration.ofMillis(500),
+                ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+        );
+        receiver.consumeManualAck("queue")
+            .subscribe(msg -> {
+                // ...                                                                   // <2>
+                try {
+                    msg.ack();                                                           // <3>
+                } catch (Exception e) {
+                    exceptionHandler.accept(new Receiver.AcknowledgmentContext(msg), e); // <4>
+                }
+            });
+        // end::manual-ack-retry[]
     }
 
 }

@@ -30,7 +30,7 @@ branches:
 
 before_cache:
   - rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
-script: ./gradlew check -i -s
+script: ./gradlew check -i -s -Drabbitmqctl.bin='sudo rabbitmqctl'
 cache:
   directories:
     - $HOME/.gradle/caches/

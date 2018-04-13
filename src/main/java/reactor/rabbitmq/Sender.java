@@ -39,9 +39,9 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -75,7 +75,7 @@ public class Sender implements AutoCloseable {
     public Sender(SenderOptions options) {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
-            createScheduler("rabbitmq-sender-conn-sub") : options.getConnectionSubscriptionScheduler();
+            createScheduler("rabbitmq-sender-connection-subscription") : options.getConnectionSubscriptionScheduler();
         this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
             Mono.fromCallable(() -> options.getConnectionFactory().newConnection())
                 .doOnSubscribe(c -> hasConnection.set(true))
@@ -83,7 +83,7 @@ public class Sender implements AutoCloseable {
                 .cache();
         this.privateResourceCreationScheduler = options.getResourceCreationScheduler() == null;
         this.resourceCreationScheduler = options.getResourceCreationScheduler() == null ?
-            createScheduler("rabbitmq-sender-res-creat") : options.getResourceCreationScheduler();
+            createScheduler("rabbitmq-sender-resource-creation") : options.getResourceCreationScheduler();
         this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
     }
 
@@ -92,11 +92,15 @@ public class Sender implements AutoCloseable {
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {
+        return send(messages, new SendOptions());
+    }
+
+    public Mono<Void> send(Publisher<OutboundMessage> messages, SendOptions options) {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
         final Mono<Channel> currentChannelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
-
+        final BiConsumer<SendContext, Exception> exceptionHandler = options.getExceptionHandler();
         return currentChannelMono.flatMapMany(channel ->
             Flux.from(messages)
                 .doOnNext(message -> {
@@ -107,8 +111,8 @@ public class Sender implements AutoCloseable {
                             message.getProperties(),
                             message.getBody()
                         );
-                    } catch (IOException e) {
-                        LOGGER.warn("Error when publishing message: {}", e.getMessage());
+                    } catch (Exception e) {
+                        exceptionHandler.accept(new SendContext(channel, message), e);
                     }
                 })
                 .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
@@ -127,6 +131,10 @@ public class Sender implements AutoCloseable {
     }
 
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages) {
+        return sendWithPublishConfirms(messages, new SendOptions());
+    }
+
+    public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages, SendOptions options) {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
@@ -140,7 +148,7 @@ public class Sender implements AutoCloseable {
                 return channel;
             });
 
-        return channelMono.flatMapMany(channel -> new PublishConfirmOperator(messages, channel));
+        return channelMono.flatMapMany(channel -> new PublishConfirmOperator(messages, channel, options));
     }
 
     public RpcClient rpcClient(String exchange, String routingKey) {
@@ -315,19 +323,83 @@ public class Sender implements AutoCloseable {
         }
     }
 
+    public static class SendContext {
+
+        protected final Channel channel;
+        protected final OutboundMessage message;
+
+        public SendContext(Channel channel, OutboundMessage message) {
+            this.channel = channel;
+            this.message = message;
+        }
+
+        public OutboundMessage getMessage() {
+            return message;
+        }
+
+        public Channel getChannel() {
+            return channel;
+        }
+
+        public void publish(OutboundMessage outboundMessage) throws Exception {
+            this.channel.basicPublish(
+                outboundMessage.getExchange(),
+                outboundMessage.getRoutingKey(),
+                outboundMessage.getProperties(),
+                outboundMessage.getBody()
+            );
+        }
+
+        public void publish() throws Exception {
+            this.publish(getMessage());
+        }
+    }
+
+    public static class ConfirmSendContext extends SendContext {
+
+        private final PublishConfirmSubscriber subscriber;
+
+        public ConfirmSendContext(Channel channel, OutboundMessage message, PublishConfirmSubscriber subscriber) {
+            super(channel, message);
+            this.subscriber = subscriber;
+        }
+
+        @Override
+        public void publish(OutboundMessage outboundMessage) throws Exception {
+            long nextPublishSeqNo = channel.getNextPublishSeqNo();
+            try {
+                subscriber.unconfirmed.putIfAbsent(nextPublishSeqNo, this.message);
+                super.publish(outboundMessage);
+            } catch (Exception e) {
+                subscriber.unconfirmed.remove(nextPublishSeqNo);
+                throw e;
+            }
+        }
+
+        @Override
+        public void publish() throws Exception {
+            this.publish(getMessage());
+        }
+    }
+
+
+
     private static class PublishConfirmOperator
         extends FluxOperator<OutboundMessage, OutboundMessageResult> {
 
         private final Channel channel;
 
-        public PublishConfirmOperator(Publisher<OutboundMessage> source, Channel channel) {
+        private final SendOptions options;
+
+        public PublishConfirmOperator(Publisher<OutboundMessage> source, Channel channel, SendOptions options) {
             super(Flux.from(source));
             this.channel = channel;
+            this.options = options;
         }
 
         @Override
         public void subscribe(CoreSubscriber<? super OutboundMessageResult> actual) {
-            source.subscribe(new PublishConfirmSubscriber(channel, actual));
+            source.subscribe(new PublishConfirmSubscriber(channel, actual, options));
         }
     }
 
@@ -344,9 +416,12 @@ public class Sender implements AutoCloseable {
 
         private final Subscriber<? super OutboundMessageResult> subscriber;
 
-        private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber) {
+        private final BiConsumer<SendContext, Exception> exceptionHandler;
+
+        private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
             this.subscriber = subscriber;
+            this.exceptionHandler = options.getExceptionHandler();
         }
 
         @Override
@@ -385,6 +460,7 @@ public class Sender implements AutoCloseable {
                         }
                     }
                     if (unconfirmed.size() == 0) {
+                        // FIXME create new thread only if needed, likely in maybeComplete()
                         new Thread(() -> {
                             // confirmation listeners are executed in the IO reading thread
                             // so we need to complete in another thread
@@ -414,7 +490,11 @@ public class Sender implements AutoCloseable {
                 );
             } catch (Exception e) {
                 unconfirmed.remove(nextPublishSeqNo);
-                handleError(e, new OutboundMessageResult(message, false));
+                try {
+                    this.exceptionHandler.accept(new ConfirmSendContext(channel, message, this), e);
+                } catch (Exception innerException) {
+                    handleError(innerException, new OutboundMessageResult(message, false));
+                }
             }
         }
 
