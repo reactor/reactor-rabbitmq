@@ -28,6 +28,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
+import static java.time.Duration.ofMillis;
 import static java.util.Collections.singletonMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -82,7 +83,7 @@ public class ExceptionHandlersTests {
     @Test
     void retryTimeoutIsReached() {
         exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-            100L, 10L, new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true))
+            ofMillis(100), ofMillis(10), new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true))
         );
         exceptionHandler.accept(sendContext(() -> {
             throw new Exception();
@@ -92,7 +93,7 @@ public class ExceptionHandlersTests {
     @Test
     void retrySucceeds() {
         exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-            100L, 10L, new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true))
+            ofMillis(100), ofMillis(10), new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true))
         );
         AtomicLong counter = new AtomicLong(0);
         exceptionHandler.accept(sendContext(() -> {
@@ -106,7 +107,7 @@ public class ExceptionHandlersTests {
 
     private ExceptionHandlers.SimpleRetryTemplate retryTemplate(Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
         return new ExceptionHandlers.SimpleRetryTemplate(
-            100L, 10L, new ExceptionHandlers.ExceptionPredicate(retryableExceptions)
+            ofMillis(100), ofMillis(10), new ExceptionHandlers.ExceptionPredicate(retryableExceptions)
         );
     }
 

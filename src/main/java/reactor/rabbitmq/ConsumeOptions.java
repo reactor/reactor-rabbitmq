@@ -19,6 +19,7 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.Delivery;
 import reactor.core.publisher.FluxSink;
 
+import java.time.Duration;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -46,7 +47,7 @@ public class ConsumeOptions {
     private BiFunction<Long, ? super Delivery, Boolean> stopConsumingBiFunction = (requestedFromDownstream, message) -> false;
 
     private BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
-        10_000, 200, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+        Duration.ofSeconds(10), Duration.ofMillis(200), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
     );
 
     public int getQos() {

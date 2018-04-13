@@ -43,7 +43,6 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -55,6 +54,8 @@ import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.time.Duration.ofMillis;
+import static java.time.Duration.ofSeconds;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -198,7 +199,7 @@ public class ConnectionRecoveryTests {
 
         AtomicInteger ackedMessages = new AtomicInteger(0);
         receiver.consumeAutoAck("whatever",
-            new ConsumeOptions().exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(5_000, 100,
+            new ConsumeOptions().exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(ofSeconds(5), ofMillis(100),
                 ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
             )))
             .subscribe(msg -> {
@@ -254,7 +255,7 @@ public class ConnectionRecoveryTests {
 
         AtomicInteger ackedMessages = new AtomicInteger(0);
         BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
-            5_000, 100, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+            ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
         );
         receiver.consumeManualAck("whatever")
             .subscribe(msg -> {
@@ -301,11 +302,11 @@ public class ConnectionRecoveryTests {
 
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages)
             .map(i -> new OutboundMessage("", queue, "".getBytes()))
-            .delayElements(Duration.ofMillis(200));
+            .delayElements(ofMillis(200));
 
         sender = createSender(new SenderOptions().connectionMono(connectionMono));
         sender.send(msgFlux, new SendOptions().exceptionHandler(
-            new ExceptionHandlers.RetrySendingExceptionHandler(5_000, 100, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+            new ExceptionHandlers.RetrySendingExceptionHandler(ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
             )))
             .subscribe();
 
@@ -330,11 +331,11 @@ public class ConnectionRecoveryTests {
 
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages)
             .map(i -> new OutboundMessage("", queue, "".getBytes()))
-            .delayElements(Duration.ofMillis(300));
+            .delayElements(ofMillis(300));
 
         sender = createSender(new SenderOptions().connectionMono(connectionMono));
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler(
-            new ExceptionHandlers.RetrySendingExceptionHandler(5_000, 100, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE)))
+            new ExceptionHandlers.RetrySendingExceptionHandler(ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE)))
             .subscribe(outboundMessageResult -> {
                 if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
                     confirmedLatch.countDown();

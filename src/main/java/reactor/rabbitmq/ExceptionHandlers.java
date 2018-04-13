@@ -19,6 +19,7 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.MissedHeartbeatException;
 import com.rabbitmq.client.ShutdownSignalException;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
@@ -70,21 +71,21 @@ public class ExceptionHandlers {
 
         private final Predicate<Throwable> predicate;
 
-        public SimpleRetryTemplate(long timeout, long waitingTime, Predicate<Throwable> predicate) {
-            if (timeout <= 0) {
+        public SimpleRetryTemplate(Duration timeout, Duration waitingTime, Predicate<Throwable> predicate) {
+            if (timeout == null || timeout.isNegative() || timeout.isZero()) {
                 throw new IllegalArgumentException("Timeout must be greater than 0");
             }
-            if (waitingTime <= 0) {
+            if (waitingTime == null || timeout.isNegative() || timeout.isNegative()) {
                 throw new IllegalArgumentException("Waiting time must be greater than 0");
             }
-            if (timeout <= waitingTime) {
+            if (timeout.compareTo(waitingTime) <= 0) {
                 throw new IllegalArgumentException("Timeout must be greater than waiting time");
             }
             if (predicate == null) {
                 throw new NullPointerException("Predicate cannot be null");
             }
-            this.timeout = timeout;
-            this.waitingTime = waitingTime;
+            this.timeout = timeout.toMillis();
+            this.waitingTime = waitingTime.toMillis();
             this.predicate = predicate;
         }
 
@@ -117,7 +118,7 @@ public class ExceptionHandlers {
 
         private final SimpleRetryTemplate retryTemplate;
 
-        public RetryAcknowledgmentExceptionHandler(long timeout, long waitingTime,
+        public RetryAcknowledgmentExceptionHandler(Duration timeout, Duration waitingTime,
             Predicate<Throwable> predicate) {
             this.retryTemplate = new SimpleRetryTemplate(
                 timeout, waitingTime, predicate
@@ -137,7 +138,7 @@ public class ExceptionHandlers {
 
         private final SimpleRetryTemplate retryTemplate;
 
-        public RetrySendingExceptionHandler(long timeout, long waitingTime, Predicate<Throwable> predicate) {
+        public RetrySendingExceptionHandler(Duration timeout, Duration waitingTime, Predicate<Throwable> predicate) {
             this.retryTemplate = new SimpleRetryTemplate(
                 timeout, waitingTime, predicate
             );

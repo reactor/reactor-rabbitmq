@@ -16,6 +16,7 @@
 
 package reactor.rabbitmq;
 
+import java.time.Duration;
 import java.util.function.BiConsumer;
 
 /**
@@ -24,7 +25,7 @@ import java.util.function.BiConsumer;
 public class SendOptions {
 
     private BiConsumer<Sender.SendContext, Exception> exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-        10_000, 200, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+        Duration.ofSeconds(10), Duration.ofMillis(200), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
     );
 
     public BiConsumer<Sender.SendContext, Exception> getExceptionHandler() {

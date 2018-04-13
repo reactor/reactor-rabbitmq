@@ -172,6 +172,39 @@ schedulers if none has been explicitly provided.
 include::{test-examples}/ApiGuideSender.java[tag=closing]
 --------
 
+==== Error handling during publishing
+
+The `send` and `sendWithPublishConfirms` methods can take an additional
+`SendOptions` parameter to specify the behavior to adopt if the publishing of a message
+fails. The default behavior is to retry every 200 milliseconds for 10 seconds
+in case of connection failure. As http://www.rabbitmq.com/api-guide.html#recovery[automatic connection recovery]
+is enabled by default,
+the connection is likely to be re-opened after a network glitch and the flux of
+outbound messages should stall only during connection recovery before restarting automatically.
+This default behavior tries to find a trade-off between reactivity and robustness.
+
+You can customize the retry by settings your own instance of `RetrySendingExceptionHandler`
+in the `SendOptions`, e.g. to retry for 20 seconds every 500 milliseconds:
+
+[source,java,indent=0]
+--------
+include::{test-examples}/ApiGuideSender.java[tag=retry-settings]
+--------
+
+The `RetrySendingExceptionHandler` uses a `Predicate<Throwable>` to decide whether
+an exception should trigger a retry or not. If the exception isn't retryable, the exception
+handler wraps the exception in a `ReactorRabbitMqException` and throws it.
+
+For consistency sake, the retry exception handler used with `ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE`
+(the default) will trigger retry attempts for the same conditions as connection recovery triggering.
+This means that if connection recovery has kicked in, publishing will be retried at least for the retry
+timeout configured (10 seconds by default).
+
+Note the exception handler is a `BiConsumer<Sender.SendContext, Exception>`, where `Sender.SendContext`
+is a class providing access to the `OutboundMessage` and the underlying AMQP `Channel`. This makes it
+easy to customize the default behavior: logging `BiConsumer#andThen` retrying, only logging, trying to
+send the message somewhere else, etc.
+
 ==== Request/reply
 
 Reactor RabbitMQ supports reactive request/reply. From RabbitMQ documentation:
@@ -320,6 +353,45 @@ if none has been explicitly provided.
 ------
 include::{test-examples}/ApiGuideReceiver.java[tag=closing]
 ------
+
+==== Connection failure
+
+Network connection between the broker and the client can fail. This
+is transparent for consumers thanks to RabbitMQ Java client
+http://www.rabbitmq.com/api-guide.html#recovery[automatic connection recovery].
+Connection failures affect sending though, and acknowledgment is a sending operation.
+
+When using `Receiver#consumeAutoAck`, acknowledgments are retried for 10 seconds every 200 milliseconds
+in case of connection failure. This can be changed by setting the
+`BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler` in the
+`ConsumeOptions`, e.g. to retry for 20 seconds every 500 milliseconds:
+
+[source,java,indent=0]
+------
+include::{test-examples}/ApiGuideReceiver.java[tag=auto-ack-retry-settings]
+------
+<1> Retry acknowledgment for 20 seconds every 500 milliseconds on connection failure
+
+When using `Receiver#consumeManualAck`, acknowledgment is handled by the developer, who
+can do pretty anything they want on acknowledgment failure. It is possible to benefit from Reactor RabbitMQ
+retry support when acknowledging a message:
+
+[source,java,indent=0]
+------
+include::{test-examples}/ApiGuideReceiver.java[tag=manual-ack-retry]
+------
+<1> Configure retry logic when exception occurs
+<2> Process message
+<3> Send acknowledgment after business processing
+<4> Execute retry on acknowledgment failure
+
+Note the exception handler is a `BiConsumer<Receiver.AcknowledgmentContext, Exception>`. This means
+acknowledgment failure can be handled in any way, here we choose to retry the acknowledgment.
+Note also that by using `ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE`, we choose
+to retry only on unexpected connection failures and rely on the AMQP Java client to automatically re-create
+a new connection in the background. The decision to retry on a given
+exception can be customized by providing a `Predicate<Throwable>` in place of
+`ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE`.
 
 [[api-guide-advanced-features]]
 === Advanced features
