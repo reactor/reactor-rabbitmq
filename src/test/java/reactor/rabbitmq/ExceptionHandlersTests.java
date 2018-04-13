@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 
 import static java.util.Collections.singletonMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,24 +43,26 @@ public class ExceptionHandlersTests {
 
     ExceptionHandlers.SimpleRetryTemplate retryTemplate;
 
+    Predicate<Throwable> predicate;
+
     @Test
     public void retryableExceptions() {
-        retryTemplate = retryTemplate(singletonMap(Exception.class, true));
-        assertTrue(retryTemplate.shouldRetry(new AlreadyClosedException(new ShutdownSignalException(true, true, null, null))));
-        assertFalse(retryTemplate.shouldRetry(new Throwable()));
+        predicate = new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true));
+        assertTrue(predicate.test(new AlreadyClosedException(new ShutdownSignalException(true, true, null, null))));
+        assertFalse(predicate.test(new Throwable()));
 
-        retryTemplate = retryTemplate(new HashMap<Class<? extends Throwable>, Boolean>() {{
+        predicate = new ExceptionHandlers.ExceptionPredicate(new HashMap<Class<? extends Throwable>, Boolean>() {{
             put(ShutdownSignalException.class, true);
             put(IOException.class, false);
             put(AuthenticationFailureException.class, true);
         }});
 
-        assertTrue(retryTemplate.shouldRetry(new ShutdownSignalException(true, true, null, null)),
+        assertTrue(predicate.test(new ShutdownSignalException(true, true, null, null)),
             "directly retryable");
-        assertTrue(retryTemplate.shouldRetry(new AlreadyClosedException(new ShutdownSignalException(true, true, null, null))),
+        assertTrue(predicate.test(new AlreadyClosedException(new ShutdownSignalException(true, true, null, null))),
             "retryable from its super-class");
-        assertFalse(retryTemplate.shouldRetry(new IOException()), "not retryable");
-        assertTrue(retryTemplate.shouldRetry(new AuthenticationFailureException("")), "directly retryable");
+        assertFalse(predicate.test(new IOException()), "not retryable");
+        assertTrue(predicate.test(new AuthenticationFailureException("")), "directly retryable");
     }
 
     @Test
@@ -69,9 +72,17 @@ public class ExceptionHandlersTests {
     }
 
     @Test
+    public void connectionRecoveryTriggering() {
+        predicate = new ExceptionHandlers.ConnectionRecoveryTriggeringPredicate();
+        assertTrue(predicate.test(new ShutdownSignalException(true, false, null, null)), "hard error, not triggered by application");
+        assertTrue(predicate.test(new ShutdownSignalException(false, false, null, null)), "soft error, not triggered");
+        assertFalse(predicate.test(new ShutdownSignalException(false, true, null, null)), "soft error, triggered by application");
+    }
+
+    @Test
     void retryTimeoutIsReached() {
         exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-            100L, 10L, singletonMap(Exception.class, true)
+            100L, 10L, new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true))
         );
         exceptionHandler.accept(sendContext(() -> {
             throw new Exception();
@@ -81,7 +92,7 @@ public class ExceptionHandlersTests {
     @Test
     void retrySucceeds() {
         exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-            100L, 10L, singletonMap(Exception.class, true)
+            100L, 10L, new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true))
         );
         AtomicLong counter = new AtomicLong(0);
         exceptionHandler.accept(sendContext(() -> {
@@ -95,7 +106,7 @@ public class ExceptionHandlersTests {
 
     private ExceptionHandlers.SimpleRetryTemplate retryTemplate(Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
         return new ExceptionHandlers.SimpleRetryTemplate(
-            100L, 10L, retryableExceptions
+            100L, 10L, new ExceptionHandlers.ExceptionPredicate(retryableExceptions)
         );
     }
 

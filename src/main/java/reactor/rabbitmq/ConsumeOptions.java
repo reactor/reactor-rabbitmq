@@ -16,11 +16,9 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Delivery;
 import reactor.core.publisher.FluxSink;
 
-import java.util.Collections;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -48,7 +46,7 @@ public class ConsumeOptions {
     private BiFunction<Long, ? super Delivery, Boolean> stopConsumingBiFunction = (requestedFromDownstream, message) -> false;
 
     private BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
-        10_000, 200, Collections.singletonMap(AlreadyClosedException.class, true)
+        10_000, 200, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
     );
 
     public int getQos() {

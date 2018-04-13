@@ -44,7 +44,6 @@ import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -83,7 +82,7 @@ public class ConnectionRecoveryTests {
 
     Mono<Connection> connectionMono;
 
-    public static Stream<BiFunction<Receiver, String, Flux<? extends Delivery>>> consumeNoAckArguments() {
+    public static Stream<BiFunction<Receiver, String, Flux<? extends Delivery>>> consumeArguments() {
         return Stream.of(
             (receiver, queue) -> receiver.consumeNoAck(queue, new ConsumeOptions().overflowStrategy(
                 FluxSink.OverflowStrategy.BUFFER
@@ -129,7 +128,7 @@ public class ConnectionRecoveryTests {
     }
 
     @ParameterizedTest
-    @MethodSource("consumeNoAckArguments")
+    @MethodSource("consumeArguments")
     public void consumeConsumerShouldRecoverAutomatically(BiFunction<Receiver, String, Flux<? extends Delivery>> deliveryFactory) throws Exception {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
@@ -190,7 +189,7 @@ public class ConnectionRecoveryTests {
             ackCount.incrementAndGet();
             if (ackCount.get() == 3 || ackCount.get() == 4) {
                 errorAck.incrementAndGet();
-                throw new AlreadyClosedException(new ShutdownSignalException(true, true, null, null));
+                throw new AlreadyClosedException(new ShutdownSignalException(true, false, null, null));
             }
             return null;
         }).when(mockChannel).basicAck(anyLong(), anyBoolean());
@@ -199,8 +198,9 @@ public class ConnectionRecoveryTests {
 
         AtomicInteger ackedMessages = new AtomicInteger(0);
         receiver.consumeAutoAck("whatever",
-            new ConsumeOptions().exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(5_000, 100, Collections.singletonMap(
-                AlreadyClosedException.class, true))))
+            new ConsumeOptions().exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(5_000, 100,
+                ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+            )))
             .subscribe(msg -> {
                 ackedMessages.incrementAndGet();
             });
@@ -245,7 +245,7 @@ public class ConnectionRecoveryTests {
         doAnswer(answer -> {
             ackCount.incrementAndGet();
             if (ackCount.get() == 3 || ackCount.get() == 4) {
-                throw new AlreadyClosedException(new ShutdownSignalException(true, true, null, null));
+                throw new AlreadyClosedException(new ShutdownSignalException(true, false, null, null));
             }
             return null;
         }).when(mockChannel).basicAck(anyLong(), anyBoolean());
@@ -253,8 +253,8 @@ public class ConnectionRecoveryTests {
         receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionSupplier(cf -> mockConnection));
 
         AtomicInteger ackedMessages = new AtomicInteger(0);
-        BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(5_000, 100, Collections.singletonMap(
-            AlreadyClosedException.class, true)
+        BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
+            5_000, 100, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
         );
         receiver.consumeManualAck("whatever")
             .subscribe(msg -> {
@@ -263,7 +263,7 @@ public class ConnectionRecoveryTests {
                 try {
                     // trying to ack
                     msg.ack();
-                } catch(Exception e) {
+                } catch (Exception e) {
                     // when ack-ing fail, retry-ing
                     exceptionHandler.accept(new Receiver.AcknowledgmentContext(msg), e);
                 }
@@ -305,9 +305,8 @@ public class ConnectionRecoveryTests {
 
         sender = createSender(new SenderOptions().connectionMono(connectionMono));
         sender.send(msgFlux, new SendOptions().exceptionHandler(
-            new ExceptionHandlers.RetrySendingExceptionHandler(5_000, 100, Collections.singletonMap(
-                AlreadyClosedException.class, true
-            ))))
+            new ExceptionHandlers.RetrySendingExceptionHandler(5_000, 100, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+            )))
             .subscribe();
 
         closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
@@ -335,9 +334,7 @@ public class ConnectionRecoveryTests {
 
         sender = createSender(new SenderOptions().connectionMono(connectionMono));
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler(
-            new ExceptionHandlers.RetrySendingExceptionHandler(5_000, 100, Collections.singletonMap(
-                AlreadyClosedException.class, true
-            ))))
+            new ExceptionHandlers.RetrySendingExceptionHandler(5_000, 100, ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE)))
             .subscribe(outboundMessageResult -> {
                 if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
                     confirmedLatch.countDown();

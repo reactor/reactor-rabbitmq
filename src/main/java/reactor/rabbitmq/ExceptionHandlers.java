@@ -16,23 +16,61 @@
 
 package reactor.rabbitmq;
 
+import com.rabbitmq.client.MissedHeartbeatException;
+import com.rabbitmq.client.ShutdownSignalException;
+
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 
 /**
  *
  */
 public class ExceptionHandlers {
 
+    public static Predicate<Throwable> CONNECTION_RECOVERY_PREDICATE = new ConnectionRecoveryTriggeringPredicate();
+
+    public static class ConnectionRecoveryTriggeringPredicate implements Predicate<Throwable> {
+
+        @Override
+        public boolean test(Throwable throwable) {
+            if (throwable instanceof ShutdownSignalException) {
+                ShutdownSignalException sse = (ShutdownSignalException) throwable;
+                return !sse.isInitiatedByApplication() || (sse.getCause() instanceof MissedHeartbeatException);
+            }
+            return false;
+        }
+    }
+
+    public static class ExceptionPredicate implements Predicate<Throwable> {
+
+        private final Map<Class<? extends Throwable>, Boolean> retryableExceptions;
+
+        public ExceptionPredicate(Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
+            this.retryableExceptions = retryableExceptions;
+        }
+
+        @Override
+        public boolean test(Throwable throwable) {
+            for (Map.Entry<Class<? extends Throwable>, Boolean> retryableException : retryableExceptions.entrySet()) {
+                if (retryableException.getKey().isAssignableFrom(throwable.getClass()) &&
+                    retryableException.getValue().booleanValue()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     public static class SimpleRetryTemplate {
 
         private final long timeout;
         private final long waitingTime;
-        private final Map<Class<? extends Throwable>, Boolean> retryableExceptions;
 
-        public SimpleRetryTemplate(long timeout, long waitingTime,
-            Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
+        private final Predicate<Throwable> predicate;
+
+        public SimpleRetryTemplate(long timeout, long waitingTime, Predicate<Throwable> predicate) {
             if (timeout <= 0) {
                 throw new IllegalArgumentException("Timeout must be greater than 0");
             }
@@ -42,13 +80,16 @@ public class ExceptionHandlers {
             if (timeout <= waitingTime) {
                 throw new IllegalArgumentException("Timeout must be greater than waiting time");
             }
+            if (predicate == null) {
+                throw new NullPointerException("Predicate cannot be null");
+            }
             this.timeout = timeout;
             this.waitingTime = waitingTime;
-            this.retryableExceptions = retryableExceptions;
+            this.predicate = predicate;
         }
 
         public void retry(Callable<Void> operation, Exception e) {
-            if (shouldRetry(e)) {
+            if (predicate.test(e)) {
                 int elapsedTime = 0;
                 while (elapsedTime < timeout) {
                     try {
@@ -61,7 +102,7 @@ public class ExceptionHandlers {
                         operation.call();
                         break;
                     } catch (Throwable sendingException) {
-                        if (!shouldRetry(sendingException)) {
+                        if (!predicate.test(sendingException)) {
                             throw new ReactorRabbitMqException("Not retryable exception thrown during retry", sendingException);
                         }
                     }
@@ -70,17 +111,6 @@ public class ExceptionHandlers {
                 throw new ReactorRabbitMqException("Not retryable exception, cannot retry", e);
             }
         }
-
-        protected boolean shouldRetry(Throwable throwable) {
-            for (Map.Entry<Class<? extends Throwable>, Boolean> retryableException : retryableExceptions.entrySet()) {
-                if (retryableException.getKey().isAssignableFrom(throwable.getClass()) &&
-                    retryableException.getValue().booleanValue()) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
     }
 
     public static class RetryAcknowledgmentExceptionHandler implements BiConsumer<Receiver.AcknowledgmentContext, Exception> {
@@ -88,9 +118,9 @@ public class ExceptionHandlers {
         private final SimpleRetryTemplate retryTemplate;
 
         public RetryAcknowledgmentExceptionHandler(long timeout, long waitingTime,
-            Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
+            Predicate<Throwable> predicate) {
             this.retryTemplate = new SimpleRetryTemplate(
-                timeout, waitingTime, retryableExceptions
+                timeout, waitingTime, predicate
             );
         }
 
@@ -107,10 +137,9 @@ public class ExceptionHandlers {
 
         private final SimpleRetryTemplate retryTemplate;
 
-        public RetrySendingExceptionHandler(long timeout, long waitingTime,
-            Map<Class<? extends Throwable>, Boolean> retryableExceptions) {
+        public RetrySendingExceptionHandler(long timeout, long waitingTime, Predicate<Throwable> predicate) {
             this.retryTemplate = new SimpleRetryTemplate(
-              timeout, waitingTime, retryableExceptions
+                timeout, waitingTime, predicate
             );
         }
 
@@ -121,6 +150,5 @@ public class ExceptionHandlers {
                 return null;
             }, e);
         }
-
     }
 }
