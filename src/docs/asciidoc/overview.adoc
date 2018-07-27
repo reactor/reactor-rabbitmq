@@ -3,10 +3,8 @@
 [[rabbitmq]]
 === RabbitMQ
 
-https://rabbitmq.com/[RabbitMQ] is the most widely deployed open source message broker.
-
-With more than 35,000 production deployments of RabbitMQ world-wide
-at small startups and large enterprises, RabbitMQ is the most popular
+With more than 35,000 production deployments world-wide
+at small startups and large enterprises, https://rabbitmq.com/[RabbitMQ] is the most popular
 open source message broker.
 
 RabbitMQ is lightweight and easy to deploy on premises and in the cloud.
