@@ -65,7 +65,7 @@ configurations.all {
 allprojects {
 	apply plugin: 'jacoco'
 	jacoco {
-		toolVersion = '0.7.7.201606060606'
+		toolVersion = '0.8.2'
 	}
 }
 
