@@ -54,6 +54,8 @@ public class Sender implements AutoCloseable {
 
     private static final Function<Connection, Channel> CHANNEL_CREATION_FUNCTION = new ChannelCreationFunction();
 
+    private static final Function<Connection, Channel> CHANNEL_PROXY_CREATION_FUNCTION = new ChannelProxyCreationFunction();
+
     private final Mono<? extends Connection> connectionMono;
 
     private final AtomicBoolean hasConnection = new AtomicBoolean(false);
@@ -84,7 +86,7 @@ public class Sender implements AutoCloseable {
         this.privateResourceCreationScheduler = options.getResourceCreationScheduler() == null;
         this.resourceCreationScheduler = options.getResourceCreationScheduler() == null ?
             createScheduler("rabbitmq-sender-resource-creation") : options.getResourceCreationScheduler();
-        this.channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
+        this.channelMono = connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).cache();
     }
 
     protected Scheduler createScheduler(String name) {
@@ -563,6 +565,18 @@ public class Sender implements AutoCloseable {
         public Channel apply(Connection connection) {
             try {
                 return connection.createChannel();
+            } catch (IOException e) {
+                throw new ReactorRabbitMqException("Error while creating channel", e);
+            }
+        }
+    }
+
+    private static class ChannelProxyCreationFunction implements Function<Connection, Channel> {
+
+        @Override
+        public Channel apply(Connection connection) {
+            try {
+                return new ChannelProxy(connection);
             } catch (IOException e) {
                 throw new ReactorRabbitMqException("Error while creating channel", e);
             }
