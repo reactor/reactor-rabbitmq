@@ -37,6 +37,8 @@ import com.rabbitmq.client.ShutdownSignalException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A {@link Channel} proxy that re-open the underlying channel if necessary.
@@ -49,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 class ChannelProxy implements Channel {
 
     private final Connection connection;
+    private final Lock delegateLock = new ReentrantLock();
     private volatile Channel delegate;
 
     public ChannelProxy(Connection connection) throws IOException {
@@ -548,9 +551,21 @@ class ChannelProxy implements Channel {
     @Override
     public CompletableFuture<Command> asyncCompletableRpc(Method method) throws IOException {
         if (!delegate.isOpen()) {
-            this.delegate = connection.createChannel();
+            openNewChannelIfNecessary();
         }
         return delegate.asyncCompletableRpc(method);
+    }
+
+    private void openNewChannelIfNecessary() throws IOException {
+        try {
+            delegateLock.lock();
+            if (delegate.isOpen()) {
+                return;
+            }
+            this.delegate = connection.createChannel();
+        } finally {
+            delegateLock.unlock();
+        }
     }
 
     @Override
