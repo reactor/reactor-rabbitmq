@@ -22,11 +22,13 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.ShutdownSignalException;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.fail;
 import static reactor.rabbitmq.ReactorRabbitMq.createSender;
 
 /**
@@ -68,13 +70,10 @@ public class SenderTests {
         sender = createSender();
         try {
             sender.declare(QueueSpecification.queue(queue).autoDelete(true)).block();
+            fail("Trying to re-declare queue with different arguments, should have failed");
         } catch (ShutdownSignalException e) {
-
+            // OK
         }
-        try {
-            sender.declare(QueueSpecification.queue()).block();
-        } catch (AlreadyClosedException e) {
-
-        }
+        sender.declare(QueueSpecification.queue()).block();
     }
 }
