@@ -18,6 +18,8 @@ package reactor.rabbitmq.docs;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Address;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
 import org.slf4j.Logger;
@@ -31,16 +33,19 @@ import reactor.rabbitmq.ExchangeSpecification;
 import reactor.rabbitmq.OutboundMessage;
 import reactor.rabbitmq.QueueSpecification;
 import reactor.rabbitmq.ReactorRabbitMq;
+import reactor.rabbitmq.ReactorRabbitMqException;
+import reactor.rabbitmq.ResourceManagementOptions;
 import reactor.rabbitmq.RpcClient;
 import reactor.rabbitmq.SendOptions;
 import reactor.rabbitmq.Sender;
 import reactor.rabbitmq.SenderOptions;
 
-// tag::static-import[]
 import java.time.Duration;
 import java.util.UUID;
 import java.util.function.Supplier;
+import static reactor.rabbitmq.ReactorRabbitMq.createSender;
 
+// tag::static-import[]
 import static reactor.rabbitmq.ResourcesSpecification.*;
 // end::static-import[]
 
@@ -176,6 +181,29 @@ public class ApiGuideSender {
            )
         ));
         // end::retry-settings[]
+    }
+
+    void resourceManagementOptions() {
+        Mono<Connection> connectionMono = null;
+        Sender sender = createSender();
+
+        // tag::resource-management-options[]
+        Mono<Channel> channelMono = connectionMono.map(c -> {
+            try {
+                return c.createChannel();
+            } catch (Exception e) {
+                throw new ReactorRabbitMqException(e);
+            }
+        }).cache();                                                                // <1>
+
+        ResourceManagementOptions options = new ResourceManagementOptions()
+            .channelMono(channelMono);                                             // <2>
+
+        sender.declare(exchange("my.exchange"), options)                           // <3>
+            .then(sender.declare(queue("my.queue"), options))                      // <3>
+            .then(sender.bind(binding("my.exchange", "a.b", "my.queue"), options)) // <3>
+            .subscribe(r -> System.out.println("Exchange and queue declared and bound"));
+        // end::resource-management-options[]
     }
 
 }

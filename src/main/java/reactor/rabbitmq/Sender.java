@@ -60,7 +60,7 @@ public class Sender implements AutoCloseable {
 
     private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
-    private final Mono<Channel> channelMono;
+    private final Mono<? extends Channel> resourceManagementChannelMono;
 
     private final Scheduler resourceCreationScheduler;
 
@@ -86,7 +86,8 @@ public class Sender implements AutoCloseable {
         this.privateResourceCreationScheduler = options.getResourceCreationScheduler() == null;
         this.resourceCreationScheduler = options.getResourceCreationScheduler() == null ?
             createScheduler("rabbitmq-sender-resource-creation") : options.getResourceCreationScheduler();
-        this.channelMono = connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).cache();
+        this.resourceManagementChannelMono = options.getResourceManagementChannelMono() == null ?
+            connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).cache() : options.getResourceManagementChannelMono();
     }
 
     protected Scheduler createScheduler(String name) {
@@ -162,10 +163,20 @@ public class Sender implements AutoCloseable {
     }
 
     public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification) {
-        return this.declareQueue(specification);
+        return this.declareQueue(specification, null);
+    }
+
+    public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification, ResourceManagementOptions options) {
+        return this.declareQueue(specification, options);
     }
 
     public Mono<AMQP.Queue.DeclareOk> declareQueue(QueueSpecification specification) {
+        return this.declareQueue(specification, null);
+    }
+
+    public Mono<AMQP.Queue.DeclareOk> declareQueue(QueueSpecification specification, ResourceManagementOptions options) {
+        Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
+
         AMQP.Queue.Declare declare;
         if (specification.getName() == null) {
             declare = new AMQImpl.Queue.Declare.Builder()
@@ -196,15 +207,33 @@ public class Sender implements AutoCloseable {
             .publishOn(resourceCreationScheduler);
     }
 
+    private Mono<? extends Channel> getChannelMonoForResourceManagement(ResourceManagementOptions options) {
+        return options != null && options.getChannelMono() != null ?
+            options.getChannelMono() : this.resourceManagementChannelMono;
+    }
+
     public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification) {
         return this.delete(specification, false, false);
+    }
+
+    public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, ResourceManagementOptions options) {
+        return this.delete(specification, false, false, options);
     }
 
     public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, boolean ifUnused, boolean ifEmpty) {
         return this.deleteQueue(specification, ifUnused, ifEmpty);
     }
 
+    public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, boolean ifUnused, boolean ifEmpty, ResourceManagementOptions options) {
+        return this.deleteQueue(specification, ifUnused, ifEmpty, options);
+    }
+
     public Mono<AMQP.Queue.DeleteOk> deleteQueue(QueueSpecification specification, boolean ifUnused, boolean ifEmpty) {
+        return this.deleteQueue(specification, ifUnused, ifEmpty, null);
+    }
+
+    public Mono<AMQP.Queue.DeleteOk> deleteQueue(QueueSpecification specification, boolean ifUnused, boolean ifEmpty, ResourceManagementOptions options) {
+        Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Queue.Delete delete = new AMQImpl.Queue.Delete.Builder()
             .queue(specification.getName())
             .ifUnused(ifUnused)
@@ -223,10 +252,19 @@ public class Sender implements AutoCloseable {
     }
 
     public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification) {
-        return this.declareExchange(specification);
+        return this.declareExchange(specification, null);
+    }
+
+    public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification, ResourceManagementOptions options) {
+        return this.declareExchange(specification, options);
     }
 
     public Mono<AMQP.Exchange.DeclareOk> declareExchange(ExchangeSpecification specification) {
+        return this.declareExchange(specification, null);
+    }
+
+    public Mono<AMQP.Exchange.DeclareOk> declareExchange(ExchangeSpecification specification, ResourceManagementOptions options) {
+        Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Exchange.Declare declare = new AMQImpl.Exchange.Declare.Builder()
             .exchange(specification.getName())
             .type(specification.getType())
@@ -250,11 +288,24 @@ public class Sender implements AutoCloseable {
         return this.delete(specification, false);
     }
 
+    public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, ResourceManagementOptions options) {
+        return this.delete(specification, false, options);
+    }
+
     public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, boolean ifUnused) {
         return this.deleteExchange(specification, ifUnused);
     }
 
+    public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, boolean ifUnused, ResourceManagementOptions options) {
+        return this.deleteExchange(specification, ifUnused, options);
+    }
+
     public Mono<AMQP.Exchange.DeleteOk> deleteExchange(ExchangeSpecification specification, boolean ifUnused) {
+        return this.deleteExchange(specification, ifUnused, null);
+    }
+
+    public Mono<AMQP.Exchange.DeleteOk> deleteExchange(ExchangeSpecification specification, boolean ifUnused, ResourceManagementOptions options) {
+        Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Exchange.Delete delete = new AMQImpl.Exchange.Delete.Builder()
             .exchange(specification.getName())
             .ifUnused(ifUnused)
@@ -271,6 +322,11 @@ public class Sender implements AutoCloseable {
     }
 
     public Mono<AMQP.Queue.UnbindOk> unbind(BindingSpecification specification) {
+        return this.unbind(specification, null);
+    }
+
+    public Mono<AMQP.Queue.UnbindOk> unbind(BindingSpecification specification, ResourceManagementOptions options) {
+        Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Queue.Unbind unbinding = new AMQImpl.Queue.Unbind.Builder()
             .exchange(specification.getExchange())
             .queue(specification.getQueue())
@@ -290,6 +346,11 @@ public class Sender implements AutoCloseable {
     }
 
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {
+        return this.bind(specification, null);
+    }
+
+    public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification, ResourceManagementOptions options) {
+        Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Queue.Bind binding = new AMQImpl.Queue.Bind.Builder()
             .exchange(specification.getExchange())
             .queue(specification.getQueue())
@@ -383,8 +444,6 @@ public class Sender implements AutoCloseable {
             this.publish(getMessage());
         }
     }
-
-
 
     private static class PublishConfirmOperator
         extends FluxOperator<OutboundMessage, OutboundMessageResult> {

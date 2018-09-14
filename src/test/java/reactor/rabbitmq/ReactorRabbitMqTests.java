@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
+import reactor.core.Exceptions;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -48,7 +49,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -114,17 +114,19 @@ public class ReactorRabbitMqTests {
         }
     }
 
-    @Test public void senderCloseIsIdempotent() {
+    @Test
+    public void senderCloseIsIdempotent() {
         sender = createSender();
 
         sender.send(Flux.just(new OutboundMessage("", "dummy", new byte[0])))
-              .then().block();
+            .then().block();
 
         sender.close();
         sender.close();
     }
 
-    @Test public void receiverCloseIsIdempotent() throws Exception {
+    @Test
+    public void receiverCloseIsIdempotent() throws Exception {
         receiver = ReactorRabbitMq.createReceiver();
 
         sender = createSender();
@@ -133,14 +135,15 @@ public class ReactorRabbitMqTests {
         CountDownLatch latch = new CountDownLatch(1);
         Disposable subscribe = receiver.consumeAutoAck(queue).subscribe(delivery -> latch.countDown());
 
-        assertTrue(latch.await(5, TimeUnit.SECONDS),"A message should have been received");
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "A message should have been received");
         subscribe.dispose();
 
         receiver.close();
         receiver.close();
     }
 
-    @Test public void acknowledgableDeliveryAckNackIsIdempotent() throws Exception {
+    @Test
+    public void acknowledgableDeliveryAckNackIsIdempotent() throws Exception {
         Channel channel = mock(Channel.class);
         doNothing().doThrow(new IOException()).when(channel).basicAck(anyLong(), anyBoolean());
         doThrow(new IOException()).when(channel).basicNack(anyLong(), anyBoolean(), anyBoolean());
@@ -280,7 +283,7 @@ public class ReactorRabbitMqTests {
         Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue, new ConsumeOptions()
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
             .hookBeforeEmitBiFunction((requestedFromDownstream, message) -> {
-                if(requestedFromDownstream == 0) {
+                if (requestedFromDownstream == 0) {
                     ((AcknowledgableDelivery) message).nack(true);
                     ackedNackedLatch.countDown();
                     return false;
@@ -348,7 +351,7 @@ public class ReactorRabbitMqTests {
         Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue, new ConsumeOptions()
             .overflowStrategy(FluxSink.OverflowStrategy.DROP)
             .hookBeforeEmitBiFunction((requestedFromDownstream, message) -> {
-                if(requestedFromDownstream == 0) {
+                if (requestedFromDownstream == 0) {
                     ((AcknowledgableDelivery) message).ack();
                     ackedDroppedLatch.countDown();
                 }
@@ -431,7 +434,8 @@ public class ReactorRabbitMqTests {
         channel.basicConsume(queue, true, (consumerTag, delivery) -> {
             counter.incrementAndGet();
             consumedLatch.countDown();
-        },  consumerTag -> {});
+        }, consumerTag -> {
+        });
 
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 
@@ -472,11 +476,12 @@ public class ReactorRabbitMqTests {
             throw new ReactorRabbitMqException(e);
         }))
             .subscribe(outboundMessageResult -> {
-                if (outboundMessageResult.getOutboundMessage() != null) {
-                    confirmLatch.countDown();
-                }
-            },
-                error -> { });
+                    if (outboundMessageResult.getOutboundMessage() != null) {
+                        confirmLatch.countDown();
+                    }
+                },
+                error -> {
+                });
 
         // have to wait a bit the subscription propagates and add the confirm listener
         Thread.sleep(100L);
@@ -527,7 +532,6 @@ public class ReactorRabbitMqTests {
 
             assertTrue(latchDeletion.await(1, TimeUnit.SECONDS));
             resourceDeletion.dispose();
-
         } finally {
             try {
                 channel.exchangeDeclarePassive(exchangeName);
@@ -538,7 +542,75 @@ public class ReactorRabbitMqTests {
             }
             try {
                 channel.queueDeclarePassive(queueName);
-                fail("The QUEUE should have been deleted, queueDeclarePassive should have thrown an exception");
+                fail("The queue should have been deleted, queueDeclarePassive should have thrown an exception");
+            } catch (IOException e) {
+                // OK
+            }
+        }
+    }
+
+    @Test
+    public void declareDeleteResourcesWithOptions() throws Exception {
+        Channel channel = connection.createChannel();
+
+        final String queueName = UUID.randomUUID().toString();
+        final String exchangeName = UUID.randomUUID().toString();
+
+        try {
+            SenderOptions senderOptions = new SenderOptions();
+            Mono<Connection> connectionMono = Mono.fromCallable(() -> senderOptions.getConnectionFactory().newConnection());
+            AtomicInteger channelMonoCalls = new AtomicInteger(0);
+            Mono<Channel> channelMono = connectionMono.map(c -> {
+                try {
+                    channelMonoCalls.incrementAndGet();
+                    return c.createChannel();
+                } catch (Exception e) {
+                    Exceptions.propagate(e);
+                }
+                return null;
+            });
+            senderOptions.connectionMono(connectionMono);
+            CountDownLatch latchCreation = new CountDownLatch(1);
+            sender = createSender(senderOptions);
+
+            ResourceManagementOptions options = new ResourceManagementOptions()
+                .channelMono(channelMono);
+
+            Disposable resourceCreation = sender.declare(exchange(exchangeName), options)
+                .then(sender.declare(queue(queueName), options))
+                .then(sender.bind(binding(exchangeName, "a.b", queueName), options))
+                .doAfterTerminate(() -> latchCreation.countDown())
+                .subscribe();
+
+            assertTrue(latchCreation.await(1, TimeUnit.SECONDS));
+            assertEquals(3, channelMonoCalls.get());
+
+            channel.exchangeDeclarePassive(exchangeName);
+            channel.queueDeclarePassive(queueName);
+            resourceCreation.dispose();
+
+            CountDownLatch latchDeletion = new CountDownLatch(1);
+
+            Disposable resourceDeletion = sender.unbind(binding(exchangeName, "a.b", queueName), options)
+                .then(sender.delete(exchange(exchangeName), options))
+                .then(sender.delete(queue(queueName), options))
+                .doAfterTerminate(() -> latchDeletion.countDown())
+                .subscribe();
+
+            assertTrue(latchDeletion.await(1, TimeUnit.SECONDS));
+            assertEquals(3 + 3, channelMonoCalls.get());
+            resourceDeletion.dispose();
+        } finally {
+            try {
+                channel.exchangeDeclarePassive(exchangeName);
+                fail("The exchange should have been deleted, exchangeDeclarePassive should have thrown an exception");
+            } catch (IOException e) {
+                // OK
+                channel = connection.createChannel();
+            }
+            try {
+                channel.queueDeclarePassive(queueName);
+                fail("The queue should have been deleted, queueDeclarePassive should have thrown an exception");
             } catch (IOException e) {
                 // OK
             }
@@ -600,10 +672,10 @@ public class ReactorRabbitMqTests {
             Disposable shovel = resources.then(sender.send(Flux.range(0, nbMessages).map
                 (i -> new OutboundMessage("", sourceQueue, i.toString().getBytes()))))
                 .thenMany(receiver.consumeNoAck(
-                        sourceQueue,
-                        new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
-                    ).map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()))
-                     .transform(messages -> sender.send(messages)))
+                    sourceQueue,
+                    new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
+                ).map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()))
+                    .transform(messages -> sender.send(messages)))
                 .thenMany(receiver.consumeNoAck(destinationQueue)).subscribe(msg -> {
                     counter.incrementAndGet();
                     latch.countDown();
@@ -619,15 +691,16 @@ public class ReactorRabbitMqTests {
         }
     }
 
-    @Test public void partitions() throws Exception {
+    @Test
+    public void partitions() throws Exception {
         sender = createSender();
         receiver = ReactorRabbitMq.createReceiver();
         int nbPartitions = 4;
         int nbMessages = 100;
 
         Flux<Tuple2<Integer, String>> queues = Flux.range(0, nbPartitions)
-            .flatMap(partition -> sender.declare(queue("partitions"+partition).autoDelete(true))
-                                                .map(q -> Tuples.of(partition, q.getQueue())))
+            .flatMap(partition -> sender.declare(queue("partitions" + partition).autoDelete(true))
+                .map(q -> Tuples.of(partition, q.getQueue())))
             .cache();
 
         Flux<AMQP.Queue.BindOk> bindings = queues
@@ -635,7 +708,7 @@ public class ReactorRabbitMqTests {
 
         Flux<OutboundMessage> messages = Flux.range(0, nbMessages).groupBy(v -> v % nbPartitions)
             .flatMap(partitionFlux -> partitionFlux.publishOn(Schedulers.elastic())
-                .map(v -> new OutboundMessage("amq.direct", partitionFlux.key().toString(), (v+"").getBytes())));
+                .map(v -> new OutboundMessage("amq.direct", partitionFlux.key().toString(), (v + "").getBytes())));
 
         CountDownLatch latch = new CountDownLatch(nbMessages);
 
@@ -648,7 +721,8 @@ public class ReactorRabbitMqTests {
         flow.dispose();
     }
 
-    @Test public void connectionMonoSharedConnection() throws Exception {
+    @Test
+    public void connectionMonoSharedConnection() throws Exception {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
         Mono<? extends Connection> connectionMono = Utils.singleConnectionMono(connectionFactory, cf -> cf.newConnection());
@@ -662,7 +736,8 @@ public class ReactorRabbitMqTests {
         sendAndReceiveMessages(connectionQueue);
     }
 
-    @Test public void creatConnectionWithConnectionSupplier() throws Exception {
+    @Test
+    public void creatConnectionWithConnectionSupplier() throws Exception {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
 
@@ -681,7 +756,8 @@ public class ReactorRabbitMqTests {
         sendAndReceiveMessages(queue);
     }
 
-    @Test public void createConnectionWithConnectionMono() throws Exception {
+    @Test
+    public void createConnectionWithConnectionMono() throws Exception {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
 
