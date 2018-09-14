@@ -62,7 +62,7 @@ public class ApiGuideSender {
 
         SenderOptions senderOptions =  new SenderOptions()
             .connectionFactory(connectionFactory)                       // <1>
-            .resourceCreationScheduler(Schedulers.elastic());           // <2>
+            .resourceManagementScheduler(Schedulers.elastic());           // <2>
         // end::options-simple[]
         // tag::instanciation[]
         Sender sender = ReactorRabbitMq.createSender(senderOptions);
@@ -119,7 +119,7 @@ public class ApiGuideSender {
             .connectionSupplier(cf -> cf.newConnection(                                  // <1>
                 new Address[] {new Address("192.168.0.1"), new Address("192.168.0.2")},
                 "reactive-sender"))
-            .resourceCreationScheduler(Schedulers.elastic());
+            .resourceManagementScheduler(Schedulers.elastic());
         // end::options-connection-supplier[]
     }
 
@@ -129,7 +129,7 @@ public class ApiGuideSender {
 
         SenderOptions senderOptions =  new SenderOptions()
             .connectionFactory(connectionFactory)
-            .resourceCreationScheduler(Schedulers.elastic());
+            .resourceManagementScheduler(Schedulers.elastic());
         Sender sender = ReactorRabbitMq.createSender(senderOptions);
         // tag::publisher-confirms[]
         Flux<OutboundMessage> outboundFlux  = Flux.range(1, 10)

@@ -25,14 +25,14 @@ to transport messages to the broker. A `Sender` can also manage resources
 A `Sender` is created with an instance of sender configuration options
 `reactor.rabbitmq.SenderOptions`.
 The properties of `SenderOptions` contains the `ConnectionFactory` that creates
-connections to the broker and some Reactor `Scheduler` used by the `Sender`.
+connections to the broker and some Reactor `Scheduler`s used by the `Sender`.
 
 [source,java,indent=0]
 --------
 include::{test-examples}/ApiGuideSender.java[tag=options-simple]
 --------
 <1> Specify connection factory
-<2> Specify scheduler for resource creation
+<2> Specify scheduler for resource management
 
 Note you can control the creation of the `Connection` thanks to the
 `connectionSupplier(ConnectionFactory)` method:

@@ -37,7 +37,7 @@ public class SenderOptions {
 
     private Mono<? extends Connection> connectionMono;
 
-    private Scheduler resourceCreationScheduler;
+    private Scheduler resourceManagementScheduler;
 
     private Scheduler connectionSubscriptionScheduler;
 
@@ -52,18 +52,18 @@ public class SenderOptions {
         return this;
     }
 
-    public Scheduler getResourceCreationScheduler() {
-        return resourceCreationScheduler;
+    public Scheduler getResourceManagementScheduler() {
+        return resourceManagementScheduler;
     }
 
     /**
-     * Resource creation scheduler.
+     * Resource management scheduler.
      * It is developer's responsibility to close it if set.
-     * @param resourceCreationScheduler
+     * @param resourceManagementScheduler
      * @return the current {@link SenderOptions} instance
      */
-    public SenderOptions resourceCreationScheduler(Scheduler resourceCreationScheduler) {
-        this.resourceCreationScheduler = resourceCreationScheduler;
+    public SenderOptions resourceManagementScheduler(Scheduler resourceManagementScheduler) {
+        this.resourceManagementScheduler = resourceManagementScheduler;
         return this;
     }
 

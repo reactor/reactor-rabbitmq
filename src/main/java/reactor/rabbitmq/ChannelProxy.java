@@ -43,7 +43,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * A {@link Channel} proxy that re-open the underlying channel if necessary.
  * <p>
- * This class is used only for resource creation in {@link Sender}, so
+ * This class is used only for resource management in {@link Sender}, so
  * only {@link Channel#asyncCompletableRpc(Method)} checks whether the
  * underlying {@link Channel} is closed or not, and re-open it if
  * necessary. All other methods are not supported.

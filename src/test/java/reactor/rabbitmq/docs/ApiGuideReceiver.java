@@ -66,7 +66,7 @@ public class ApiGuideReceiver {
             .connectionSupplier(cf -> cf.newConnection(                                  // <1>
                 new Address[] {new Address("192.168.0.1"), new Address("192.168.0.2")},
                 "reactive-sender"))
-            .resourceCreationScheduler(Schedulers.elastic());
+            .resourceManagementScheduler(Schedulers.elastic());
         // end::options-connection-supplier[]
     }
 

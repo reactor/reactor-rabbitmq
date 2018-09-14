@@ -62,9 +62,9 @@ public class Sender implements AutoCloseable {
 
     private final Mono<? extends Channel> resourceManagementChannelMono;
 
-    private final Scheduler resourceCreationScheduler;
+    private final Scheduler resourceManagementScheduler;
 
-    private final boolean privateResourceCreationScheduler;
+    private final boolean privateResourceManagementScheduler;
 
     private final Scheduler connectionSubscriptionScheduler;
 
@@ -83,9 +83,9 @@ public class Sender implements AutoCloseable {
                 .doOnSubscribe(c -> hasConnection.set(true))
                 .subscribeOn(this.connectionSubscriptionScheduler)
                 .cache();
-        this.privateResourceCreationScheduler = options.getResourceCreationScheduler() == null;
-        this.resourceCreationScheduler = options.getResourceCreationScheduler() == null ?
-            createScheduler("rabbitmq-sender-resource-creation") : options.getResourceCreationScheduler();
+        this.privateResourceManagementScheduler = options.getResourceManagementScheduler() == null;
+        this.resourceManagementScheduler = options.getResourceManagementScheduler() == null ?
+            createScheduler("rabbitmq-sender-resource-creation") : options.getResourceManagementScheduler();
         this.resourceManagementChannelMono = options.getResourceManagementChannelMono() == null ?
             connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).cache() : options.getResourceManagementChannelMono();
     }
@@ -204,7 +204,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
-            .publishOn(resourceCreationScheduler);
+            .publishOn(resourceManagementScheduler);
     }
 
     private Mono<? extends Channel> getChannelMonoForResourceManagement(ResourceManagementOptions options) {
@@ -248,7 +248,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.DeleteOk) command.getMethod()))
-            .publishOn(resourceCreationScheduler);
+            .publishOn(resourceManagementScheduler);
     }
 
     public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification) {
@@ -281,7 +281,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()))
-            .publishOn(resourceCreationScheduler);
+            .publishOn(resourceManagementScheduler);
     }
 
     public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification) {
@@ -318,7 +318,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Exchange.DeleteOk) command.getMethod()))
-            .publishOn(resourceCreationScheduler);
+            .publishOn(resourceManagementScheduler);
     }
 
     public Mono<AMQP.Queue.UnbindOk> unbind(BindingSpecification specification) {
@@ -342,7 +342,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.UnbindOk) command.getMethod()))
-            .publishOn(resourceCreationScheduler);
+            .publishOn(resourceManagementScheduler);
     }
 
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {
@@ -366,7 +366,7 @@ public class Sender implements AutoCloseable {
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
-            .publishOn(resourceCreationScheduler);
+            .publishOn(resourceManagementScheduler);
     }
 
     public void close() {
@@ -381,8 +381,8 @@ public class Sender implements AutoCloseable {
         if (this.privateConnectionSubscriptionScheduler) {
             this.connectionSubscriptionScheduler.dispose();
         }
-        if (this.privateResourceCreationScheduler) {
-            this.resourceCreationScheduler.dispose();
+        if (this.privateResourceManagementScheduler) {
+            this.resourceManagementScheduler.dispose();
         }
     }
 
