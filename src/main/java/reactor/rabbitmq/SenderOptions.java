@@ -16,6 +16,7 @@
 
 package reactor.rabbitmq;
 
+import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import reactor.core.publisher.Mono;
@@ -39,6 +40,8 @@ public class SenderOptions {
     private Scheduler resourceCreationScheduler;
 
     private Scheduler connectionSubscriptionScheduler;
+
+    private Mono<? extends Channel> resourceManagementChannelMono;
 
     public ConnectionFactory getConnectionFactory() {
         return connectionFactory;
@@ -97,4 +100,12 @@ public class SenderOptions {
         return connectionMono;
     }
 
+    public SenderOptions resourceManagementChannelMono(Mono<? extends Channel> resourceManagementChannelMono) {
+        this.resourceManagementChannelMono = resourceManagementChannelMono;
+        return this;
+    }
+
+    public Mono<? extends Channel> getResourceManagementChannelMono() {
+        return resourceManagementChannelMono;
+    }
 }

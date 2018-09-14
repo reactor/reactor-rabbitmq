@@ -441,3 +441,25 @@ include::{test-examples}/AdvancedFeatures.java[tag=shared-connection]
 
 Be aware that closing the first `Sender` or `Receiver` will close the underlying
 AMQP connection for all the others.
+
+==== Threading considerations for resource management
+
+A `Sender` instance maintains a `Mono<Channel>` to manage resources and by default
+the underlying `Channel` is cached. A new `Channel` is also automatically created in case of error.
+Channel creation is not a cheap operation, so this default behavior fits most use
+cases. Each resource management method provides a counterpart method with an additional
+`ResourceManagementOptions` argument. This allows to provide a custom `Mono<Channel>`
+for a given resource operation. This can be useful when multiple threads are using
+the same `Sender` instance, to avoid using the same `Channel` from multiple threads.
+
+[source,java,indent=0]
+-------
+include::{test-examples}/ApiGuideSender.java[tag=resource-management-options]
+-------
+<1> Create `Channel` and cache it
+<2> Use the `Mono<Channel>` in `ResourceManagementOptions`
+<3> Use `Mono<Channel>` for each operation
+
+In the example above, each operation will use the same `Channel` as it is cached.
+This way these operations won't interfer with any other thread using the default
+resource management `Mono<Channel>` in the `Sender` instance.

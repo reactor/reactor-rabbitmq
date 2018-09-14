@@ -48,7 +48,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * underlying {@link Channel} is closed or not, and re-open it if
  * necessary. All other methods are not supported.
  */
-class ChannelProxy implements Channel {
+public class ChannelProxy implements Channel {
 
     private final Connection connection;
     private final Lock delegateLock = new ReentrantLock();
