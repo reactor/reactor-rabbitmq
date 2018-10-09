@@ -3,9 +3,12 @@
 [[new]]
 === What's new in Reactor RabbitMQ 1.0
 
-* 1.0.0.M2
+* 1.0.0.M1
 ** Introduction of the `Sender` and `Receiver` API
 * 1.0.0.M2
 ** Support for request/reply
 ** Exception handling
+* 1.0.0.M3
+** Bump Reactor to 3.2.0.RELEASE
+** Let user provide `Mono<Channel>` for resource management
 
