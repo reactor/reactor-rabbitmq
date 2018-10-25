@@ -32,7 +32,7 @@ With Maven:
 <dependency>
     <groupId>io.projectreactor.rabbitmq</groupId>
     <artifactId>reactor-rabbitmq</artifactId>
-    <version>1.0.0.M3</version>
+    <version>1.0.0.RC1</version>
 </dependency>
 
 <repositories>
@@ -56,7 +56,7 @@ repositories {
 }
 
 dependencies {
-  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.M3"
+  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.RC1"
 }
 ```
 
