@@ -44,8 +44,8 @@ ext {
 	// Testing
 	mockitoVersion = '1.10.19'
 	awaitilityVersion = '3.1.0'
-	junitPlatformVersion = '1.2.0'
-	junitJupiterVersion  = '5.2.0'
+	junitPlatformVersion = '1.3.1'
+	junitJupiterVersion  = '5.3.1'
 
 	javadocLinks = ["http://docs.oracle.com/javase/7/docs/api/",
 					"http://docs.oracle.com/javaee/6/api/",
