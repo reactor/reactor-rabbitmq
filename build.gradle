@@ -32,7 +32,7 @@ plugins {
 ext {
 	gradleScriptDir = "${rootProject.projectDir}/gradle"
 
-	reactorCoreVersion = "3.2.1.RELEASE"
+	reactorCoreVersion = "3.2.2.RELEASE"
 
 	// Logging
 	slf4jVersion = '1.7.25'
