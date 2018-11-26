@@ -51,6 +51,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.of;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.*;
@@ -71,12 +72,10 @@ public class ReactorRabbitMqTests {
     Receiver receiver;
     Sender sender;
 
-    static Stream<Arguments> receiverErrorHandlingArguments() {
+    static Stream<Arguments> noAckAndManualAckFluxArguments() {
         return Stream.of(
-                Arguments.of(
-                        (BiFunction<Receiver, String, Flux<Delivery>>) (receiver, queue) -> receiver.consumeNoAck(queue)),
-                Arguments.of(
-                        (BiFunction<Receiver, String, Flux<? extends Delivery>>) (receiver, queue) -> receiver.consumeManualAck(queue))
+            of((BiFunction<Receiver, String, Flux<Delivery>>) (receiver, queue) -> receiver.consumeNoAck(queue)),
+            of((BiFunction<Receiver, String, Flux<? extends Delivery>>) (receiver, queue) -> receiver.consumeManualAck(queue))
         );
     }
 
@@ -397,7 +396,7 @@ public class ReactorRabbitMqTests {
     }
 
     @ParameterizedTest
-    @MethodSource("receiverErrorHandlingArguments")
+    @MethodSource("noAckAndManualAckFluxArguments")
     public void receiverErrorHandling(BiFunction<Receiver, String, Flux<? extends Delivery>> fluxFactory) {
         Mono<Connection> connectionMono = Mono.fromCallable(() -> {
             throw new RuntimeException();
@@ -405,10 +404,42 @@ public class ReactorRabbitMqTests {
         receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
         Flux<? extends Delivery> flux = fluxFactory.apply(receiver, queue);
         AtomicBoolean errorHandlerCalled = new AtomicBoolean(false);
-        Disposable disposable = flux.subscribe(delivery -> {
-        }, error -> errorHandlerCalled.set(true));
+        Disposable disposable = flux.subscribe(delivery -> { }, error -> errorHandlerCalled.set(true));
         assertTrue(errorHandlerCalled.get());
         disposable.dispose();
+    }
+
+    @ParameterizedTest
+    @MethodSource("noAckAndManualAckFluxArguments")
+    public void receiverFluxDisposedOnConnectionClose(BiFunction<Receiver, String, Flux<? extends Delivery>> fluxFactory) throws Exception {
+        Channel channel = connection.createChannel();
+        int nbMessages = 10;
+        Mono<Connection> connectionMono = Mono.fromCallable(() -> {
+            ConnectionFactory cf = new ConnectionFactory();
+            cf.useNio();
+            return cf.newConnection();
+        }).cache();
+        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
+
+        Flux<? extends Delivery> flux = fluxFactory.apply(receiver, queue);
+        for (int $$ : IntStream.range(0, nbMessages).toArray()) {
+            channel.basicPublish("", queue, null, "Hello".getBytes());
+        }
+
+        CountDownLatch messageReceivedLatch = new CountDownLatch(nbMessages);
+        CountDownLatch completedLatch = new CountDownLatch(1);
+        AtomicInteger counter = new AtomicInteger();
+        Disposable subscription = flux.subscribe(msg -> {
+            counter.incrementAndGet();
+            messageReceivedLatch.countDown();
+        }, error -> {}, () -> completedLatch.countDown());
+
+        assertTrue(messageReceivedLatch.await(1, TimeUnit.SECONDS));
+        assertEquals(nbMessages, counter.get());
+        assertEquals(1, completedLatch.getCount());
+        connectionMono.block().close();
+        assertTrue(completedLatch.await(1, TimeUnit.SECONDS));
+        subscription.dispose();
     }
 
     @Test

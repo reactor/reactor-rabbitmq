@@ -21,9 +21,11 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.DeliverCallback;
 import com.rabbitmq.client.Delivery;
+import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -91,6 +93,8 @@ public class Receiver implements Closeable {
                     emitter.complete();
                 };
 
+                completeOnChannelShutdown(channel, emitter);
+
                 final String consumerTag = channel.basicConsume(queue, true, deliverCallback, cancelCallback);
                 AtomicBoolean cancelled = new AtomicBoolean(false);
                 LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
@@ -114,6 +118,14 @@ public class Receiver implements Closeable {
                 throw new ReactorRabbitMqException(e);
             }
         }, emitter::error), options.getOverflowStrategy());
+    }
+
+    protected void completeOnChannelShutdown(Channel channel, FluxSink<?> emitter) {
+        channel.addShutdownListener(reason -> {
+            if (!AutorecoveringConnection.DEFAULT_CONNECTION_RECOVERY_TRIGGERING_CONDITION.test(reason)) {
+                emitter.complete();
+            }
+        });
     }
 
     public Flux<Delivery> consumeAutoAck(final String queue) {
@@ -157,6 +169,8 @@ public class Receiver implements Closeable {
                     LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
                     emitter.complete();
                 };
+
+                completeOnChannelShutdown(channel, emitter);
 
                 final String consumerTag = channel.basicConsume(queue, false, deliverCallback, cancelCallback);
                 AtomicBoolean cancelled = new AtomicBoolean(false);
