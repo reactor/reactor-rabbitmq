@@ -14,4 +14,7 @@
 * 1.0.0.RC1
 ** Bump Reactor to 3.2.1.RELEASE
 ** Bump RabbitMQ Java client 5.5.0
-
+* 1.0.0.RC2
+** Bump Reactor to 3.2.3.RELEASE
+** Complete receiving flux on channel termination
+** Handle error signal of `connectionMono` subscription to enable proper error handling
