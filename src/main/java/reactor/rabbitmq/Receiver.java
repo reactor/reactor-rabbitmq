@@ -113,7 +113,7 @@ public class Receiver implements Closeable {
             } catch (IOException e) {
                 throw new ReactorRabbitMqException(e);
             }
-        }), options.getOverflowStrategy());
+        }, emitter::error), options.getOverflowStrategy());
     }
 
     public Flux<Delivery> consumeAutoAck(final String queue) {
@@ -179,7 +179,7 @@ public class Receiver implements Closeable {
             } catch (IOException e) {
                 throw new ReactorRabbitMqException(e);
             }
-        }), options.getOverflowStrategy());
+        }, emitter::error), options.getOverflowStrategy());
     }
 
     // TODO consume with dynamic QoS and/or batch ack

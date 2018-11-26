@@ -16,17 +16,13 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.ConfirmListener;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.DefaultConsumer;
-import com.rabbitmq.client.Delivery;
-import com.rabbitmq.client.Envelope;
+import com.rabbitmq.client.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
@@ -46,31 +42,21 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyLong;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static reactor.rabbitmq.ReactorRabbitMq.createReceiver;
 import static reactor.rabbitmq.ReactorRabbitMq.createSender;
-import static reactor.rabbitmq.ResourcesSpecification.binding;
-import static reactor.rabbitmq.ResourcesSpecification.exchange;
-import static reactor.rabbitmq.ResourcesSpecification.queue;
+import static reactor.rabbitmq.ResourcesSpecification.*;
 
 /**
  *
@@ -84,6 +70,15 @@ public class ReactorRabbitMqTests {
 
     Receiver receiver;
     Sender sender;
+
+    static Stream<Arguments> receiverErrorHandlingArguments() {
+        return Stream.of(
+                Arguments.of(
+                        (BiFunction<Receiver, String, Flux<Delivery>>) (receiver, queue) -> receiver.consumeNoAck(queue)),
+                Arguments.of(
+                        (BiFunction<Receiver, String, Flux<? extends Delivery>>) (receiver, queue) -> receiver.consumeManualAck(queue))
+        );
+    }
 
     @BeforeEach
     public void init() throws Exception {
@@ -119,7 +114,7 @@ public class ReactorRabbitMqTests {
         sender = createSender();
 
         sender.send(Flux.just(new OutboundMessage("", "dummy", new byte[0])))
-            .then().block();
+                .then().block();
 
         sender.close();
         sender.close();
@@ -148,7 +143,7 @@ public class ReactorRabbitMqTests {
         doNothing().doThrow(new IOException()).when(channel).basicAck(anyLong(), anyBoolean());
         doThrow(new IOException()).when(channel).basicNack(anyLong(), anyBoolean(), anyBoolean());
         AcknowledgableDelivery msg = new AcknowledgableDelivery(
-            new Delivery(new Envelope(0, true, null, null), null, null), channel
+                new Delivery(new Envelope(0, true, null, null), null, null), channel
         );
 
         msg.ack();
@@ -169,7 +164,7 @@ public class ReactorRabbitMqTests {
 
         for (int $ : IntStream.range(0, 1).toArray()) {
             Flux<Delivery> flux = receiver.consumeNoAck(queue, new ConsumeOptions().overflowStrategy(
-                FluxSink.OverflowStrategy.BUFFER
+                    FluxSink.OverflowStrategy.BUFFER
             ));
             for (int $$ : IntStream.range(0, nbMessages).toArray()) {
                 channel.basicPublish("", queue, null, "Hello".getBytes());
@@ -281,17 +276,17 @@ public class ReactorRabbitMqTests {
         CountDownLatch ackedNackedLatch = new CountDownLatch(2 * nbMessages - 1);
 
         Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue, new ConsumeOptions()
-            .overflowStrategy(FluxSink.OverflowStrategy.DROP)
-            .hookBeforeEmitBiFunction((requestedFromDownstream, message) -> {
-                if (requestedFromDownstream == 0) {
-                    ((AcknowledgableDelivery) message).nack(true);
-                    ackedNackedLatch.countDown();
-                    return false;
-                } else {
-                    return true;
-                }
-            })
-            .qos(1)
+                .overflowStrategy(FluxSink.OverflowStrategy.DROP)
+                .hookBeforeEmitBiFunction((requestedFromDownstream, message) -> {
+                    if (requestedFromDownstream == 0) {
+                        ((AcknowledgableDelivery) message).nack(true);
+                        ackedNackedLatch.countDown();
+                        return false;
+                    } else {
+                        return true;
+                    }
+                })
+                .qos(1)
         );
 
         for (int $$ : IntStream.range(0, nbMessages).toArray()) {
@@ -349,16 +344,16 @@ public class ReactorRabbitMqTests {
         CountDownLatch ackedDroppedLatch = new CountDownLatch(2 * nbMessages - 1);
 
         Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue, new ConsumeOptions()
-            .overflowStrategy(FluxSink.OverflowStrategy.DROP)
-            .hookBeforeEmitBiFunction((requestedFromDownstream, message) -> {
-                if (requestedFromDownstream == 0) {
-                    ((AcknowledgableDelivery) message).ack();
-                    ackedDroppedLatch.countDown();
-                }
-                // we can emit, the message will be dropped by the overflow strategy
-                return true;
-            })
-            .qos(1)
+                .overflowStrategy(FluxSink.OverflowStrategy.DROP)
+                .hookBeforeEmitBiFunction((requestedFromDownstream, message) -> {
+                    if (requestedFromDownstream == 0) {
+                        ((AcknowledgableDelivery) message).ack();
+                        ackedDroppedLatch.countDown();
+                    }
+                    // we can emit, the message will be dropped by the overflow strategy
+                    return true;
+                })
+                .qos(1)
         );
 
         for (int $$ : IntStream.range(0, nbMessages).toArray()) {
@@ -399,6 +394,21 @@ public class ReactorRabbitMqTests {
         subscriptionReference.get().cancel();
         assertEquals(1, counter.get());
         assertNull(connection.createChannel().basicGet(queue, true));
+    }
+
+    @ParameterizedTest
+    @MethodSource("receiverErrorHandlingArguments")
+    public void receiverErrorHandling(BiFunction<Receiver, String, Flux<? extends Delivery>> fluxFactory) {
+        Mono<Connection> connectionMono = Mono.fromCallable(() -> {
+            throw new RuntimeException();
+        });
+        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
+        Flux<? extends Delivery> flux = fluxFactory.apply(receiver, queue);
+        AtomicBoolean errorHandlerCalled = new AtomicBoolean(false);
+        Disposable disposable = flux.subscribe(delivery -> {
+        }, error -> errorHandlerCalled.set(true));
+        assertTrue(errorHandlerCalled.get());
+        disposable.dispose();
     }
 
     @Test
@@ -464,8 +474,8 @@ public class ReactorRabbitMqTests {
         when(mockChannel.isOpen()).thenReturn(true);
 
         doNothing()
-            .doThrow(new IOException("simulated error while publishing"))
-            .when(mockChannel).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class), any(byte[].class));
+                .doThrow(new IOException("simulated error while publishing"))
+                .when(mockChannel).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class), any(byte[].class));
 
         int nbMessages = 10;
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
@@ -475,13 +485,13 @@ public class ReactorRabbitMqTests {
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
             throw new ReactorRabbitMqException(e);
         }))
-            .subscribe(outboundMessageResult -> {
-                    if (outboundMessageResult.getOutboundMessage() != null) {
-                        confirmLatch.countDown();
-                    }
-                },
-                error -> {
-                });
+                .subscribe(outboundMessageResult -> {
+                            if (outboundMessageResult.getOutboundMessage() != null) {
+                                confirmLatch.countDown();
+                            }
+                        },
+                        error -> {
+                        });
 
         // have to wait a bit the subscription propagates and add the confirm listener
         Thread.sleep(100L);
@@ -511,10 +521,10 @@ public class ReactorRabbitMqTests {
             CountDownLatch latchCreation = new CountDownLatch(1);
             sender = createSender();
             Disposable resourceCreation = sender.declare(exchange(exchangeName))
-                .then(sender.declare(queue(queueName)))
-                .then(sender.bind(binding(exchangeName, "a.b", queueName)))
-                .doAfterTerminate(() -> latchCreation.countDown())
-                .subscribe();
+                    .then(sender.declare(queue(queueName)))
+                    .then(sender.bind(binding(exchangeName, "a.b", queueName)))
+                    .doAfterTerminate(() -> latchCreation.countDown())
+                    .subscribe();
 
             assertTrue(latchCreation.await(1, TimeUnit.SECONDS));
 
@@ -525,10 +535,10 @@ public class ReactorRabbitMqTests {
             CountDownLatch latchDeletion = new CountDownLatch(1);
 
             Disposable resourceDeletion = sender.unbind(binding(exchangeName, "a.b", queueName))
-                .then(sender.delete(exchange(exchangeName)))
-                .then(sender.delete(queue(queueName)))
-                .doAfterTerminate(() -> latchDeletion.countDown())
-                .subscribe();
+                    .then(sender.delete(exchange(exchangeName)))
+                    .then(sender.delete(queue(queueName)))
+                    .doAfterTerminate(() -> latchDeletion.countDown())
+                    .subscribe();
 
             assertTrue(latchDeletion.await(1, TimeUnit.SECONDS));
             resourceDeletion.dispose();
@@ -574,13 +584,13 @@ public class ReactorRabbitMqTests {
             sender = createSender(senderOptions);
 
             ResourceManagementOptions options = new ResourceManagementOptions()
-                .channelMono(channelMono);
+                    .channelMono(channelMono);
 
             Disposable resourceCreation = sender.declare(exchange(exchangeName), options)
-                .then(sender.declare(queue(queueName), options))
-                .then(sender.bind(binding(exchangeName, "a.b", queueName), options))
-                .doAfterTerminate(() -> latchCreation.countDown())
-                .subscribe();
+                    .then(sender.declare(queue(queueName), options))
+                    .then(sender.bind(binding(exchangeName, "a.b", queueName), options))
+                    .doAfterTerminate(() -> latchCreation.countDown())
+                    .subscribe();
 
             assertTrue(latchCreation.await(1, TimeUnit.SECONDS));
             assertEquals(3, channelMonoCalls.get());
@@ -592,10 +602,10 @@ public class ReactorRabbitMqTests {
             CountDownLatch latchDeletion = new CountDownLatch(1);
 
             Disposable resourceDeletion = sender.unbind(binding(exchangeName, "a.b", queueName), options)
-                .then(sender.delete(exchange(exchangeName), options))
-                .then(sender.delete(queue(queueName), options))
-                .doAfterTerminate(() -> latchDeletion.countDown())
-                .subscribe();
+                    .then(sender.delete(exchange(exchangeName), options))
+                    .then(sender.delete(queue(queueName), options))
+                    .doAfterTerminate(() -> latchDeletion.countDown())
+                    .subscribe();
 
             assertTrue(latchDeletion.await(1, TimeUnit.SECONDS));
             assertEquals(3 + 3, channelMonoCalls.get());
@@ -631,17 +641,17 @@ public class ReactorRabbitMqTests {
             AtomicInteger count = new AtomicInteger();
 
             Disposable resourceSendingConsuming = sender.declare(exchange(exchangeName))
-                .then(sender.declare(queue(queueName)))
-                .then(sender.bind(binding(exchangeName, routingKey, queueName)))
-                .thenMany(sender.send(Flux.range(0, nbMessages)
-                    .map(i -> new OutboundMessage(exchangeName, routingKey, i.toString().getBytes()))))
-                .thenMany(receiver.consumeNoAck(
-                    queueName,
-                    new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)))
-                .subscribe(msg -> {
-                    count.incrementAndGet();
-                    latch.countDown();
-                });
+                    .then(sender.declare(queue(queueName)))
+                    .then(sender.bind(binding(exchangeName, routingKey, queueName)))
+                    .thenMany(sender.send(Flux.range(0, nbMessages)
+                            .map(i -> new OutboundMessage(exchangeName, routingKey, i.toString().getBytes()))))
+                    .thenMany(receiver.consumeNoAck(
+                            queueName,
+                            new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)))
+                    .subscribe(msg -> {
+                        count.incrementAndGet();
+                        latch.countDown();
+                    });
 
             assertTrue(latch.await(5, TimeUnit.SECONDS));
             assertEquals(nbMessages, count.get());
@@ -662,7 +672,7 @@ public class ReactorRabbitMqTests {
             sender = createSender();
             receiver = ReactorRabbitMq.createReceiver();
             Mono<AMQP.Queue.DeclareOk> resources = sender.declare(queue(sourceQueue))
-                .then(sender.declare(queue(destinationQueue)));
+                    .then(sender.declare(queue(destinationQueue)));
 
             int nbMessages = 100;
 
@@ -670,16 +680,16 @@ public class ReactorRabbitMqTests {
             CountDownLatch latch = new CountDownLatch(nbMessages);
 
             Disposable shovel = resources.then(sender.send(Flux.range(0, nbMessages).map
-                (i -> new OutboundMessage("", sourceQueue, i.toString().getBytes()))))
-                .thenMany(receiver.consumeNoAck(
-                    sourceQueue,
-                    new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
-                ).map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()))
-                    .transform(messages -> sender.send(messages)))
-                .thenMany(receiver.consumeNoAck(destinationQueue)).subscribe(msg -> {
-                    counter.incrementAndGet();
-                    latch.countDown();
-                });
+                    (i -> new OutboundMessage("", sourceQueue, i.toString().getBytes()))))
+                    .thenMany(receiver.consumeNoAck(
+                            sourceQueue,
+                            new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
+                    ).map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()))
+                            .transform(messages -> sender.send(messages)))
+                    .thenMany(receiver.consumeNoAck(destinationQueue)).subscribe(msg -> {
+                        counter.incrementAndGet();
+                        latch.countDown();
+                    });
 
             assertTrue(latch.await(3, TimeUnit.SECONDS));
             assertEquals(nbMessages, counter.get());
@@ -699,23 +709,23 @@ public class ReactorRabbitMqTests {
         int nbMessages = 100;
 
         Flux<Tuple2<Integer, String>> queues = Flux.range(0, nbPartitions)
-            .flatMap(partition -> sender.declare(queue("partitions" + partition).autoDelete(true))
-                .map(q -> Tuples.of(partition, q.getQueue())))
-            .cache();
+                .flatMap(partition -> sender.declare(queue("partitions" + partition).autoDelete(true))
+                        .map(q -> Tuples.of(partition, q.getQueue())))
+                .cache();
 
         Flux<AMQP.Queue.BindOk> bindings = queues
-            .flatMap(q -> sender.bind(binding("amq.direct", "" + q.getT1(), q.getT2())));
+                .flatMap(q -> sender.bind(binding("amq.direct", "" + q.getT1(), q.getT2())));
 
         Flux<OutboundMessage> messages = Flux.range(0, nbMessages).groupBy(v -> v % nbPartitions)
-            .flatMap(partitionFlux -> partitionFlux.publishOn(Schedulers.elastic())
-                .map(v -> new OutboundMessage("amq.direct", partitionFlux.key().toString(), (v + "").getBytes())));
+                .flatMap(partitionFlux -> partitionFlux.publishOn(Schedulers.elastic())
+                        .map(v -> new OutboundMessage("amq.direct", partitionFlux.key().toString(), (v + "").getBytes())));
 
         CountDownLatch latch = new CountDownLatch(nbMessages);
 
         Disposable flow = bindings
-            .then(sender.send(messages))
-            .thenMany(queues.flatMap(q -> receiver.consumeAutoAck(q.getT2())))
-            .subscribe(msg -> latch.countDown());
+                .then(sender.send(messages))
+                .thenMany(queues.flatMap(q -> receiver.consumeAutoAck(q.getT2())))
+                .subscribe(msg -> latch.countDown());
 
         assertTrue(latch.await(2, TimeUnit.SECONDS));
         flow.dispose();
@@ -731,7 +741,7 @@ public class ReactorRabbitMqTests {
         receiver = createReceiver(new ReceiverOptions().connectionMono(connectionMono));
 
         String connectionQueue = sender.declare(QueueSpecification.queue().durable(false).autoDelete(true).exclusive(true))
-            .block().getQueue();
+                .block().getQueue();
 
         sendAndReceiveMessages(connectionQueue);
     }
@@ -742,15 +752,15 @@ public class ReactorRabbitMqTests {
         connectionFactory.useNio();
 
         sender = createSender(new SenderOptions()
-            .connectionFactory(connectionFactory)
-            .connectionSupplier(cf -> cf.newConnection(
-                "reactive-sendRetryOnFailure")
-            )
+                .connectionFactory(connectionFactory)
+                .connectionSupplier(cf -> cf.newConnection(
+                        "reactive-sendRetryOnFailure")
+                )
         );
 
         receiver = createReceiver(new ReceiverOptions()
-            .connectionFactory(connectionFactory)
-            .connectionSupplier(cf -> cf.newConnection("reactive-receiver"))
+                .connectionFactory(connectionFactory)
+                .connectionSupplier(cf -> cf.newConnection("reactive-receiver"))
         );
 
         sendAndReceiveMessages(queue);
@@ -762,11 +772,11 @@ public class ReactorRabbitMqTests {
         connectionFactory.useNio();
 
         sender = createSender(new SenderOptions()
-            .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("reactive-sendRetryOnFailure")))
+                .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("reactive-sendRetryOnFailure")))
         );
 
         receiver = createReceiver(new ReceiverOptions()
-            .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("reactive-receiver")))
+                .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("reactive-receiver")))
         );
 
         sendAndReceiveMessages(queue);
