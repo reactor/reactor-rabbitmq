@@ -23,7 +23,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 import reactor.rabbitmq.ConsumeOptions;
 import reactor.rabbitmq.ExceptionHandlers;
-import reactor.rabbitmq.ReactorRabbitMq;
+import reactor.rabbitmq.RabbitFlux;
 import reactor.rabbitmq.Receiver;
 import reactor.rabbitmq.ReceiverOptions;
 import reactor.rabbitmq.SenderOptions;
@@ -47,11 +47,11 @@ public class ApiGuideReceiver {
             .connectionSubscriptionScheduler(Schedulers.elastic());     // <2>
         // end::options-simple[]
         // tag::inbound-flux[]
-        Flux<Delivery> inboundFlux = ReactorRabbitMq.createReceiver(receiverOptions)
+        Flux<Delivery> inboundFlux = RabbitFlux.createReceiver(receiverOptions)
                 .consumeNoAck("reactive.queue");
         // end::inbound-flux[]
 
-        Receiver receiver = ReactorRabbitMq.createReceiver();
+        Receiver receiver = RabbitFlux.createReceiver();
         // tag::closing[]
         receiver.close();
         // end::closing[]
@@ -72,7 +72,7 @@ public class ApiGuideReceiver {
 
     void ackExceptionHandler() {
         // tag::auto-ack-retry-settings[]
-        Flux<Delivery> inboundFlux = ReactorRabbitMq
+        Flux<Delivery> inboundFlux = RabbitFlux
             .createReceiver()
             .consumeNoAck("reactive.queue", new ConsumeOptions()
                 .exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
@@ -85,7 +85,7 @@ public class ApiGuideReceiver {
 
     void manualAckRetry() {
         // tag::manual-ack-retry[]
-        Receiver receiver = ReactorRabbitMq.createReceiver();
+        Receiver receiver = RabbitFlux.createReceiver();
         BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler =
             new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(                  // <1>
                 Duration.ofSeconds(20), Duration.ofMillis(500),

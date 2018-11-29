@@ -115,7 +115,7 @@ public class Receiver implements Closeable {
                     }
                 });
             } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
+                throw new RabbitFluxException(e);
             }
         }, emitter::error), options.getOverflowStrategy());
     }
@@ -191,7 +191,7 @@ public class Receiver implements Closeable {
                     }
                 });
             } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
+                throw new RabbitFluxException(e);
             }
         }, emitter::error), options.getOverflowStrategy());
     }
@@ -204,7 +204,7 @@ public class Receiver implements Closeable {
                 // FIXME use timeout on block (should be a parameter of the Receiver)
                 connectionMono.block().close();
             } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
+                throw new RabbitFluxException(e);
             }
         }
         if (privateConnectionSubscriptionScheduler) {
@@ -232,7 +232,7 @@ public class Receiver implements Closeable {
             try {
                 return connection.createChannel();
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error while creating channel", e);
+                throw new RabbitFluxException("Error while creating channel", e);
             }
         }
     }

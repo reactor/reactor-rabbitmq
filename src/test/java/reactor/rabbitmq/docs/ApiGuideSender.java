@@ -32,8 +32,8 @@ import reactor.rabbitmq.ExceptionHandlers;
 import reactor.rabbitmq.ExchangeSpecification;
 import reactor.rabbitmq.OutboundMessage;
 import reactor.rabbitmq.QueueSpecification;
-import reactor.rabbitmq.ReactorRabbitMq;
-import reactor.rabbitmq.ReactorRabbitMqException;
+import reactor.rabbitmq.RabbitFlux;
+import reactor.rabbitmq.RabbitFluxException;
 import reactor.rabbitmq.ResourceManagementOptions;
 import reactor.rabbitmq.RpcClient;
 import reactor.rabbitmq.SendOptions;
@@ -43,7 +43,7 @@ import reactor.rabbitmq.SenderOptions;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.function.Supplier;
-import static reactor.rabbitmq.ReactorRabbitMq.createSender;
+import static reactor.rabbitmq.RabbitFlux.createSender;
 
 // tag::static-import[]
 import static reactor.rabbitmq.ResourcesSpecification.*;
@@ -65,7 +65,7 @@ public class ApiGuideSender {
             .resourceManagementScheduler(Schedulers.elastic());           // <2>
         // end::options-simple[]
         // tag::instanciation[]
-        Sender sender = ReactorRabbitMq.createSender(senderOptions);
+        Sender sender = RabbitFlux.createSender(senderOptions);
         // end::instanciation[]
         // tag::outbound-message-flux[]
         Flux<OutboundMessage> outboundFlux  =
@@ -130,7 +130,7 @@ public class ApiGuideSender {
         SenderOptions senderOptions =  new SenderOptions()
             .connectionFactory(connectionFactory)
             .resourceManagementScheduler(Schedulers.elastic());
-        Sender sender = ReactorRabbitMq.createSender(senderOptions);
+        Sender sender = RabbitFlux.createSender(senderOptions);
         // tag::publisher-confirms[]
         Flux<OutboundMessage> outboundFlux  = Flux.range(1, 10)
             .map(i -> new OutboundMessage(
@@ -147,7 +147,7 @@ public class ApiGuideSender {
     void rpc() {
         // tag::rpc[]
         String queue = "rpc.server.queue";
-        Sender sender = ReactorRabbitMq.createSender();
+        Sender sender = RabbitFlux.createSender();
         RpcClient rpcClient = sender.rpcClient("", queue);  // <1>
         Mono<Delivery> reply = rpcClient.rpc(Mono.just(
             new RpcClient.RpcRequest("hello".getBytes())    // <2>
@@ -160,7 +160,7 @@ public class ApiGuideSender {
         // tag::rpc-supplier[]
         String queue = "rpc.server.queue";
         Supplier<String> correlationIdSupplier = () -> UUID.randomUUID().toString(); // <1>
-        Sender sender = ReactorRabbitMq.createSender();
+        Sender sender = RabbitFlux.createSender();
         RpcClient rpcClient = sender.rpcClient(
             "", queue, correlationIdSupplier                                         // <2>
         );
@@ -174,7 +174,7 @@ public class ApiGuideSender {
     void retryExceptionHandler() {
         Flux<OutboundMessage> outboundFlux = null;
         // tag::retry-settings[]
-        Sender sender = ReactorRabbitMq.createSender();
+        Sender sender = RabbitFlux.createSender();
         sender.send(outboundFlux, new SendOptions().exceptionHandler(
            new ExceptionHandlers.RetrySendingExceptionHandler(
                Duration.ofSeconds(20), Duration.ofMillis(500), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
@@ -192,7 +192,7 @@ public class ApiGuideSender {
             try {
                 return c.createChannel();
             } catch (Exception e) {
-                throw new ReactorRabbitMqException(e);
+                throw new RabbitFluxException(e);
             }
         }).cache();                                                                // <1>
 

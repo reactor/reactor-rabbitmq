@@ -52,7 +52,7 @@ public class AcknowledgableDelivery extends Delivery {
                 throw e;
             } catch (IOException e) {
                 notAckedOrNacked.set(true);
-                throw new ReactorRabbitMqException(e);
+                throw new RabbitFluxException(e);
             }
         }
     }
@@ -70,7 +70,7 @@ public class AcknowledgableDelivery extends Delivery {
                 throw e;
             } catch (IOException e) {
                 notAckedOrNacked.set(true);
-                throw new ReactorRabbitMqException(e);
+                throw new RabbitFluxException(e);
             }
         }
     }

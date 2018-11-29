@@ -89,7 +89,7 @@ public class RpcClient implements AutoCloseable {
             try {
                 this.channelMono.block().basicCancel(consumerTag.get());
             } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
+                throw new RabbitFluxException(e);
             }
         }
     }
@@ -134,7 +134,7 @@ public class RpcClient implements AutoCloseable {
                     String correlationId = delivery.getProperties().getCorrelationId();
                     RpcSubscriber rpcSubscriber = subscribers.remove(correlationId);
                     if (rpcSubscriber == null) {
-                        throw new ReactorRabbitMqException("No outstanding request for correlation ID " + correlationId);
+                        throw new RabbitFluxException("No outstanding request for correlation ID " + correlationId);
                     } else {
                         rpcSubscriber.subscriber.onNext(delivery);
                         rpcSubscriber.received.set(true);

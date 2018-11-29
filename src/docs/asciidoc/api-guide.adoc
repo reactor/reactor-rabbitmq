@@ -193,7 +193,7 @@ include::{test-examples}/ApiGuideSender.java[tag=retry-settings]
 
 The `RetrySendingExceptionHandler` uses a `Predicate<Throwable>` to decide whether
 an exception should trigger a retry or not. If the exception isn't retryable, the exception
-handler wraps the exception in a `ReactorRabbitMqException` and throws it.
+handler wraps the exception in a `RabbitFluxException` and throws it.
 
 For consistency sake, the retry exception handler used with `ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE`
 (the default) will trigger retry attempts for the same conditions as connection recovery triggering.

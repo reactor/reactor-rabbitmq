@@ -96,7 +96,7 @@ public class ExceptionHandlers {
                     try {
                         Thread.sleep(waitingTime);
                     } catch (InterruptedException ie) {
-                        throw new ReactorRabbitMqException("Thread interrupted while retry on sending", e);
+                        throw new RabbitFluxException("Thread interrupted while retry on sending", e);
                     }
                     elapsedTime += waitingTime;
                     try {
@@ -104,12 +104,12 @@ public class ExceptionHandlers {
                         break;
                     } catch (Throwable sendingException) {
                         if (!predicate.test(sendingException)) {
-                            throw new ReactorRabbitMqException("Not retryable exception thrown during retry", sendingException);
+                            throw new RabbitFluxException("Not retryable exception thrown during retry", sendingException);
                         }
                     }
                 }
             } else {
-                throw new ReactorRabbitMqException("Not retryable exception, cannot retry", e);
+                throw new RabbitFluxException("Not retryable exception, cannot retry", e);
             }
         }
     }

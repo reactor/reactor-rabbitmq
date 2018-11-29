@@ -55,14 +55,14 @@ import static org.junit.jupiter.params.provider.Arguments.of;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.*;
-import static reactor.rabbitmq.ReactorRabbitMq.createReceiver;
-import static reactor.rabbitmq.ReactorRabbitMq.createSender;
+import static reactor.rabbitmq.RabbitFlux.createReceiver;
+import static reactor.rabbitmq.RabbitFlux.createSender;
 import static reactor.rabbitmq.ResourcesSpecification.*;
 
 /**
  *
  */
-public class ReactorRabbitMqTests {
+public class RabbitFluxTests {
 
     // TODO refactor test with StepVerifier
 
@@ -121,7 +121,7 @@ public class ReactorRabbitMqTests {
 
     @Test
     public void receiverCloseIsIdempotent() throws Exception {
-        receiver = ReactorRabbitMq.createReceiver();
+        receiver = RabbitFlux.createReceiver();
 
         sender = createSender();
         sender.send(Flux.just(new OutboundMessage("", queue, new byte[0]))).block();
@@ -159,7 +159,7 @@ public class ReactorRabbitMqTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        receiver = ReactorRabbitMq.createReceiver();
+        receiver = RabbitFlux.createReceiver();
 
         for (int $ : IntStream.range(0, 1).toArray()) {
             Flux<Delivery> flux = receiver.consumeNoAck(queue, new ConsumeOptions().overflowStrategy(
@@ -192,7 +192,7 @@ public class ReactorRabbitMqTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        receiver = ReactorRabbitMq.createReceiver();
+        receiver = RabbitFlux.createReceiver();
 
         for (int $ : IntStream.range(0, 10).toArray()) {
             Flux<Delivery> flux = receiver.consumeAutoAck(queue);
@@ -225,7 +225,7 @@ public class ReactorRabbitMqTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        receiver = ReactorRabbitMq.createReceiver();
+        receiver = RabbitFlux.createReceiver();
 
         for (int $ : IntStream.range(0, 10).toArray()) {
             Flux<AcknowledgableDelivery> flux = receiver.consumeManualAck(queue);
@@ -270,7 +270,7 @@ public class ReactorRabbitMqTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        receiver = ReactorRabbitMq.createReceiver();
+        receiver = RabbitFlux.createReceiver();
 
         CountDownLatch ackedNackedLatch = new CountDownLatch(2 * nbMessages - 1);
 
@@ -338,7 +338,7 @@ public class ReactorRabbitMqTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        receiver = ReactorRabbitMq.createReceiver();
+        receiver = RabbitFlux.createReceiver();
 
         CountDownLatch ackedDroppedLatch = new CountDownLatch(2 * nbMessages - 1);
 
@@ -401,7 +401,7 @@ public class ReactorRabbitMqTests {
         Mono<Connection> connectionMono = Mono.fromCallable(() -> {
             throw new RuntimeException();
         });
-        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
+        receiver = RabbitFlux.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
         Flux<? extends Delivery> flux = fluxFactory.apply(receiver, queue);
         AtomicBoolean errorHandlerCalled = new AtomicBoolean(false);
         Disposable disposable = flux.subscribe(delivery -> { }, error -> errorHandlerCalled.set(true));
@@ -419,7 +419,7 @@ public class ReactorRabbitMqTests {
             cf.useNio();
             return cf.newConnection();
         }).cache();
-        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
+        receiver = RabbitFlux.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
 
         Flux<? extends Delivery> flux = fluxFactory.apply(receiver, queue);
         for (int $$ : IntStream.range(0, nbMessages).toArray()) {
@@ -514,7 +514,7 @@ public class ReactorRabbitMqTests {
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
-            throw new ReactorRabbitMqException(e);
+            throw new RabbitFluxException(e);
         }))
                 .subscribe(outboundMessageResult -> {
                             if (outboundMessageResult.getOutboundMessage() != null) {
@@ -666,7 +666,7 @@ public class ReactorRabbitMqTests {
         int nbMessages = 100;
         try {
             sender = createSender();
-            receiver = ReactorRabbitMq.createReceiver();
+            receiver = RabbitFlux.createReceiver();
 
             CountDownLatch latch = new CountDownLatch(nbMessages);
             AtomicInteger count = new AtomicInteger();
@@ -701,7 +701,7 @@ public class ReactorRabbitMqTests {
         final String destinationQueue = UUID.randomUUID().toString();
         try {
             sender = createSender();
-            receiver = ReactorRabbitMq.createReceiver();
+            receiver = RabbitFlux.createReceiver();
             Mono<AMQP.Queue.DeclareOk> resources = sender.declare(queue(sourceQueue))
                     .then(sender.declare(queue(destinationQueue)));
 
@@ -735,7 +735,7 @@ public class ReactorRabbitMqTests {
     @Test
     public void partitions() throws Exception {
         sender = createSender();
-        receiver = ReactorRabbitMq.createReceiver();
+        receiver = RabbitFlux.createReceiver();
         int nbPartitions = 4;
         int nbMessages = 100;
 

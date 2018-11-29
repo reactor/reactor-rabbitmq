@@ -92,7 +92,7 @@ public class RequestReplyTests {
             }
         }).start();
 
-        sender = ReactorRabbitMq.createSender();
+        sender = RabbitFlux.createSender();
 
         int nbRequests = 10;
         CountDownLatch latch = new CountDownLatch(nbRequests);

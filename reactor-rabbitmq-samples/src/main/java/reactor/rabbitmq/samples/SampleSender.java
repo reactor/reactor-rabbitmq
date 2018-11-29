@@ -22,7 +22,7 @@ import reactor.core.publisher.Flux;
 import reactor.rabbitmq.OutboundMessage;
 import reactor.rabbitmq.OutboundMessageResult;
 import reactor.rabbitmq.QueueSpecification;
-import reactor.rabbitmq.ReactorRabbitMq;
+import reactor.rabbitmq.RabbitFlux;
 import reactor.rabbitmq.Sender;
 
 import java.util.concurrent.CountDownLatch;
@@ -39,7 +39,7 @@ public class SampleSender {
     private final Sender sender;
 
     public SampleSender() {
-        this.sender = ReactorRabbitMq.createSender();
+        this.sender = RabbitFlux.createSender();
     }
 
     public void send(String queue, int count, CountDownLatch latch) {

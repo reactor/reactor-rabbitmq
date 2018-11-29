@@ -24,7 +24,7 @@ import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.rabbitmq.QueueSpecification;
-import reactor.rabbitmq.ReactorRabbitMq;
+import reactor.rabbitmq.RabbitFlux;
 import reactor.rabbitmq.Receiver;
 import reactor.rabbitmq.Sender;
 
@@ -43,8 +43,8 @@ public class SampleReceiver {
     private final Sender sender;
 
     public SampleReceiver() {
-        this.receiver = ReactorRabbitMq.createReceiver();
-        this.sender = ReactorRabbitMq.createSender();
+        this.receiver = RabbitFlux.createReceiver();
+        this.sender = RabbitFlux.createSender();
     }
 
     public Disposable consume(String queue, CountDownLatch latch) {

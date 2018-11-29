@@ -146,7 +146,7 @@ public class Sender implements AutoCloseable {
                 try {
                     channel.confirmSelect();
                 } catch (IOException e) {
-                    throw new ReactorRabbitMqException("Error while setting publisher confirms on channel", e);
+                    throw new RabbitFluxException("Error while setting publisher confirms on channel", e);
                 }
                 return channel;
             });
@@ -200,7 +200,7 @@ public class Sender implements AutoCloseable {
             try {
                 return channel.asyncCompletableRpc(declare);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error during RPC call", e);
+                throw new RabbitFluxException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.DeclareOk) command.getMethod()))
@@ -244,7 +244,7 @@ public class Sender implements AutoCloseable {
             try {
                 return channel.asyncCompletableRpc(delete);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error during RPC call", e);
+                throw new RabbitFluxException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.DeleteOk) command.getMethod()))
@@ -277,7 +277,7 @@ public class Sender implements AutoCloseable {
             try {
                 return channel.asyncCompletableRpc(declare);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error during RPC call", e);
+                throw new RabbitFluxException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Exchange.DeclareOk) command.getMethod()))
@@ -314,7 +314,7 @@ public class Sender implements AutoCloseable {
             try {
                 return channel.asyncCompletableRpc(delete);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error during RPC call", e);
+                throw new RabbitFluxException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Exchange.DeleteOk) command.getMethod()))
@@ -338,7 +338,7 @@ public class Sender implements AutoCloseable {
             try {
                 return channel.asyncCompletableRpc(unbinding);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error during RPC call", e);
+                throw new RabbitFluxException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.UnbindOk) command.getMethod()))
@@ -362,7 +362,7 @@ public class Sender implements AutoCloseable {
             try {
                 return channel.asyncCompletableRpc(binding);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error during RPC call", e);
+                throw new RabbitFluxException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
             .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
@@ -375,7 +375,7 @@ public class Sender implements AutoCloseable {
                 // FIXME use timeout on block (should be a parameter of the Sender)
                 connectionMono.block().close();
             } catch (IOException e) {
-                throw new ReactorRabbitMqException(e);
+                throw new RabbitFluxException(e);
             }
         }
         if (this.privateConnectionSubscriptionScheduler) {
@@ -625,7 +625,7 @@ public class Sender implements AutoCloseable {
             try {
                 return connection.createChannel();
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error while creating channel", e);
+                throw new RabbitFluxException("Error while creating channel", e);
             }
         }
     }
@@ -637,7 +637,7 @@ public class Sender implements AutoCloseable {
             try {
                 return new ChannelProxy(connection);
             } catch (IOException e) {
-                throw new ReactorRabbitMqException("Error while creating channel", e);
+                throw new RabbitFluxException("Error while creating channel", e);
             }
         }
     }

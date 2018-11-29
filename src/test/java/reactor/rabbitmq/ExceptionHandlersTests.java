@@ -69,7 +69,7 @@ public class ExceptionHandlersTests {
     @Test
     public void shouldThrowWrapperExceptionIfNotImmediatlyRetryable() {
         retryTemplate = retryTemplate(singletonMap(IOException.class, true));
-        assertThrows(ReactorRabbitMqException.class, () -> retryTemplate.retry(() -> null, new IllegalArgumentException()));
+        assertThrows(RabbitFluxException.class, () -> retryTemplate.retry(() -> null, new IllegalArgumentException()));
     }
 
     @Test

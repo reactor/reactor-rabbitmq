@@ -17,23 +17,26 @@
 package reactor.rabbitmq;
 
 /**
- * Factory for {@link Sender} and {@link Receiver}.
+ * Common exception class for Reactor RabbitMQ library.
  */
-public class ReactorRabbitMq {
+public class RabbitFluxException extends RuntimeException {
 
-    public static Receiver createReceiver(ReceiverOptions options) {
-        return new Receiver(options);
+    public RabbitFluxException() {
     }
 
-    public static Receiver createReceiver() {
-        return new Receiver();
+    public RabbitFluxException(String message) {
+        super(message);
     }
 
-    public static Sender createSender(SenderOptions options) {
-        return new Sender(options);
+    public RabbitFluxException(String message, Throwable cause) {
+        super(message, cause);
     }
 
-    public static Sender createSender() {
-        return new Sender();
+    public RabbitFluxException(Throwable cause) {
+        super(cause);
+    }
+
+    public RabbitFluxException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
     }
 }

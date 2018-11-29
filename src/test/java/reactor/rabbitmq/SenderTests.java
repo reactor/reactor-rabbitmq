@@ -16,20 +16,18 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.ShutdownSignalException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.fail;
-import static reactor.rabbitmq.ReactorRabbitMq.createSender;
+import static reactor.rabbitmq.RabbitFlux.createSender;
 
 /**
  *

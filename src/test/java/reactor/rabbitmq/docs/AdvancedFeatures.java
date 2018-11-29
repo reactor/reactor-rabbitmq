@@ -19,7 +19,7 @@ package reactor.rabbitmq.docs;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import reactor.core.publisher.Mono;
-import reactor.rabbitmq.ReactorRabbitMq;
+import reactor.rabbitmq.RabbitFlux;
 import reactor.rabbitmq.Receiver;
 import reactor.rabbitmq.ReceiverOptions;
 import reactor.rabbitmq.Sender;
@@ -37,11 +37,11 @@ public class AdvancedFeatures {
         ConnectionFactory connectionFactory = new ConnectionFactory();                // <1>
         connectionFactory.useNio();
 
-        Sender sender = ReactorRabbitMq.createSender(new SenderOptions()
+        Sender sender = RabbitFlux.createSender(new SenderOptions()
             .connectionMono(
                 Mono.fromCallable(() -> connectionFactory.newConnection("sender")))   // <2>
         );
-        Receiver receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions()
+        Receiver receiver = RabbitFlux.createReceiver(new ReceiverOptions()
             .connectionMono(
                 Mono.fromCallable(() -> connectionFactory.newConnection("receiver"))) // <3>
         );
@@ -56,10 +56,10 @@ public class AdvancedFeatures {
             connectionFactory, cf -> cf.newConnection()
         );
 
-        Sender sender = ReactorRabbitMq.createSender(
+        Sender sender = RabbitFlux.createSender(
             new SenderOptions().connectionMono(connectionMono)                   // <3>
         );
-        Receiver receiver = ReactorRabbitMq.createReceiver(
+        Receiver receiver = RabbitFlux.createReceiver(
             new ReceiverOptions().connectionMono(connectionMono)                 // <4>
         );
         // end::shared-connection[]

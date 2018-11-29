@@ -65,8 +65,8 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static reactor.rabbitmq.ReactorRabbitMq.createReceiver;
-import static reactor.rabbitmq.ReactorRabbitMq.createSender;
+import static reactor.rabbitmq.RabbitFlux.createReceiver;
+import static reactor.rabbitmq.RabbitFlux.createSender;
 
 /**
  *
@@ -137,7 +137,7 @@ public class ConnectionRecoveryTests {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 
-        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
+        receiver = RabbitFlux.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
 
         for (int $ : IntStream.range(0, 1).toArray()) {
             Flux<? extends Delivery> flux = deliveryFactory.apply(receiver, queue);
@@ -198,7 +198,7 @@ public class ConnectionRecoveryTests {
             return null;
         }).when(mockChannel).basicAck(anyLong(), anyBoolean());
 
-        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionSupplier(cf -> mockConnection));
+        receiver = RabbitFlux.createReceiver(new ReceiverOptions().connectionSupplier(cf -> mockConnection));
 
         AtomicInteger ackedMessages = new AtomicInteger(0);
         receiver.consumeAutoAck("whatever",
@@ -254,7 +254,7 @@ public class ConnectionRecoveryTests {
             return null;
         }).when(mockChannel).basicAck(anyLong(), anyBoolean());
 
-        receiver = ReactorRabbitMq.createReceiver(new ReceiverOptions().connectionSupplier(cf -> mockConnection));
+        receiver = RabbitFlux.createReceiver(new ReceiverOptions().connectionSupplier(cf -> mockConnection));
 
         AtomicInteger ackedMessages = new AtomicInteger(0);
         BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
