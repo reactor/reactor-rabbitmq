@@ -13,8 +13,10 @@
 ** Let user provide `Mono<Channel>` for resource management
 * 1.0.0.RC1
 ** Bump Reactor to 3.2.1.RELEASE
-** Bump RabbitMQ Java client 5.5.0
+** Bump RabbitMQ Java client to 5.5.0
 * 1.0.0.RC2
 ** Bump Reactor to 3.2.3.RELEASE
+** Bump RabbitMQ Java client to 5.5.1 for better topology recovery support
 ** Complete receiving flux on channel termination
 ** Handle error signal of `connectionMono` subscription to enable proper error handling
+** Rename `ReactorRabbitMq` to `RabbitFlux` and `ReactorRabbitMqException` to `RabbitFluxException`
