@@ -39,7 +39,7 @@ ext {
 	logbackVersion = '1.2.3'
 
 	// Libraries
-	rabbitMqJavaClientVersion = '5.5.0'
+	rabbitMqJavaClientVersion = '5.5.1-SNAPSHOT'
 
 	// Testing
 	mockitoVersion = '1.10.19'
@@ -75,6 +75,7 @@ configure(allprojects) { project ->
 	repositories {
 		maven { url 'http://repo.spring.io/libs-release' }
 		maven { url 'http://repo.spring.io/libs-snapshot' }
+		maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
 		mavenCentral()
 		jcenter()
 	}

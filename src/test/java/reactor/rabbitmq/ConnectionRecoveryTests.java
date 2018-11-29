@@ -43,6 +43,7 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -56,9 +57,7 @@ import java.util.stream.Stream;
 
 import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyLong;
@@ -66,6 +65,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static reactor.rabbitmq.ReactorRabbitMq.createReceiver;
 import static reactor.rabbitmq.ReactorRabbitMq.createSender;
 
 /**
@@ -125,6 +125,9 @@ public class ConnectionRecoveryTests {
         }
         if (receiver != null) {
             receiver.close();
+        }
+        if (connectionMono != null) {
+            connectionMono.block().close();
         }
     }
 
@@ -347,6 +350,32 @@ public class ConnectionRecoveryTests {
         assertTrue(consumedLatch.await(10, TimeUnit.SECONDS));
         assertTrue(confirmedLatch.await(10, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
+    }
+
+    @Test public void topologyRecovery() throws Exception {
+        sender = createSender(new SenderOptions().connectionMono(connectionMono));
+        String q = UUID.randomUUID().toString();
+        String e = UUID.randomUUID().toString();
+        sender.declare(QueueSpecification.queue(q).exclusive(true))
+                .then(sender.declare(ExchangeSpecification.exchange(e).type("fanout").autoDelete(true)))
+                .then(sender.bind(BindingSpecification.binding(e, "", q)))
+                .block(Duration.ofSeconds(5));
+
+        Channel ch = connection.createChannel();
+        AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
+        receiver = createReceiver(new ReceiverOptions().connectionMono(connectionMono));
+        receiver.consumeNoAck(q).subscribe(delivery ->  latch.get().countDown());
+
+        ch.basicPublish(e, "", null, "".getBytes());
+
+        assertTrue(latch.get().await(5, TimeUnit.SECONDS));
+
+        latch.set(new CountDownLatch(1));
+
+        closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
+
+        ch.basicPublish(e, "", null, "".getBytes());
+        assertTrue(latch.get().await(5, TimeUnit.SECONDS));
     }
 
     private void closeAndWaitForRecovery(RecoverableConnection connection) throws IOException, InterruptedException {
