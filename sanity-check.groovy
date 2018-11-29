@@ -6,16 +6,16 @@ import reactor.rabbitmq.QueueSpecification
 @Grab(group = 'io.projectreactor.rabbitmq', module = 'reactor-rabbitmq', version = "${version}")
 @Grab(group = 'org.slf4j', module = 'slf4j-simple', version = '1.7.25')
 
-import reactor.rabbitmq.ReactorRabbitMq
+import reactor.rabbitmq.RabbitFlux
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 try {
     def latch = new CountDownLatch(10)
-    def sender = ReactorRabbitMq.createSender()
+    def sender = RabbitFlux.createSender()
     sender.declare(QueueSpecification.queue("").autoDelete(true))
             .subscribe({ q ->
-        ReactorRabbitMq.createReceiver().consumeNoAck(q.getQueue())
+        RabbitFlux.createReceiver().consumeNoAck(q.getQueue())
                 .subscribe({ d -> latch.countDown() })
         def messages = Flux.range(1, 10)
                 .map({ i -> new OutboundMessage("", q.getQueue(), "".getBytes()) })
