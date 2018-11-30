@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * A message that can be manually acknowledged.
+ * A RabbitMQ {@link Delivery} that can be manually acknowledged or rejected.
  */
 public class AcknowledgableDelivery extends Delivery {
 
@@ -43,6 +43,13 @@ public class AcknowledgableDelivery extends Delivery {
         this.channel = channel;
     }
 
+    /**
+     * Acknowledges this message if it has not been previously acked or nacked.
+     * Subsequent calls to the method for previously acknowledged message will not produce errors and will simply
+     * return instantly.
+     * @param multiple Defines whether all messages up to and including the supplied delivery tag should be
+     * acknowledged or not.
+     */
     public void ack(boolean multiple) {
         if (notAckedOrNacked.getAndSet(false)) {
             try {
@@ -57,10 +64,23 @@ public class AcknowledgableDelivery extends Delivery {
         }
     }
 
+    /**
+     * Acknowledges this message if it has not been previously acked or nacked.
+     * Subsequent calls to the method for previously acknowledged message will not produce errors and will simply
+     * return instantly.
+     */
     public void ack() {
         ack(false);
     }
 
+    /**
+     * Rejects this message if it has not been previously acked or nacked.
+     * Subsequent calls to the method for previously acknowledged or rejected message will not produce errors and
+     * will simply return instantly.
+     * @param multiple Defines whether all messages up to and including the supplied delivery tag should be
+     * rejected or not.
+     * @param requeue Defines if the message should be added to the queue again instead of being discarded.
+     */
     public void nack(boolean multiple, boolean requeue) {
         if (notAckedOrNacked.getAndSet(false)) {
             try {
@@ -75,6 +95,11 @@ public class AcknowledgableDelivery extends Delivery {
         }
     }
 
+    /**
+     * Rejects this message if it has not been previously acked or nacked.
+     * Subsequent calls to the method for previously acknowledged or rejected message will not produce errors and
+     * will simply return instantly.
+     */
     public void nack(boolean requeue) {
         nack(false, requeue);
     }
