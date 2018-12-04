@@ -61,7 +61,7 @@ public class ApiGuideSender {
         connectionFactory.useNio();
 
         SenderOptions senderOptions =  new SenderOptions()
-            .connectionFactory(connectionFactory)                       // <1>
+            .connectionFactory(connectionFactory)                         // <1>
             .resourceManagementScheduler(Schedulers.elastic());           // <2>
         // end::options-simple[]
         // tag::instanciation[]
