@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-task wrapper(type: Wrapper, description: "Create a Gradle self-download wrapper") {
+wrapper {
 	group = 'Project Setup'
 	gradleVersion = "$gradleVersion"
 }
