@@ -23,9 +23,28 @@ section in the [reference documentation](http://projectreactor.io/docs/rabbitmq/
 
 [Javadoc](http://projectreactor.io/docs/rabbitmq/milestone/api/index.html)
 
-## Building applications using reactor-rabbitmq API
+## Building applications using Reactor RabbitMQ API
 
 You need to have [Java 8](http://www.oracle.com/technetwork/java/javase/downloads/index.html) installed.
+
+With Maven:
+```xml
+<dependency>
+    <groupId>io.projectreactor.rabbitmq</groupId>
+    <artifactId>reactor-rabbitmq</artifactId>
+    <version>1.0.0.RELEASE</version>
+</dependency>
+```
+
+
+With Gradle:
+```groovy
+dependencies {
+  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.0.0.RELEASE"
+}
+```
+
+## Milestones and release candidates
 
 With Maven:
 ```xml
