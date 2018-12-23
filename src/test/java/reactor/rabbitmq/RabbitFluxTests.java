@@ -466,6 +466,70 @@ public class RabbitFluxTests {
     }
 
     @Test
+    public void senderRetryCreateChannel() throws Exception {
+        ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
+        Connection mockConnection = mock(Connection.class);
+        when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
+        when(mockConnection.createChannel())
+                .thenThrow(new IOException("already closed exception"))
+                .thenThrow(new IOException("already closed exception"))
+                .thenReturn(connection.createChannel());
+
+        int nbMessages = 10;
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        AtomicInteger counter = new AtomicInteger();
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, new DefaultConsumer(channel) {
+
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                counter.incrementAndGet();
+                latch.countDown();
+            }
+        });
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
+        sender.send(msgFlux).retry(2).subscribe();
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        assertEquals(nbMessages, counter.get());
+        verify(mockConnection, times(3)).createChannel();
+    }
+
+    @Test
+    public void senderRetryCachedCreateChannel() throws Exception {
+        int nbMessages = 10;
+        CountDownLatch latch = new CountDownLatch(1);
+
+        Connection mockConnection = mock(Connection.class);
+        Channel mockChannel = mock(Channel.class);
+        when(mockConnection.createChannel())
+            .thenThrow(new RuntimeException("already closed exception"))
+            .thenThrow(new RuntimeException("already closed exception"))
+            .thenReturn(mockChannel);
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        SenderOptions senderOptions = new SenderOptions()
+                .channelMono(Mono.just(mockConnection).map(this::createChannel).cache());
+
+        sender = createSender(senderOptions);
+
+        sender.send(msgFlux).retry(2).subscribe(msg -> {}, error -> {
+            latch.countDown();
+        });
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        verify(mockChannel, never()).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class), any(byte[].class));
+        verify(mockChannel, never()).close();
+    }
+
+    @Test
+    public void senderWithCustomChannelCloseHandler() throws Exception {
+
+    }
+
+    @Test
     public void publishConfirms() throws Exception {
         int nbMessages = 10;
         CountDownLatch consumedLatch = new CountDownLatch(nbMessages);
@@ -499,6 +563,8 @@ public class RabbitFluxTests {
         Channel mockChannel = mock(Channel.class);
         when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
         when(mockConnection.createChannel()).thenReturn(mockChannel);
+        when(mockConnection.isOpen()).thenReturn(true);
+        when(mockChannel.getConnection()).thenReturn(mockConnection);
 
         AtomicLong publishSequence = new AtomicLong();
         when(mockChannel.getNextPublishSeqNo()).thenAnswer(invocation -> publishSequence.incrementAndGet());
@@ -823,5 +889,13 @@ public class RabbitFluxTests {
 
         assertTrue(latch.await(5, TimeUnit.SECONDS));
         subscriber.dispose();
+    }
+
+    private Channel createChannel(Connection connection) {
+        try {
+            return connection.createChannel();
+        } catch (Exception e) {
+            throw new RabbitFluxException(e);
+        }
     }
 }
