@@ -38,6 +38,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * Reactive abstraction to create resources and send messages.
@@ -88,9 +90,7 @@ public class Sender implements AutoCloseable {
                 .doOnSubscribe(c -> hasConnection.set(true))
                 .subscribeOn(this.connectionSubscriptionScheduler)
                 .cache();
-        this.channelMono = options.getChannelMono() == null ?
-                connectionMono.map(CHANNEL_CREATION_FUNCTION) :
-                options.getChannelMono();
+        this.channelMono = options.getChannelMono();
         this.channelCloseHandler = options.getChannelCloseHandler() == null ?
                 new ChannelCloseHandlers.SenderChannelCloseHandler() :
                 options.getChannelCloseHandler();
@@ -113,9 +113,11 @@ public class Sender implements AutoCloseable {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-
+        final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SendContext, Exception> exceptionHandler = options.getExceptionHandler();
-        return channelMono.flatMapMany(channel ->
+        final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
+
+        return currentChannelMono.flatMapMany(channel ->
             Flux.from(messages)
                 .doOnNext(message -> {
                     try {
@@ -142,7 +144,10 @@ public class Sender implements AutoCloseable {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        return channelMono.map(channel -> {
+        final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
+        final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
+
+        return currentChannelMono.map(channel -> {
                 try {
                     channel.confirmSelect();
                 } catch (IOException e) {
@@ -151,6 +156,17 @@ public class Sender implements AutoCloseable {
                 return channel;
             })
             .flatMapMany(channel -> new PublishConfirmOperator(messages, channel, channelCloseHandler, options));
+    }
+
+    private Mono<? extends Channel> getChannelMono(SendOptions options) {
+        return Stream.of(options.getChannelMono(), channelMono)
+                .filter(Objects::nonNull)
+                .findFirst().orElse(connectionMono.map(CHANNEL_CREATION_FUNCTION));
+    }
+
+    private BiConsumer<SignalType, Channel> getChannelCloseHandler(SendOptions options) {
+        return options.getChannelCloseHandler() != null ?
+                options.getChannelCloseHandler() : this.channelCloseHandler;
     }
 
     public RpcClient rpcClient(String exchange, String routingKey) {
