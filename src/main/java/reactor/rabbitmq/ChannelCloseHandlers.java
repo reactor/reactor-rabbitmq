@@ -16,7 +16,7 @@ public class ChannelCloseHandlers {
         @Override
         public void accept(SignalType signalType, Channel channel) {
             int channelNumber = channel.getChannelNumber();
-            LOGGER.info("closing channel {} by signal {}", channelNumber, signalType);
+            LOGGER.debug("closing channel {} by signal {}", channelNumber, signalType);
             try {
                 if (channel.isOpen() && channel.getConnection().isOpen()) {
                     channel.close();
