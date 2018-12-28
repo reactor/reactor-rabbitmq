@@ -932,8 +932,12 @@ public class RabbitFluxTests {
     }
 
     private Flux<Delivery> consume(final String queue, int nbMessages) throws Exception {
+        return consume(queue, nbMessages, Duration.ofSeconds(1L));
+    }
+
+    private Flux<Delivery> consume(final String queue, int nbMessages, Duration timeout) throws Exception {
         Channel channel = connection.createChannel();
-        return Flux.create(emitter -> Mono.just(nbMessages).map(AtomicInteger::new).subscribe(countdown -> {
+        Flux<Delivery> consumeFlux = Flux.create(emitter -> Mono.just(nbMessages).map(AtomicInteger::new).subscribe(countdown -> {
             DeliverCallback deliverCallback = (consumerTag, message) -> {
                 emitter.next(message);
                 if (countdown.decrementAndGet() <= 0) {
@@ -948,6 +952,7 @@ public class RabbitFluxTests {
                 e.printStackTrace();
             }
         }));
+        return consumeFlux.timeout(timeout);
     }
 
     private Channel createChannel(Connection connection) {
