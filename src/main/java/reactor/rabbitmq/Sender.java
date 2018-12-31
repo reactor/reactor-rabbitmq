@@ -113,9 +113,8 @@ public class Sender implements AutoCloseable {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
+        final Mono<? extends Channel> currentChannelMono = getChannelMono();
         final BiConsumer<SendContext, Exception> exceptionHandler = options.getExceptionHandler();
-        final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
 
         return currentChannelMono.flatMapMany(channel ->
             Flux.from(messages)
@@ -144,8 +143,7 @@ public class Sender implements AutoCloseable {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
-        final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
+        final Mono<? extends Channel> currentChannelMono = getChannelMono();
 
         return currentChannelMono.map(channel -> {
                 try {
@@ -158,15 +156,8 @@ public class Sender implements AutoCloseable {
             .flatMapMany(channel -> new PublishConfirmOperator(messages, channel, channelCloseHandler, options));
     }
 
-    private Mono<? extends Channel> getChannelMono(SendOptions options) {
-        return Stream.of(options.getChannelMono(), channelMono)
-                .filter(Objects::nonNull)
-                .findFirst().orElse(connectionMono.map(CHANNEL_CREATION_FUNCTION));
-    }
-
-    private BiConsumer<SignalType, Channel> getChannelCloseHandler(SendOptions options) {
-        return options.getChannelCloseHandler() != null ?
-                options.getChannelCloseHandler() : this.channelCloseHandler;
+    private Mono<? extends Channel> getChannelMono() {
+        return channelMono != null ? channelMono : connectionMono.map(CHANNEL_CREATION_FUNCTION);
     }
 
     public RpcClient rpcClient(String exchange, String routingKey) {

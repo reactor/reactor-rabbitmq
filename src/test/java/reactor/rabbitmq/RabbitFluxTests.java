@@ -550,26 +550,6 @@ public class RabbitFluxTests {
     }
 
     @Test
-    public void senderWithCustomChannelCloseHandlerPriority() throws Exception {
-        int nbMessages = 10;
-        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
-
-        SenderChannelCloseHandler channelCloseHandlerInSenderOptions = mock(SenderChannelCloseHandler.class);
-        SenderChannelCloseHandler channelCloseHandlerInSendOptions = mock(SenderChannelCloseHandler.class);
-
-        SenderOptions senderOptions = new SenderOptions().channelCloseHandler(channelCloseHandlerInSenderOptions);
-        sender = createSender(senderOptions);
-        SendOptions sendOptions = new SendOptions().channelCloseHandler(channelCloseHandlerInSendOptions);
-
-        StepVerifier.create(sender.send(msgFlux, sendOptions))
-                .verifyComplete();
-
-        verify(channelCloseHandlerInSenderOptions, never()).accept(any(SignalType.class), any(Channel.class));
-        verify(channelCloseHandlerInSendOptions, times(1)).accept(any(SignalType.class), any(Channel.class));
-
-    }
-
-    @Test
     public void publishConfirms() throws Exception {
         int nbMessages = 10;
         CountDownLatch consumedLatch = new CountDownLatch(nbMessages);
