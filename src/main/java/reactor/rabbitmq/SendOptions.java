@@ -16,6 +16,10 @@
 
 package reactor.rabbitmq;
 
+import com.rabbitmq.client.Channel;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
+
 import java.time.Duration;
 import java.util.function.BiConsumer;
 
@@ -28,6 +32,10 @@ public class SendOptions {
         Duration.ofSeconds(10), Duration.ofMillis(200), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
     );
 
+    private Mono<? extends Channel> channelMono;
+
+    private BiConsumer<SignalType, Channel> channelCloseHandler;
+
     public BiConsumer<Sender.SendContext, Exception> getExceptionHandler() {
         return exceptionHandler;
     }
@@ -37,4 +45,21 @@ public class SendOptions {
         return this;
     }
 
+    public Mono<? extends Channel> getChannelMono() {
+        return channelMono;
+    }
+
+    public SendOptions channelMono(Mono<? extends Channel> channelMono) {
+        this.channelMono = channelMono;
+        return this;
+    }
+
+    public BiConsumer<SignalType, Channel> getChannelCloseHandler() {
+        return channelCloseHandler;
+    }
+
+    public SendOptions channelCloseHandler(BiConsumer<SignalType, Channel> channelCloseHandler) {
+        this.channelCloseHandler = channelCloseHandler;
+        return this;
+    }
 }
