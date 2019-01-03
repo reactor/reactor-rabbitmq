@@ -1,22 +1,18 @@
 == New & Noteworthy
 
 [[new]]
+
+=== What's new in Reactor RabbitMQ 1.1
+
+* Let user provide `Mono<Channel>` for sending messages
+
 === What's new in Reactor RabbitMQ 1.0
 
-* 1.0.0.M1
-** Introduction of the `Sender` and `Receiver` API
-* 1.0.0.M2
-** Support for request/reply
-** Exception handling
-* 1.0.0.M3
-** Bump Reactor to 3.2.0.RELEASE
-** Let user provide `Mono<Channel>` for resource management
-* 1.0.0.RC1
-** Bump Reactor to 3.2.1.RELEASE
-** Bump RabbitMQ Java client to 5.5.0
-* 1.0.0.RC2
-** Bump Reactor to 3.2.3.RELEASE
-** Bump RabbitMQ Java client to 5.5.1 for better topology recovery support
-** Complete receiving flux on channel termination
-** Handle error signal of `connectionMono` subscription to enable proper error handling
-** Rename `ReactorRabbitMq` to `RabbitFlux` and `ReactorRabbitMqException` to `RabbitFluxException`
+* Introduction of the `Sender` and `Receiver` API
+* Support for request/reply
+* Exception handling
+* Let user provide `Mono<Channel>` for resource management
+* Complete receiving flux on channel termination
+* Handle error signal of `connectionMono` subscription to enable proper error handling
+* Use Reactor 3.2.3.RELEASE
+* Use Java client 5.5.1

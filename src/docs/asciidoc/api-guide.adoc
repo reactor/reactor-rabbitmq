@@ -260,7 +260,7 @@ Each instance of `Receiver` is associated with a single instance
 of `Connection` created by the options-provided `ConnectionFactory`.
 
 A receiver is created with an instance of receiver configuration options
-`reactor.rabbitmq.ReceiverOptions`. The properties of `SenderOptions`
+`reactor.rabbitmq.ReceiverOptions`. The properties of `ReceiverOptions`
 contains the `ConnectionFactory` that creates connections to the broker
 and a Reactor `Scheduler` used for the connection creation.
 
@@ -441,6 +441,12 @@ include::{test-examples}/AdvancedFeatures.java[tag=shared-connection]
 
 Be aware that closing the first `Sender` or `Receiver` will close the underlying
 AMQP connection for all the others.
+
+==== Creating channels with a custom `Mono` in `Sender`
+
+`SenderOptions` provides a `channelMono` property that is called when creating the `Channel` used
+in sending methods. This is a convenient way to provide any custom logic when
+creating the `Channel`, e.g. retry logic.
 
 ==== Threading considerations for resource management
 

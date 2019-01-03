@@ -92,7 +92,7 @@ public class Sender implements AutoCloseable {
                 .cache();
         this.channelMono = options.getChannelMono();
         this.channelCloseHandler = options.getChannelCloseHandler() == null ?
-                new ChannelCloseHandlers.SenderChannelCloseHandler() :
+                ChannelCloseHandlers.SENDER_CHANNEL_CLOSE_HANDLER_INSTANCE :
                 options.getChannelCloseHandler();
         this.privateResourceManagementScheduler = options.getResourceManagementScheduler() == null;
         this.resourceManagementScheduler = options.getResourceManagementScheduler() == null ?

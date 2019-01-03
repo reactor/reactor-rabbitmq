@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,8 +39,19 @@ public class SenderOptions {
 
     private Mono<? extends Connection> connectionMono;
 
+    /**
+     * Channel mono used in sending methods.
+     *
+     * @since 1.1.0
+     */
     private Mono<? extends Channel> channelMono;
 
+    /**
+     * Logic to close channels.
+     *
+     * @see ChannelCloseHandlers.SenderChannelCloseHandler
+     * @since 1.1.0
+     */
     private BiConsumer<SignalType, Channel> channelCloseHandler;
 
     private Scheduler resourceManagementScheduler;
@@ -106,19 +117,45 @@ public class SenderOptions {
         return connectionMono;
     }
 
+    /**
+     * Sets the channel mono to use in send methods.
+     *
+     * @param channelMono the channel mono to use
+     * @return this {@link SenderOptions} instance
+     * @since 1.1.0
+     */
     public SenderOptions channelMono(Mono<? extends Channel> channelMono) {
         this.channelMono = channelMono;
         return this;
     }
 
+    /**
+     * Returns the channel mono to use in send methods.
+     *
+     * @return
+     * @since 1.1.0
+     */
     public Mono<? extends Channel> getChannelMono() {
         return channelMono;
     }
 
+    /**
+     * Returns the channel closing logic.
+     *
+     * @return
+     * @since 1.1.0
+     */
     public BiConsumer<SignalType, Channel> getChannelCloseHandler() {
         return channelCloseHandler;
     }
 
+    /**
+     * Set the channel closing logic.
+     *
+     * @param channelCloseHandler the closing logic
+     * @return this {@link SenderOptions} instance
+     * @since 1.1.0
+     */
     public SenderOptions channelCloseHandler(BiConsumer<SignalType, Channel> channelCloseHandler) {
         this.channelCloseHandler = channelCloseHandler;
         return this;
