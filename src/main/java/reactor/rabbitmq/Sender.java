@@ -30,6 +30,7 @@ import reactor.core.CoreSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxOperator;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Operators;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -37,6 +38,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -44,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * Reactive abstraction to create resources and send messages.
@@ -57,6 +60,10 @@ public class Sender implements AutoCloseable {
     private static final Function<Connection, Channel> CHANNEL_PROXY_CREATION_FUNCTION = new ChannelProxyCreationFunction();
 
     private final Mono<? extends Connection> connectionMono;
+
+    private final Mono<? extends Channel> channelMono;
+
+    private final BiConsumer<SignalType, Channel> channelCloseHandler;
 
     private final AtomicBoolean hasConnection = new AtomicBoolean(false);
 
@@ -83,6 +90,10 @@ public class Sender implements AutoCloseable {
                 .doOnSubscribe(c -> hasConnection.set(true))
                 .subscribeOn(this.connectionSubscriptionScheduler)
                 .cache();
+        this.channelMono = options.getChannelMono();
+        this.channelCloseHandler = options.getChannelCloseHandler() == null ?
+                new ChannelCloseHandlers.SenderChannelCloseHandler() :
+                options.getChannelCloseHandler();
         this.privateResourceManagementScheduler = options.getResourceManagementScheduler() == null;
         this.resourceManagementScheduler = options.getResourceManagementScheduler() == null ?
             createScheduler("rabbitmq-sender-resource-creation") : options.getResourceManagementScheduler();
@@ -102,8 +113,9 @@ public class Sender implements AutoCloseable {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        final Mono<Channel> currentChannelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION).cache();
+        final Mono<? extends Channel> currentChannelMono = getChannelMono();
         final BiConsumer<SendContext, Exception> exceptionHandler = options.getExceptionHandler();
+
         return currentChannelMono.flatMapMany(channel ->
             Flux.from(messages)
                 .doOnNext(message -> {
@@ -119,17 +131,7 @@ public class Sender implements AutoCloseable {
                     }
                 })
                 .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
-                .doFinally(st -> {
-                    int channelNumber = channel.getChannelNumber();
-                    LOGGER.info("closing channel {} by signal {}", channelNumber, st);
-                    try {
-                        if (channel.isOpen() && channel.getConnection().isOpen()) {
-                            channel.close();
-                        }
-                    } catch (Exception e) {
-                        LOGGER.warn("Channel {} didn't close normally: {}", channelNumber, e.getMessage());
-                    }
-                })
+                .doFinally(st -> channelCloseHandler.accept(st, channel))
         ).then();
     }
 
@@ -141,17 +143,21 @@ public class Sender implements AutoCloseable {
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
-        final Mono<Channel> channelMono = connectionMono.map(CHANNEL_CREATION_FUNCTION)
-            .map(channel -> {
+        final Mono<? extends Channel> currentChannelMono = getChannelMono();
+
+        return currentChannelMono.map(channel -> {
                 try {
                     channel.confirmSelect();
                 } catch (IOException e) {
                     throw new RabbitFluxException("Error while setting publisher confirms on channel", e);
                 }
                 return channel;
-            });
+            })
+            .flatMapMany(channel -> new PublishConfirmOperator(messages, channel, channelCloseHandler, options));
+    }
 
-        return channelMono.flatMapMany(channel -> new PublishConfirmOperator(messages, channel, options));
+    private Mono<? extends Channel> getChannelMono() {
+        return channelMono != null ? channelMono : connectionMono.map(CHANNEL_CREATION_FUNCTION);
     }
 
     public RpcClient rpcClient(String exchange, String routingKey) {
@@ -452,15 +458,18 @@ public class Sender implements AutoCloseable {
 
         private final SendOptions options;
 
-        public PublishConfirmOperator(Publisher<OutboundMessage> source, Channel channel, SendOptions options) {
+        private final BiConsumer<SignalType, Channel> channelCloseHandler;
+
+        public PublishConfirmOperator(Publisher<OutboundMessage> source, Channel channel, BiConsumer<SignalType, Channel> channelCloseHandler, SendOptions options) {
             super(Flux.from(source));
             this.channel = channel;
+            this.channelCloseHandler = channelCloseHandler;
             this.options = options;
         }
 
         @Override
         public void subscribe(CoreSubscriber<? super OutboundMessageResult> actual) {
-            source.subscribe(new PublishConfirmSubscriber(channel, actual, options));
+            source.subscribe(new PublishConfirmSubscriber(channel, channelCloseHandler, actual, options));
         }
     }
 
@@ -479,8 +488,11 @@ public class Sender implements AutoCloseable {
 
         private final BiConsumer<SendContext, Exception> exceptionHandler;
 
-        private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
+        private final BiConsumer<SignalType, Channel> channelCloseHandler;
+
+        private PublishConfirmSubscriber(Channel channel, BiConsumer<SignalType, Channel> channelCloseHandler, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
+            this.channelCloseHandler = channelCloseHandler;
             this.subscriber = subscriber;
             this.exceptionHandler = options.getExceptionHandler();
         }
@@ -563,7 +575,7 @@ public class Sender implements AutoCloseable {
         public void onError(Throwable throwable) {
             if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.COMPLETE) ||
                 state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
-                closeResources();
+                channelCloseHandler.accept(SignalType.ON_ERROR, channel);
                 // complete the flux state
                 subscriber.onError(throwable);
             } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
@@ -594,18 +606,8 @@ public class Sender implements AutoCloseable {
         private void maybeComplete() {
             boolean done = state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE);
             if (done) {
-                closeResources();
+                channelCloseHandler.accept(SignalType.ON_COMPLETE, channel);
                 subscriber.onComplete();
-            }
-        }
-
-        private void closeResources() {
-            try {
-                if (channel.isOpen()) {
-                    channel.close();
-                }
-            } catch (Exception e) {
-                // not much we can do here
             }
         }
 

@@ -31,7 +31,10 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Schedulers;
+import reactor.rabbitmq.ChannelCloseHandlers.SenderChannelCloseHandler;
+import reactor.test.StepVerifier;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
@@ -466,6 +469,87 @@ public class RabbitFluxTests {
     }
 
     @Test
+    public void senderRetryCreateChannel() throws Exception {
+        ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
+        Connection mockConnection = mock(Connection.class);
+        when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
+        when(mockConnection.createChannel())
+                .thenThrow(new IOException("already closed exception"))
+                .thenThrow(new IOException("already closed exception"))
+                .thenReturn(connection.createChannel());
+
+        int nbMessages = 10;
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
+
+        StepVerifier.create(sender.send(msgFlux).retry(2))
+                    .verifyComplete();
+        verify(mockConnection, times(3)).createChannel();
+
+        StepVerifier.create(consume(queue, nbMessages))
+                    .expectNextCount(nbMessages)
+                    .verifyComplete();
+    }
+
+    @Test
+    public void senderRetryNotWorkingWhenCreateChannelIsCached() throws Exception {
+        int nbMessages = 10;
+
+        Connection mockConnection = mock(Connection.class);
+        Channel mockChannel = mock(Channel.class);
+        when(mockConnection.createChannel())
+            .thenThrow(new RuntimeException("already closed exception"))
+            .thenThrow(new RuntimeException("already closed exception"))
+            .thenReturn(mockChannel);
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        SenderOptions senderOptions = new SenderOptions()
+                .channelMono(Mono.just(mockConnection).map(this::createChannel).cache());
+
+        sender = createSender(senderOptions);
+
+        StepVerifier.create(sender.send(msgFlux).retry(2))
+                    .expectError(RabbitFluxException.class)
+                    .verify();
+
+        verify(mockChannel, never()).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class), any(byte[].class));
+        verify(mockChannel, never()).close();
+    }
+
+    @Test
+    public void senderWithCustomChannelCloseHandler() throws Exception {
+        int nbMessages = 10;
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        SenderChannelCloseHandler channelCloseHandler = mock(SenderChannelCloseHandler.class);
+        doNothing().when(channelCloseHandler).accept(any(SignalType.class), any(Channel.class));
+        Mono<Channel> monoChannel = Mono.fromCallable(() -> connection.createChannel()).cache();
+        SenderOptions senderOptions = new SenderOptions().channelCloseHandler(channelCloseHandler).channelMono(monoChannel);
+
+        sender = createSender(senderOptions);
+
+        Mono<Void> sendTwice = Mono.when(sender.send(msgFlux), sender.send(msgFlux))
+                .doFinally(signalType -> {
+                    try {
+                        monoChannel.block().close();
+                    } catch (Exception e) {
+                        throw new RabbitFluxException(e);
+                    }
+                });
+
+        StepVerifier.create(sendTwice)
+                    .verifyComplete();
+        verify(channelCloseHandler, times(2)).accept(SignalType.ON_COMPLETE, monoChannel.block());
+
+        StepVerifier.create(consume(queue, nbMessages * 2))
+                .expectNextCount(nbMessages * 2)
+                .verifyComplete();
+    }
+
+    @Test
     public void publishConfirms() throws Exception {
         int nbMessages = 10;
         CountDownLatch consumedLatch = new CountDownLatch(nbMessages);
@@ -499,6 +583,8 @@ public class RabbitFluxTests {
         Channel mockChannel = mock(Channel.class);
         when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
         when(mockConnection.createChannel()).thenReturn(mockChannel);
+        when(mockConnection.isOpen()).thenReturn(true);
+        when(mockChannel.getConnection()).thenReturn(mockConnection);
 
         AtomicLong publishSequence = new AtomicLong();
         when(mockChannel.getNextPublishSeqNo()).thenAnswer(invocation -> publishSequence.incrementAndGet());
@@ -823,5 +909,37 @@ public class RabbitFluxTests {
 
         assertTrue(latch.await(5, TimeUnit.SECONDS));
         subscriber.dispose();
+    }
+
+    private Flux<Delivery> consume(final String queue, int nbMessages) throws Exception {
+        return consume(queue, nbMessages, Duration.ofSeconds(1L));
+    }
+
+    private Flux<Delivery> consume(final String queue, int nbMessages, Duration timeout) throws Exception {
+        Channel channel = connection.createChannel();
+        Flux<Delivery> consumeFlux = Flux.create(emitter -> Mono.just(nbMessages).map(AtomicInteger::new).subscribe(countdown -> {
+            DeliverCallback deliverCallback = (consumerTag, message) -> {
+                emitter.next(message);
+                if (countdown.decrementAndGet() <= 0) {
+                    emitter.complete();
+                }
+            };
+            CancelCallback cancelCallback = consumerTag -> {
+            };
+            try {
+                channel.basicConsume(queue, true, deliverCallback, cancelCallback);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }));
+        return consumeFlux.timeout(timeout);
+    }
+
+    private Channel createChannel(Connection connection) {
+        try {
+            return connection.createChannel();
+        } catch (Exception e) {
+            throw new RabbitFluxException(e);
+        }
     }
 }

@@ -20,8 +20,10 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Scheduler;
 
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 /**
@@ -36,6 +38,10 @@ public class SenderOptions {
     }).get();
 
     private Mono<? extends Connection> connectionMono;
+
+    private Mono<? extends Channel> channelMono;
+
+    private BiConsumer<SignalType, Channel> channelCloseHandler;
 
     private Scheduler resourceManagementScheduler;
 
@@ -98,6 +104,24 @@ public class SenderOptions {
 
     public Mono<? extends Connection> getConnectionMono() {
         return connectionMono;
+    }
+
+    public SenderOptions channelMono(Mono<? extends Channel> channelMono) {
+        this.channelMono = channelMono;
+        return this;
+    }
+
+    public Mono<? extends Channel> getChannelMono() {
+        return channelMono;
+    }
+
+    public BiConsumer<SignalType, Channel> getChannelCloseHandler() {
+        return channelCloseHandler;
+    }
+
+    public SenderOptions channelCloseHandler(BiConsumer<SignalType, Channel> channelCloseHandler) {
+        this.channelCloseHandler = channelCloseHandler;
+        return this;
     }
 
     public SenderOptions resourceManagementChannelMono(Mono<? extends Channel> resourceManagementChannelMono) {
