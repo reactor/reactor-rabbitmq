@@ -24,18 +24,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
 import reactor.core.Exceptions;
-import reactor.core.publisher.BaseSubscriber;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
+import reactor.core.publisher.*;
 import reactor.core.scheduler.Schedulers;
 import reactor.rabbitmq.ChannelCloseHandlers.SenderChannelCloseHandler;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuple2;
+import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
 import java.io.IOException;
@@ -50,6 +48,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -77,9 +76,16 @@ public class RabbitFluxTests {
 
     static Stream<Arguments> noAckAndManualAckFluxArguments() {
         return Stream.of(
-            of((BiFunction<Receiver, String, Flux<Delivery>>) (receiver, queue) -> receiver.consumeNoAck(queue)),
-            of((BiFunction<Receiver, String, Flux<? extends Delivery>>) (receiver, queue) -> receiver.consumeManualAck(queue))
+                of((BiFunction<Receiver, String, Flux<Delivery>>) (receiver, queue) -> receiver.consumeNoAck(queue)),
+                of((BiFunction<Receiver, String, Flux<? extends Delivery>>) (receiver, queue) -> receiver.consumeManualAck(queue))
         );
+    }
+
+    public static Object[][] senderWithCustomChannelCloseHandlerPriorityArguments() {
+        return new Object[][]{
+                new Object[]{10, (Function<Tuple3<Sender, Publisher<OutboundMessage>, SendOptions>, Publisher>) objects -> objects.getT1().send(objects.getT2(), objects.getT3()), 0},
+                new Object[]{10, (Function<Tuple3<Sender, Publisher<OutboundMessage>, SendOptions>, Publisher>) objects -> objects.getT1().sendWithPublishConfirms(objects.getT2(), objects.getT3()), 10}
+        };
     }
 
     @BeforeEach
@@ -407,7 +413,8 @@ public class RabbitFluxTests {
         receiver = RabbitFlux.createReceiver(new ReceiverOptions().connectionMono(connectionMono));
         Flux<? extends Delivery> flux = fluxFactory.apply(receiver, queue);
         AtomicBoolean errorHandlerCalled = new AtomicBoolean(false);
-        Disposable disposable = flux.subscribe(delivery -> { }, error -> errorHandlerCalled.set(true));
+        Disposable disposable = flux.subscribe(delivery -> {
+        }, error -> errorHandlerCalled.set(true));
         assertTrue(errorHandlerCalled.get());
         disposable.dispose();
     }
@@ -435,7 +442,8 @@ public class RabbitFluxTests {
         Disposable subscription = flux.subscribe(msg -> {
             counter.incrementAndGet();
             messageReceivedLatch.countDown();
-        }, error -> {}, () -> completedLatch.countDown());
+        }, error -> {
+        }, () -> completedLatch.countDown());
 
         assertTrue(messageReceivedLatch.await(1, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
@@ -485,12 +493,12 @@ public class RabbitFluxTests {
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
 
         StepVerifier.create(sender.send(msgFlux).retry(2))
-                    .verifyComplete();
+                .verifyComplete();
         verify(mockConnection, times(3)).createChannel();
 
         StepVerifier.create(consume(queue, nbMessages))
-                    .expectNextCount(nbMessages)
-                    .verifyComplete();
+                .expectNextCount(nbMessages)
+                .verifyComplete();
     }
 
     @Test
@@ -500,9 +508,9 @@ public class RabbitFluxTests {
         Connection mockConnection = mock(Connection.class);
         Channel mockChannel = mock(Channel.class);
         when(mockConnection.createChannel())
-            .thenThrow(new RuntimeException("already closed exception"))
-            .thenThrow(new RuntimeException("already closed exception"))
-            .thenReturn(mockChannel);
+                .thenThrow(new RuntimeException("already closed exception"))
+                .thenThrow(new RuntimeException("already closed exception"))
+                .thenReturn(mockChannel);
 
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 
@@ -512,8 +520,8 @@ public class RabbitFluxTests {
         sender = createSender(senderOptions);
 
         StepVerifier.create(sender.send(msgFlux).retry(2))
-                    .expectError(RabbitFluxException.class)
-                    .verify();
+                .expectError(RabbitFluxException.class)
+                .verify();
 
         verify(mockChannel, never()).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class), any(byte[].class));
         verify(mockChannel, never()).close();
@@ -541,7 +549,7 @@ public class RabbitFluxTests {
                 });
 
         StepVerifier.create(sendTwice)
-                    .verifyComplete();
+                .verifyComplete();
         verify(channelCloseHandler, times(2)).accept(SignalType.ON_COMPLETE, monoChannel.block());
 
         StepVerifier.create(consume(queue, nbMessages * 2))
@@ -549,9 +557,11 @@ public class RabbitFluxTests {
                 .verifyComplete();
     }
 
-    @Test
-    public void senderWithCustomChannelCloseHandlerPriority() throws InterruptedException {
-        int nbMessages = 10;
+    @ParameterizedTest
+    @MethodSource("senderWithCustomChannelCloseHandlerPriorityArguments")
+    public void senderWithCustomChannelCloseHandlerPriority(int nbMessages,
+                                                            Function<Tuple3<Sender, Publisher<OutboundMessage>, SendOptions>, Publisher> sendingCallback,
+                                                            int expectedCount) throws InterruptedException {
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 
         SenderChannelCloseHandler channelCloseHandlerInSenderOptions = mock(SenderChannelCloseHandler.class);
@@ -567,7 +577,10 @@ public class RabbitFluxTests {
         sender = createSender(senderOptions);
         SendOptions sendOptions = new SendOptions().channelCloseHandler(channelCloseHandlerInSendOptions);
 
-        StepVerifier.create(sender.send(msgFlux, sendOptions))
+        Publisher sendingResult = sendingCallback.apply(Tuples.of(sender, msgFlux, sendOptions));
+
+        StepVerifier.create(sendingResult)
+                .expectNextCount(expectedCount)
                 .verifyComplete();
 
         assertTrue(latch.await(1, TimeUnit.SECONDS));
@@ -970,4 +983,5 @@ public class RabbitFluxTests {
             throw new RabbitFluxException(e);
         }
     }
+
 }
