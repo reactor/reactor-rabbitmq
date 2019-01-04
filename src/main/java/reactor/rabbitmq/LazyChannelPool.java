@@ -21,6 +21,7 @@ import com.rabbitmq.client.Connection;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,8 +33,8 @@ import java.util.function.BiConsumer;
 import static reactor.rabbitmq.ChannelCloseHandlers.SENDER_CHANNEL_CLOSE_HANDLER_INSTANCE;
 
 /**
- * This channel pool is lazy initialized. It might even not reach its maximum size {@link ChannelPoolOptions#getMaxSize()} in low-traffic environments.
- * It always tries to obtain channel from the pool. However, in case of high-traffic number of channels might exceeds channel pool maximum size.
+ * This channel pool is lazy initialized. It might even not reach its maximum size {@link ChannelPoolOptions#getMaxCacheSize()} in low-traffic environments.
+ * It always tries to obtain channel from the pool. However, in case of high-concurrency environment, number of channels might exceeds channel pool maximum size.
  *
  * Channels are added to the pool after their use {@link ChannelPool#getChannelCloseHandler()} and obtained from the pool when channel is requested {@link ChannelPool#getChannelMono()}.
  *
@@ -46,14 +47,19 @@ import static reactor.rabbitmq.ChannelCloseHandlers.SENDER_CHANNEL_CLOSE_HANDLER
  */
 class LazyChannelPool implements ChannelPool {
 
+    private static final int DEFAULT_CHANNEL_POOL_SIZE = 5;
+
     private final Mono<? extends Connection> connectionMono;
     private final BlockingQueue<Channel> channelsQueue;
     private final Scheduler subscriptionScheduler;
 
     LazyChannelPool(Mono<? extends Connection> connectionMono, ChannelPoolOptions channelPoolOptions) {
-        this.channelsQueue = new LinkedBlockingQueue<>(channelPoolOptions.getMaxSize());
+        int channelsQueueCapacity = channelPoolOptions.getMaxCacheSize() == null ?
+                DEFAULT_CHANNEL_POOL_SIZE : channelPoolOptions.getMaxCacheSize();
+        this.channelsQueue = new LinkedBlockingQueue<>(channelsQueueCapacity);
         this.connectionMono = connectionMono;
-        this.subscriptionScheduler = channelPoolOptions.getSubscriptionScheduler();
+        this.subscriptionScheduler = channelPoolOptions.getSubscriptionScheduler() == null ?
+                Schedulers.newElastic("sender-channel-pool") : channelPoolOptions.getSubscriptionScheduler();
     }
 
     public Mono<? extends Channel> getChannelMono() {

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import reactor.test.scheduler.VirtualTimeScheduler;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -34,7 +35,9 @@ class LazyChannelPoolTests {
     @Test
     void testChannelPoolLazyInitialization() throws Exception {
         int maxChannelPoolSize = 2;
-        ChannelPoolOptions channelPoolOptions = new ChannelPoolOptions().maxSize(maxChannelPoolSize);
+        ChannelPoolOptions channelPoolOptions = new ChannelPoolOptions()
+                .maxCacheSize(maxChannelPoolSize)
+                .subscriptionScheduler(VirtualTimeScheduler.create());
         lazyChannelPool = new LazyChannelPool(Mono.just(connection), channelPoolOptions);
 
         StepVerifier.withVirtualTime(() ->
@@ -67,7 +70,9 @@ class LazyChannelPoolTests {
     @Test
     void testChannelPoolExceedsMaxPoolSize() throws Exception {
         int maxChannelPoolSize = 2;
-        ChannelPoolOptions channelPoolOptions = new ChannelPoolOptions().maxSize(maxChannelPoolSize);
+        ChannelPoolOptions channelPoolOptions = new ChannelPoolOptions()
+                .maxCacheSize(maxChannelPoolSize)
+                .subscriptionScheduler(VirtualTimeScheduler.create());
         lazyChannelPool = new LazyChannelPool(Mono.just(connection), channelPoolOptions);
 
         StepVerifier.withVirtualTime(() ->
@@ -107,7 +112,9 @@ class LazyChannelPoolTests {
     @Test
     void testChannelPool() throws Exception {
         int maxChannelPoolSize = 1;
-        ChannelPoolOptions channelPoolOptions = new ChannelPoolOptions().maxSize(maxChannelPoolSize);
+        ChannelPoolOptions channelPoolOptions = new ChannelPoolOptions()
+                .maxCacheSize(maxChannelPoolSize)
+                .subscriptionScheduler(VirtualTimeScheduler.create());
         lazyChannelPool = new LazyChannelPool(Mono.just(connection), channelPoolOptions);
 
         StepVerifier.withVirtualTime(() ->
@@ -170,7 +177,7 @@ class LazyChannelPoolTests {
     }
 
     private void verifyBasicPublish(Channel channel, int times) throws Exception {
-        verify(channel, times(times)).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class), any(byte[].class));
+        verify(channel, times(times)).basicPublish(anyString(), anyString(), nullable(AMQP.BasicProperties.class), any(byte[].class));
     }
 
     private Channel channel(int channelNumber) {

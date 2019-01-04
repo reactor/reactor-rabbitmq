@@ -17,21 +17,20 @@
 package reactor.rabbitmq;
 
 import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 
 public class ChannelPoolOptions {
 
-    private int maxSize = 5;
+    private Integer maxCacheSize;
 
-    private Scheduler subscriptionScheduler = Schedulers.newElastic("sender-channel-pool");
+    private Scheduler subscriptionScheduler;
 
-    public ChannelPoolOptions maxSize(int maxSize) {
-        this.maxSize = maxSize;
+    public ChannelPoolOptions maxCacheSize(int maxCacheSize) {
+        this.maxCacheSize = maxCacheSize;
         return this;
     }
 
-    public int getMaxSize() {
-        return maxSize;
+    public Integer getMaxCacheSize() {
+        return maxCacheSize;
     }
 
     public ChannelPoolOptions subscriptionScheduler(Scheduler subscriptionScheduler) {
