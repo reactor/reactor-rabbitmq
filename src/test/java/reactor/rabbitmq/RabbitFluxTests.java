@@ -55,8 +55,8 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 import static reactor.rabbitmq.RabbitFlux.createReceiver;
 import static reactor.rabbitmq.RabbitFlux.createSender;
@@ -550,12 +550,18 @@ public class RabbitFluxTests {
     }
 
     @Test
-    public void senderWithCustomChannelCloseHandlerPriority() {
+    public void senderWithCustomChannelCloseHandlerPriority() throws InterruptedException {
         int nbMessages = 10;
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 
         SenderChannelCloseHandler channelCloseHandlerInSenderOptions = mock(SenderChannelCloseHandler.class);
         SenderChannelCloseHandler channelCloseHandlerInSendOptions = mock(SenderChannelCloseHandler.class);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        doAnswer(answer -> {
+            latch.countDown();
+            return null;
+        }).when(channelCloseHandlerInSendOptions).accept(any(SignalType.class), any(Channel.class));
 
         SenderOptions senderOptions = new SenderOptions().channelCloseHandler(channelCloseHandlerInSenderOptions);
         sender = createSender(senderOptions);
@@ -563,6 +569,8 @@ public class RabbitFluxTests {
 
         StepVerifier.create(sender.send(msgFlux, sendOptions))
                 .verifyComplete();
+
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
 
         verify(channelCloseHandlerInSenderOptions, never()).accept(any(SignalType.class), any(Channel.class));
         verify(channelCloseHandlerInSendOptions, times(1)).accept(any(SignalType.class), any(Channel.class));
@@ -611,7 +619,8 @@ public class RabbitFluxTests {
 
         doNothing()
                 .doThrow(new IOException("simulated error while publishing"))
-                .when(mockChannel).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class), any(byte[].class));
+                .when(mockChannel).basicPublish(anyString(), anyString(), nullable(AMQP.BasicProperties.class), any(byte[].class));
+
 
         int nbMessages = 10;
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));

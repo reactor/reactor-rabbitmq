@@ -58,10 +58,10 @@ import java.util.stream.Stream;
 import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -182,7 +182,7 @@ public class ConnectionRecoveryTests {
         when(mockChannel.basicConsume(
             anyString(), anyBoolean(), any(DeliverCallback.class), any(CancelCallback.class)
         )).thenAnswer(answer -> {
-            deliverCallbackAtomicReference.set(answer.getArgumentAt(2, DeliverCallback.class));
+            deliverCallbackAtomicReference.set(answer.getArgument(2));
             consumerRegisteredLatch.countDown();
             return "ctag";
         });
@@ -240,7 +240,7 @@ public class ConnectionRecoveryTests {
         when(mockChannel.basicConsume(
             anyString(), anyBoolean(), any(DeliverCallback.class), any(CancelCallback.class)
         )).thenAnswer(answer -> {
-            deliverCallbackAtomicReference.set(answer.getArgumentAt(2, DeliverCallback.class));
+            deliverCallbackAtomicReference.set(answer.getArgument(2));
             consumerRegisteredLatch.countDown();
             return "ctag";
         });
