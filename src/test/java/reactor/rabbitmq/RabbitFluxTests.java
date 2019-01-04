@@ -577,7 +577,7 @@ public class RabbitFluxTests {
         sender = createSender(senderOptions);
         SendOptions sendOptions = new SendOptions().channelCloseHandler(channelCloseHandlerInSendOptions);
 
-        Publisher sendingResult = sendingCallback.apply(Tuples.of(sender, msgFlux, sendOptions));
+        Publisher<?> sendingResult = sendingCallback.apply(Tuples.of(sender, msgFlux, sendOptions));
 
         StepVerifier.create(sendingResult)
                 .expectNextCount(expectedCount)
