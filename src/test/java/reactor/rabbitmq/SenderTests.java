@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,12 @@ import com.rabbitmq.client.ShutdownSignalException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 import static reactor.rabbitmq.RabbitFlux.createSender;
 
 /**
@@ -64,7 +66,7 @@ public class SenderTests {
     }
 
     @Test
-    void cannotReuseChannelOnError() {
+    void canReuseChannelOnError() {
         sender = createSender();
         try {
             sender.declare(QueueSpecification.queue(queue).autoDelete(true)).block();
@@ -73,5 +75,18 @@ public class SenderTests {
             // OK
         }
         sender.declare(QueueSpecification.queue()).block();
+    }
+
+    @Test
+    void channelMonoPriority() {
+        Mono<Channel> senderChannelMono = Mono.just(Mockito.mock(Channel.class));
+        Mono<Channel> sendChannelMono = Mono.just(Mockito.mock(Channel.class));
+        sender = createSender();
+        assertNotNull(sender.getChannelMono(new SendOptions()));
+        assertSame(sendChannelMono, sender.getChannelMono(new SendOptions().channelMono(sendChannelMono)));
+
+        sender = createSender(new SenderOptions().channelMono(senderChannelMono));
+        assertSame(senderChannelMono, sender.getChannelMono(new SendOptions()));
+        assertSame(sendChannelMono, sender.getChannelMono(new SendOptions().channelMono(sendChannelMono)));
     }
 }

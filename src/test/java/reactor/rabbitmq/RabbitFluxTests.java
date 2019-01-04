@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -550,7 +550,7 @@ public class RabbitFluxTests {
     }
 
     @Test
-    public void senderWithCustomChannelCloseHandlerPriority() throws Exception {
+    public void senderWithCustomChannelCloseHandlerPriority() {
         int nbMessages = 10;
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,21 @@ import java.util.function.BiConsumer;
 public class SendOptions {
 
     private BiConsumer<Sender.SendContext, Exception> exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-        Duration.ofSeconds(10), Duration.ofMillis(200), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+            Duration.ofSeconds(10), Duration.ofMillis(200), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
     );
 
+    /**
+     * Channel mono to use to send messages.
+     *
+     * @since 1.1.0
+     */
     private Mono<? extends Channel> channelMono;
 
+    /**
+     * Channel closing logic.
+     *
+     * @since 1.1.0
+     */
     private BiConsumer<SignalType, Channel> channelCloseHandler;
 
     public BiConsumer<Sender.SendContext, Exception> getExceptionHandler() {
@@ -45,19 +55,45 @@ public class SendOptions {
         return this;
     }
 
+    /**
+     * Return the channel mono to use to send messages.
+     *
+     * @return
+     * @since 1.1.0
+     */
     public Mono<? extends Channel> getChannelMono() {
         return channelMono;
     }
 
+    /**
+     * Set the channel mono to use to send messages.
+     *
+     * @param channelMono
+     * @return this {@link SendOptions} instance
+     * @since 1.1.0
+     */
     public SendOptions channelMono(Mono<? extends Channel> channelMono) {
         this.channelMono = channelMono;
         return this;
     }
 
+    /**
+     * Return the channel closing logic.
+     *
+     * @return
+     * @since 1.1.0
+     */
     public BiConsumer<SignalType, Channel> getChannelCloseHandler() {
         return channelCloseHandler;
     }
 
+    /**
+     * Set the channel closing logic.
+     *
+     * @param channelCloseHandler
+     * @return this {@link SendOptions} instance
+     * @since 1.1.0
+     */
     public SendOptions channelCloseHandler(BiConsumer<SignalType, Channel> channelCloseHandler) {
         this.channelCloseHandler = channelCloseHandler;
         return this;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,6 +110,7 @@ public class Sender implements AutoCloseable {
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages, SendOptions options) {
+        options = options == null ? new SendOptions() : options;
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
@@ -141,12 +142,14 @@ public class Sender implements AutoCloseable {
     }
 
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages, SendOptions options) {
+        options = options == null ? new SendOptions() : options;
         // TODO using a pool of channels?
         // would be much more efficient if send is called very often
         // less useful if seldom called, only for long or infinite message flux
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
 
+        SendOptions sendOptions = options;
         return currentChannelMono.map(channel -> {
                 try {
                     channel.confirmSelect();
@@ -155,10 +158,11 @@ public class Sender implements AutoCloseable {
                 }
                 return channel;
             })
-            .flatMapMany(channel -> new PublishConfirmOperator(messages, channel, channelCloseHandler, options));
+            .flatMapMany(channel -> new PublishConfirmOperator(messages, channel, channelCloseHandler, sendOptions));
     }
 
-    private Mono<? extends Channel> getChannelMono(SendOptions options) {
+    // package-protected for testing
+    Mono<? extends Channel> getChannelMono(SendOptions options) {
         return Stream.of(options.getChannelMono(), channelMono)
                 .filter(Objects::nonNull)
                 .findFirst().orElse(connectionMono.map(CHANNEL_CREATION_FUNCTION));
@@ -511,12 +515,12 @@ public class Sender implements AutoCloseable {
             channel.addConfirmListener(new ConfirmListener() {
 
                 @Override
-                public void handleAck(long deliveryTag, boolean multiple) throws IOException {
+                public void handleAck(long deliveryTag, boolean multiple) {
                     handleAckNack(deliveryTag, multiple, true);
                 }
 
                 @Override
-                public void handleNack(long deliveryTag, boolean multiple) throws IOException {
+                public void handleNack(long deliveryTag, boolean multiple) {
                     handleAckNack(deliveryTag, multiple, false);
                 }
 
