@@ -16,7 +16,6 @@
 
 package reactor.rabbitmq.samples;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;

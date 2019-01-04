@@ -20,9 +20,7 @@ buildscript {
 	}
 	dependencies {
 		classpath 'org.asciidoctor:asciidoctorj-pdf:1.5.0-alpha.11',
-				'org.springframework.build.gradle:propdeps-plugin:0.0.7',
-				'io.spring.gradle:spring-io-plugin:0.0.4.RELEASE',
-				'org.junit.platform:junit-platform-gradle-plugin:1.0.0'
+				  'io.spring.gradle:propdeps-plugin:0.0.9.RELEASE'
 	}
 }
 plugins {
@@ -83,7 +81,6 @@ configure(allprojects) { project ->
 	apply plugin: 'idea'
 	apply plugin: 'propdeps'
 	apply plugin: 'java'
-	apply plugin: 'org.junit.platform.gradle.plugin'
 
 	sourceCompatibility = targetCompatibility = 1.8
 
@@ -107,49 +104,6 @@ configure(allprojects) { project ->
 															 "-Xlint:-rawtypes"     // TODO enable and fix warnings
 	]
 
-	junitPlatform {
-		filters {
-			includeClassNamePattern '.*Tests'
-		}
-		// store test results where Bamboo expects them or the build will fail
-		reportsDir file('build/test-results/test')
-	}
-
-	// to generate HTML test reports
-	// from https://stackoverflow.com/questions/39444908/how-to-create-an-html-report-for-junit-5-tests/39455463#39455463
-	configurations {
-		junitXmlToHtml
-	}
-
-	task generateHtmlTestReports {
-		doLast {
-			def reportsDir = new File(buildDir, 'reports/tests/test')
-			reportsDir.mkdirs()
-
-			ant.taskdef(
-					name: 'junitReport',
-					classname: 'org.apache.tools.ant.taskdefs.optional.junit.XMLResultAggregator',
-					classpath: configurations.junitXmlToHtml.asPath
-			)
-
-			ant.junitReport(todir: "$buildDir/test-results/test", tofile: "aggregated-test-results.xml") {
-				fileset(dir: "$buildDir/test-results/test")
-				report(format: 'frames', todir: reportsDir)
-			}
-		}
-	}
-
-	afterEvaluate {
-		def junitPlatformTestTask = tasks.getByName('junitPlatformTest')
-		generateHtmlTestReports.dependsOn(junitPlatformTestTask)
-		test.dependsOn(generateHtmlTestReports)
-
-		// not related to HTML test reports
-		// to launch rabbitmqctl, to close connections for connection recovery tests
-		junitPlatformTestTask.systemProperty 'rabbitmqctl.bin', System.getProperty('rabbitmqctl.bin') ?: 'sudo rabbitmqctl'
-	}
-	// end of HTML test reports
-
 	jacocoTestReport {
 		dependsOn test
 		sourceSets sourceSets.main
@@ -169,50 +123,16 @@ configure(allprojects) { project ->
 		testCompile("org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}")
 		testCompile("org.junit.jupiter:junit-jupiter-params:${junitJupiterVersion}")
 		testRuntime("org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}")
-		// Only needed to run tests in an (IntelliJ) IDE(A) that bundles an older version
-		testRuntime("org.junit.platform:junit-platform-launcher:${junitPlatformVersion}")
 
 		testCompile "io.projectreactor:reactor-test:$reactorCoreVersion"
 		testCompile "org.mockito:mockito-core:$mockitoVersion"
 		testRuntime "org.slf4j:jcl-over-slf4j:$slf4jVersion"
 		testRuntime "org.slf4j:slf4j-api:$slf4jVersion"
 		testRuntime "ch.qos.logback:logback-classic:$logbackVersion"
-
-		// to generate HTML test reports
-		junitXmlToHtml 'org.apache.ant:ant-junit:1.9.7'
-	}
-
-	project.tasks.withType(Test).all {
-		systemProperty("java.awt.headless", "true")
-		systemProperty("reactor.trace.cancel", "true")
-		systemProperty("reactor.trace.nocapacity", "true")
-		systemProperty("testGroups", project.properties.get("testGroups"))
-
-		scanForTestClasses = false
-		include '**/*Tests.*'
-		include '**/*Spec.*'
-		exclude '**/*Abstract*.*'
 	}
 
 	// force test runs even when there are no test changes
 	test.outputs.upToDateWhen { false }
-
-	if (project.hasProperty('platformVersion')) {
-		apply plugin: 'spring-io'
-
-		repositories {
-			maven { url 'http://repo.spring.io/libs-snapshot' }
-		}
-
-		dependencyManagement {
-			springIoTestRuntime {
-				imports {
-					mavenBom "io.spring.platform:platform-bom:$platformVersion"
-				}
-			}
-		}
-	}
-
 }
 
 configure(rootProject) {
@@ -224,6 +144,11 @@ configure(rootProject) {
 			attributes("Automatic-Module-Name": "reactor.rabbitmq",
 					   "Implementation-Version": version)
 		}
+	}
+
+	test {
+		useJUnitPlatform()
+		systemProperty 'rabbitmqctl.bin', System.getProperty('rabbitmqctl.bin') ?: 'sudo rabbitmqctl'
 	}
 
 	artifacts {
@@ -261,6 +186,7 @@ project(':reactor-rabbitmq-samples') {
 	}
 
 	test {
+		useJUnitPlatform()
 		jacoco {
 			enabled = false
 		}
