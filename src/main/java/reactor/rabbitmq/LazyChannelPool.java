@@ -33,13 +33,13 @@ import java.util.function.BiConsumer;
 import static reactor.rabbitmq.ChannelCloseHandlers.SENDER_CHANNEL_CLOSE_HANDLER_INSTANCE;
 
 /**
- * This channel pool is lazy initialized. It might even not reach its maximum size {@link ChannelPoolOptions#getMaxCacheSize()} in low-traffic environments.
- * It always tries to obtain channel from the pool. However, in case of high-concurrency environment, number of channels might exceeds channel pool maximum size.
+ * This channel pool is lazy initialized. It might even not reach its maximum size {@link ChannelPoolOptions#getMaxCacheSize()} in low-concurrency environments.
+ * It always tries to obtain channel from the pool. However, in case of high-concurrency environments, number of channels might exceeds channel pool maximum size.
  *
  * Channels are added to the pool after their use {@link ChannelPool#getChannelCloseHandler()} and obtained from the pool when channel is requested {@link ChannelPool#getChannelMono()}.
  *
  * If pool is empty, new channel is created.
- * If channel is no longer needed and the channel pool is full (high-traffic), then channel is being closed.
+ * If channel is no longer needed and the channel pool is full, then channel is being closed.
  * If channel is no longer needed and the channel pool has not reached its capacity, then channel is added to the pool.
  *
  * It uses {@link BlockingQueue} internally in a non-blocking way.
@@ -69,7 +69,8 @@ class LazyChannelPool implements ChannelPool {
                 channel = createChannel(connection);
             }
             return channel;
-        }).subscribeOn(subscriptionScheduler);
+        })
+        .subscribeOn(subscriptionScheduler);
     }
 
     @Override
@@ -78,8 +79,7 @@ class LazyChannelPool implements ChannelPool {
             if (!channel.isOpen()) {
                 return;
             }
-            // maybe also close channel if signalType == SignalType.ON_ERROR ?
-            boolean offer = channelsQueue.offer(channel);
+            boolean offer = signalType == SignalType.ON_COMPLETE && channelsQueue.offer(channel);
             if (!offer) {
                 SENDER_CHANNEL_CLOSE_HANDLER_INSTANCE.accept(signalType, channel);
             }

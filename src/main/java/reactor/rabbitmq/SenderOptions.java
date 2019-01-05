@@ -161,6 +161,20 @@ public class SenderOptions {
         return this;
     }
 
+    /**
+     * Set the channel pool to use to send messages.
+     *
+     * @param channelPool
+     * @return this {@link SenderOptions} instance
+     * @since 1.1.0
+     */
+    public SenderOptions channelPool(ChannelPool channelPool) {
+        this.channelMono = channelPool.getChannelMono();
+        this.channelCloseHandler = channelPool.getChannelCloseHandler();
+        return this;
+    }
+
+
     public SenderOptions resourceManagementChannelMono(Mono<? extends Channel> resourceManagementChannelMono) {
         this.resourceManagementChannelMono = resourceManagementChannelMono;
         return this;

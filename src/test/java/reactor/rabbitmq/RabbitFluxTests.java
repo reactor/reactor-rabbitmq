@@ -19,7 +19,6 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -588,40 +587,6 @@ public class RabbitFluxTests {
 
         verify(channelCloseHandlerInSenderOptions, never()).accept(any(SignalType.class), any(Channel.class));
         verify(channelCloseHandlerInSendOptions, times(1)).accept(any(SignalType.class), any(Channel.class));
-    }
-
-    @Test // temporary test, jvm warm-up ignored
-    @Disabled
-    public void senderWithChannelPoolPerformance() throws Exception {
-        int nbMessages = 1;
-        int count = 500;
-        int expectedSpeedupRatio = 3;
-
-        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
-
-        ChannelPool channelPool = ChannelPoolFactory.createChannelPool(Mono.just(connection));
-        SendOptions sendOptions = new SendOptions().channelPool(channelPool);
-
-        sender = createSender();
-
-        Mono<Void> sendChannelPoolMono = Flux.range(0, count)
-                .flatMap(i -> sender.send(msgFlux, sendOptions))
-                .then();
-
-        Mono<Void> sendMono = Flux.range(0, count)
-                .flatMap(i -> sender.send(msgFlux))
-                .then();
-
-        Duration durationSendChannelPool = StepVerifier.create(sendChannelPoolMono).verifyComplete();
-        Duration durationSendChannelAlwaysCreated = StepVerifier.create(sendMono).verifyComplete();
-
-        int totalMessages = nbMessages * count * 2;
-        StepVerifier.create(consume(queue, totalMessages))
-                .expectNextCount(totalMessages)
-                .verifyComplete();
-
-        assertTrue(durationSendChannelPool.toMillis() * expectedSpeedupRatio < durationSendChannelAlwaysCreated.toMillis(),
-                String.format("Sender with channel pool is not %s times faster. Duration with channel pool is %s and without is %s", expectedSpeedupRatio, durationSendChannelPool, durationSendChannelAlwaysCreated));
     }
 
     @Test
