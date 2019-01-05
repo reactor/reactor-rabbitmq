@@ -56,12 +56,12 @@ public class SenderWithLazyChannelPoolBenchmark {
         }
     }
 
-//    @Benchmark
+    @Benchmark
     public void send(Blackhole blackhole) {
         blackhole.consume(sender.send(msgFlux, new SendOptions().channelPool(channelPool)).block());
     }
 
-//    @Benchmark
+    @Benchmark
     public void sendWithPublishConfirms(Blackhole blackhole) {
         blackhole.consume(sender.sendWithPublishConfirms(msgFlux, new SendOptions().channelPool(channelPool)).blockLast());
     }
