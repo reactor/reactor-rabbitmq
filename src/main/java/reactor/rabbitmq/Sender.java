@@ -41,6 +41,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -77,6 +79,8 @@ public class Sender implements AutoCloseable {
 
     private final boolean privateConnectionSubscriptionScheduler;
 
+    private final ExecutorService channelCloseThreadPool = Executors.newCachedThreadPool();
+
     public Sender() {
         this(new SenderOptions());
     }
@@ -111,9 +115,6 @@ public class Sender implements AutoCloseable {
 
     public Mono<Void> send(Publisher<OutboundMessage> messages, SendOptions options) {
         options = options == null ? new SendOptions() : options;
-        // TODO using a pool of channels?
-        // would be much more efficient if send is called very often
-        // less useful if seldom called, only for long or infinite message flux
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SendContext, Exception> exceptionHandler = options.getExceptionHandler();
         final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
@@ -142,14 +143,10 @@ public class Sender implements AutoCloseable {
     }
 
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages, SendOptions options) {
-        options = options == null ? new SendOptions() : options;
-        // TODO using a pool of channels?
-        // would be much more efficient if send is called very often
-        // less useful if seldom called, only for long or infinite message flux
+        SendOptions sendOptions = options == null ? new SendOptions() : options;
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
 
-        SendOptions sendOptions = options;
         return currentChannelMono.map(channel -> {
                 try {
                     channel.confirmSelect();
@@ -158,7 +155,17 @@ public class Sender implements AutoCloseable {
                 }
                 return channel;
             })
-            .flatMapMany(channel -> new PublishConfirmOperator(messages, channel, channelCloseHandler, sendOptions));
+            .flatMapMany(channel -> Flux.from(new PublishConfirmOperator(messages, channel, sendOptions)).doFinally(signalType -> {
+                // channel close is no longer a responsibility of PublishConfirmOperator, not sure whether it is a correct approach
+                // added to avoid creating threads inside PublishConfirmOperator, which make ChannelPool useless
+                if (signalType == SignalType.ON_ERROR) {
+                    channelCloseHandler.accept(signalType, channel);
+                } else {
+                    // confirmation listeners are executed in the IO reading thread
+                    // so we need to complete in another thread
+                    channelCloseThreadPool.execute(() -> channelCloseHandler.accept(signalType, channel));
+                }
+            }));
     }
 
     // package-protected for testing
@@ -403,6 +410,7 @@ public class Sender implements AutoCloseable {
         if (this.privateResourceManagementScheduler) {
             this.resourceManagementScheduler.dispose();
         }
+        channelCloseThreadPool.shutdown();
     }
 
     public static class SendContext {
@@ -471,18 +479,15 @@ public class Sender implements AutoCloseable {
 
         private final SendOptions options;
 
-        private final BiConsumer<SignalType, Channel> channelCloseHandler;
-
-        public PublishConfirmOperator(Publisher<OutboundMessage> source, Channel channel, BiConsumer<SignalType, Channel> channelCloseHandler, SendOptions options) {
+        public PublishConfirmOperator(Publisher<OutboundMessage> source, Channel channel, SendOptions options) {
             super(Flux.from(source));
             this.channel = channel;
-            this.channelCloseHandler = channelCloseHandler;
             this.options = options;
         }
 
         @Override
         public void subscribe(CoreSubscriber<? super OutboundMessageResult> actual) {
-            source.subscribe(new PublishConfirmSubscriber(channel, channelCloseHandler, actual, options));
+            source.subscribe(new PublishConfirmSubscriber(channel, actual, options));
         }
     }
 
@@ -501,11 +506,8 @@ public class Sender implements AutoCloseable {
 
         private final BiConsumer<SendContext, Exception> exceptionHandler;
 
-        private final BiConsumer<SignalType, Channel> channelCloseHandler;
-
-        private PublishConfirmSubscriber(Channel channel, BiConsumer<SignalType, Channel> channelCloseHandler, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
+        private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
-            this.channelCloseHandler = channelCloseHandler;
             this.subscriber = subscriber;
             this.exceptionHandler = options.getExceptionHandler();
         }
@@ -546,12 +548,7 @@ public class Sender implements AutoCloseable {
                         }
                     }
                     if (unconfirmed.size() == 0) {
-                        // FIXME create new thread only if needed, likely in maybeComplete()
-                        new Thread(() -> {
-                            // confirmation listeners are executed in the IO reading thread
-                            // so we need to complete in another thread
-                            maybeComplete();
-                        }).start();
+                        maybeComplete();
                     }
                 }
             });
@@ -588,7 +585,6 @@ public class Sender implements AutoCloseable {
         public void onError(Throwable throwable) {
             if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.COMPLETE) ||
                 state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
-                channelCloseHandler.accept(SignalType.ON_ERROR, channel);
                 // complete the flux state
                 subscriber.onError(throwable);
             } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
@@ -619,7 +615,6 @@ public class Sender implements AutoCloseable {
         private void maybeComplete() {
             boolean done = state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE);
             if (done) {
-                channelCloseHandler.accept(SignalType.ON_COMPLETE, channel);
                 subscriber.onComplete();
             }
         }
