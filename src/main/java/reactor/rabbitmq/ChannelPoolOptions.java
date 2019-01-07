@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,27 @@ package reactor.rabbitmq;
 
 import reactor.core.scheduler.Scheduler;
 
+/**
+ * Options to when creating a {@link ChannelPool}.
+ *
+ * @see ChannelPoolFactory
+ * @see LazyChannelPool
+ * @since 1.1.0
+ */
 public class ChannelPoolOptions {
 
     private Integer maxCacheSize;
 
     private Scheduler subscriptionScheduler;
 
+    /**
+     * Set the maximum size of the pool.
+     * <p>
+     * Default is 5 channels.
+     *
+     * @param maxCacheSize
+     * @return this {@link ChannelPoolOptions} instance
+     */
     public ChannelPoolOptions maxCacheSize(int maxCacheSize) {
         this.maxCacheSize = maxCacheSize;
         return this;
@@ -33,6 +48,12 @@ public class ChannelPoolOptions {
         return maxCacheSize;
     }
 
+    /**
+     * Set the scheduler to use when opening {@link com.rabbitmq.client.Channel}s.
+     *
+     * @param subscriptionScheduler
+     * @return this {@link ChannelPoolOptions} instance
+     */
     public ChannelPoolOptions subscriptionScheduler(Scheduler subscriptionScheduler) {
         this.subscriptionScheduler = subscriptionScheduler;
         return this;

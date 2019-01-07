@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,17 +33,24 @@ import java.util.function.BiConsumer;
 import static reactor.rabbitmq.ChannelCloseHandlers.SENDER_CHANNEL_CLOSE_HANDLER_INSTANCE;
 
 /**
- * This channel pool is lazy initialized. It might even not reach its maximum size {@link ChannelPoolOptions#getMaxCacheSize()} in low-concurrency environments.
- * It always tries to obtain channel from the pool. However, in case of high-concurrency environments, number of channels might exceeds channel pool maximum size.
- *
- * Channels are added to the pool after their use {@link ChannelPool#getChannelCloseHandler()} and obtained from the pool when channel is requested {@link ChannelPool#getChannelMono()}.
- *
- * If pool is empty, new channel is created.
- * If channel is no longer needed and the channel pool is full, then channel is being closed.
- * If channel is no longer needed and the channel pool has not reached its capacity, then channel is added to the pool.
- *
+ * Default implementation of {@link ChannelPool}.
+ * <p>
+ * This channel pool is lazy initialized. It might even not reach its maximum size
+ * {@link ChannelPoolOptions#getMaxCacheSize()} in low-concurrency environments.
+ * It always tries to obtain a channel from the pool. However, in case of high-concurrency environments,
+ * number of channels might exceed channel pool maximum size.
+ * <p>
+ * Channels are added to the pool after their use {@link ChannelPool#getChannelCloseHandler()}
+ * and obtained from the pool when channel is requested {@link ChannelPool#getChannelMono()}.
+ * <p>
+ * If the pool is empty, a new channel is created.
+ * If a channel is no longer needed and the channel pool is full, then the channel is being closed.
+ * If a channel is no longer needed and the channel pool has not reached its
+ * capacity, then the channel is added to the pool.
+ * <p>
  * It uses {@link BlockingQueue} internally in a non-blocking way.
  *
+ * @since 1.1.0
  */
 class LazyChannelPool implements ChannelPool {
 
@@ -70,7 +77,7 @@ class LazyChannelPool implements ChannelPool {
             }
             return channel;
         })
-        .subscribeOn(subscriptionScheduler);
+                .subscribeOn(subscriptionScheduler);
     }
 
     @Override

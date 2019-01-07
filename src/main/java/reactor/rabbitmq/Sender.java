@@ -156,8 +156,8 @@ public class Sender implements AutoCloseable {
                 return channel;
             })
             .flatMapMany(channel -> Flux.from(new PublishConfirmOperator(messages, channel, sendOptions)).doFinally(signalType -> {
-                // channel close is no longer a responsibility of PublishConfirmOperator, not sure whether it is a correct approach
-                // added to avoid creating threads inside PublishConfirmOperator, which make ChannelPool useless
+                // channel closing is done here, to avoid creating threads inside PublishConfirmOperator,
+                // which would make ChannelPool useless
                 if (signalType == SignalType.ON_ERROR) {
                     channelCloseHandler.accept(signalType, channel);
                 } else {

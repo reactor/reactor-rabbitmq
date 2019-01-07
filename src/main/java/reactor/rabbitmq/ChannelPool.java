@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,44 @@
 package reactor.rabbitmq;
 
 import com.rabbitmq.client.Channel;
+import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 
 import java.util.function.BiConsumer;
 
-public interface ChannelPool {
+/**
+ * Contract to obtain a {@link Channel} and close when sending messages.
+ * <p>
+ * Implementations would typically make it possible to re-use
+ * {@link Channel}s across different calls to <code>Sender#send*</code> methods.
+ *
+ * @see SendOptions
+ * @see Sender#send(Publisher)
+ * @see Sender#send(Publisher, SendOptions)
+ * @see Sender#sendWithPublishConfirms(Publisher)
+ * @see Sender#send(Publisher, SendOptions)
+ * @since 1.1.0
+ */
+public interface ChannelPool extends AutoCloseable {
 
+    /**
+     * The {@link Channel} to use for sending a flux of messages.
+     *
+     * @return
+     */
     Mono<? extends Channel> getChannelMono();
 
+    /**
+     * The closing logic when the {@link Channel} is disposed.
+     *
+     * @return
+     */
     BiConsumer<SignalType, Channel> getChannelCloseHandler();
 
+    /**
+     * Close the pool when it is no longer necessary.
+     */
     void close();
 
 }

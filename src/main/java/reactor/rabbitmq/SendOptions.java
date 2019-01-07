@@ -101,6 +101,8 @@ public class SendOptions {
 
     /**
      * Set the channel pool to use to send messages.
+     * <p>
+     * It is developer's responsibility to close it if set.
      *
      * @param channelPool
      * @return this {@link SendOptions} instance

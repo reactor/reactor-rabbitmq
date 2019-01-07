@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,14 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.Connection;
 import reactor.core.publisher.Mono;
 
+/**
+ * Factory to create default {@link ChannelPool} instances.
+ *
+ * @see ChannelPool
+ * @see LazyChannelPool
+ * @see ChannelPoolOptions
+ * @since 1.1.0
+ */
 public class ChannelPoolFactory {
 
     public static ChannelPool createChannelPool(Mono<? extends Connection> connectionMono) {
