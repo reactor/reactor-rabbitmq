@@ -98,4 +98,17 @@ public class SendOptions {
         this.channelCloseHandler = channelCloseHandler;
         return this;
     }
+
+    /**
+     * Set the channel pool to use to send messages.
+     *
+     * @param channelPool
+     * @return this {@link SendOptions} instance
+     * @since 1.1.0
+     */
+    public SendOptions channelPool(ChannelPool channelPool) {
+        this.channelMono = channelPool.getChannelMono();
+        this.channelCloseHandler = channelPool.getChannelCloseHandler();
+        return this;
+    }
 }
