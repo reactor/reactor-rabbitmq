@@ -27,18 +27,7 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import reactor.rabbitmq.BindingSpecification;
-import reactor.rabbitmq.ExceptionHandlers;
-import reactor.rabbitmq.ExchangeSpecification;
-import reactor.rabbitmq.OutboundMessage;
-import reactor.rabbitmq.QueueSpecification;
-import reactor.rabbitmq.RabbitFlux;
-import reactor.rabbitmq.RabbitFluxException;
-import reactor.rabbitmq.ResourceManagementOptions;
-import reactor.rabbitmq.RpcClient;
-import reactor.rabbitmq.SendOptions;
-import reactor.rabbitmq.Sender;
-import reactor.rabbitmq.SenderOptions;
+import reactor.rabbitmq.*;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -204,6 +193,22 @@ public class ApiGuideSender {
             .then(sender.bind(binding("my.exchange", "a.b", "my.queue"), options)) // <3>
             .subscribe(r -> System.out.println("Exchange and queue declared and bound"));
         // end::resource-management-options[]
+    }
+
+    void channelPool() {
+        Mono<Connection> connectionMono = null;
+        Flux<OutboundMessage> outboundFlux = null;
+        Sender sender = createSender();
+
+        // tag::channel-pool[]
+        ChannelPool channelPool = ChannelPoolFactory.createChannelPool(         // <1>
+            connectionMono,
+            new ChannelPoolOptions().maxCacheSize(5)                            // <2>
+        );
+        sender.send(outboundFlux, new SendOptions().channelPool(channelPool));  // <3>
+        // ...
+        channelPool.close();                                                    // <4>
+        // end::channel-pool[]
     }
 
 }

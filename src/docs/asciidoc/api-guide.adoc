@@ -469,3 +469,35 @@ include::{test-examples}/ApiGuideSender.java[tag=resource-management-options]
 In the example above, each operation will use the same `Channel` as it is cached.
 This way these operations won't interfer with any other thread using the default
 resource management `Mono<Channel>` in the `Sender` instance.
+
+==== Channel pooling in `Sender`
+
+By default, `Sender#send*` methods open a new `Channel` for every call. This is
+OK for long-running calls, e.g. when the flux of outbound messages is
+infinite. For workloads whereby `Sender#send*` is called often for finite,
+short flux of messages, opening a new `Channel` every time may not be optimal.
+
+It is possible to use a pool of channels as part of the `SendOptions` when
+sending outbound messages with `Sender`, as illustrated in the following snippet:
+
+[source,java,indent=0]
+-------
+include::{test-examples}/ApiGuideSender.java[tag=channel-pool]
+-------
+<1> Create `ChannelPool` with factory
+<2> Set the maximum size to 5 channels
+<3> Use a channel from the pool to send messages
+<4> Close the pool when no longer needed
+
+Note it is developer's responsibility to close the pool when it is no longer
+necessary, typically at application shutdown.
+
+https://github.com/reactor/reactor-rabbitmq/tree/master/src/jmh/java/reactor/rabbitmq[Micro-benchmarks]
+revealed channel pooling performs much better for sending short sequence
+of messages (1 to 10) repeatedly, without publisher confirms. With longer sequence
+of messages (100 or more), channel pooling can perform worse than
+without pooling at all. According to the same micro-benchmarks, channel pooling
+does not make sending with publisher confirms perform better, it appears to perform
+even worse. Don't take these conclusions for granted, you should always make your
+own benchmarks depending on your workloads.
+
