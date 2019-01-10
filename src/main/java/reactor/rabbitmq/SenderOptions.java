@@ -132,7 +132,7 @@ public class SenderOptions {
     /**
      * Returns the channel mono to use in send methods.
      *
-     * @return
+     * @return the channel mono to use
      * @since 1.1.0
      */
     public Mono<? extends Channel> getChannelMono() {
@@ -142,7 +142,7 @@ public class SenderOptions {
     /**
      * Returns the channel closing logic.
      *
-     * @return
+     * @return the closing logic to use
      * @since 1.1.0
      */
     public BiConsumer<SignalType, Channel> getChannelCloseHandler() {

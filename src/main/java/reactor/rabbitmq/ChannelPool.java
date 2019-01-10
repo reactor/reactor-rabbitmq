@@ -41,14 +41,14 @@ public interface ChannelPool extends AutoCloseable {
     /**
      * The {@link Channel} to use for sending a flux of messages.
      *
-     * @return
+     * @return the channel mono to use
      */
     Mono<? extends Channel> getChannelMono();
 
     /**
      * The closing logic when the {@link Channel} is disposed.
      *
-     * @return
+     * @return the closing logic to use
      */
     BiConsumer<SignalType, Channel> getChannelCloseHandler();
 

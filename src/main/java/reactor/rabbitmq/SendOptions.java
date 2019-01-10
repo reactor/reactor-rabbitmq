@@ -58,7 +58,7 @@ public class SendOptions {
     /**
      * Return the channel mono to use to send messages.
      *
-     * @return
+     * @return the channel mono to use
      * @since 1.1.0
      */
     public Mono<? extends Channel> getChannelMono() {
@@ -80,7 +80,7 @@ public class SendOptions {
     /**
      * Return the channel closing logic.
      *
-     * @return
+     * @return the closing logic to use
      * @since 1.1.0
      */
     public BiConsumer<SignalType, Channel> getChannelCloseHandler() {
