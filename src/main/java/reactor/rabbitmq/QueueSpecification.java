@@ -23,14 +23,59 @@ import java.util.Map;
  */
 public class QueueSpecification {
 
-    private String name;
-    private boolean durable = false;
-    private boolean exclusive = false;
-    private boolean autoDelete = false;
-    private Map<String, Object> arguments;
+    static class NullNameQueueSpecification extends QueueSpecification {
+
+        NullNameQueueSpecification() {
+            this.name = null;
+            this.durable = false;
+            this.exclusive = true;
+            this.autoDelete = true;
+        }
+
+        @Override
+        public QueueSpecification name(String name) {
+            if (name == null) {
+                return this;
+            }
+            return QueueSpecification.queue(name)
+                .durable(durable)
+                .exclusive(exclusive)
+                .autoDelete(autoDelete);
+        }
+
+        @Override
+        public QueueSpecification durable(boolean durable) {
+            if (this.durable != durable) {
+                throw new IllegalArgumentException("once a queue has null name, durable is always false");
+            }
+            return this;
+        }
+
+        @Override
+        public QueueSpecification exclusive(boolean exclusive) {
+            if (this.exclusive != exclusive) {
+                throw new IllegalArgumentException("once a queue has null name, exclusive is always true");
+            }
+            return this;
+        }
+
+        @Override
+        public QueueSpecification autoDelete(boolean autoDelete) {
+            if (this.autoDelete != autoDelete) {
+                throw new IllegalArgumentException("once a queue has null name, autoDelete is always true");
+            }
+            return this;
+        }
+    }
+
+    String name;
+    boolean durable = false;
+    boolean exclusive = false;
+    boolean autoDelete = false;
+    Map<String, Object> arguments;
 
     public static QueueSpecification queue() {
-        return new QueueSpecification();
+        return new NullNameQueueSpecification();
     }
 
     public static QueueSpecification queue(String name) {
@@ -38,6 +83,10 @@ public class QueueSpecification {
     }
 
     public QueueSpecification name(String queue) {
+        if (queue == null) {
+            return new NullNameQueueSpecification();
+        }
+
         this.name = queue;
         return this;
     }
