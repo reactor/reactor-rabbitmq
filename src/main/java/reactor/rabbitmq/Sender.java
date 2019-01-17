@@ -27,11 +27,7 @@ import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.CoreSubscriber;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxOperator;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
-import reactor.core.publisher.Operators;
+import reactor.core.publisher.*;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
@@ -188,18 +184,50 @@ public class Sender implements AutoCloseable {
         return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).cache(), exchange, routingKey, correlationIdProvider);
     }
 
+    /**
+     * Declare a queue following the specification.
+     *
+     * @param specification the specification of the queue
+     * @return a mono wrapping the result of the declaration
+     * @see QueueSpecification
+     */
     public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification) {
         return this.declareQueue(specification, null);
     }
 
+    /**
+     * Declare a queue following the specification and the resource management options.
+     *
+     * @param specification the specification of the queue
+     * @param options       options for resource management
+     * @return a mono wrapping the result of the declaration
+     * @see QueueSpecification
+     * @see ResourceManagementOptions
+     */
     public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification, ResourceManagementOptions options) {
         return this.declareQueue(specification, options);
     }
 
+    /**
+     * Declare a queue following the specification.
+     *
+     * @param specification the specification of the queue
+     * @return a mono wrapping the result of the declaration
+     * @see QueueSpecification
+     */
     public Mono<AMQP.Queue.DeclareOk> declareQueue(QueueSpecification specification) {
         return this.declareQueue(specification, null);
     }
 
+    /**
+     * Declare a queue following the specification and the resource management options.
+     *
+     * @param specification the specification of the queue
+     * @param options       options for resource management
+     * @return a mono wrapping the result of the declaration
+     * @see QueueSpecification
+     * @see ResourceManagementOptions
+     */
     public Mono<AMQP.Queue.DeclareOk> declareQueue(QueueSpecification specification, ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
 

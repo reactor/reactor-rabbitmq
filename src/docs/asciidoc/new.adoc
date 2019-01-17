@@ -19,3 +19,5 @@
 * Handle error signal of `connectionMono` subscription to enable proper error handling
 * Use Reactor 3.2.3.RELEASE
 * Use Java client 5.5.1
+
+

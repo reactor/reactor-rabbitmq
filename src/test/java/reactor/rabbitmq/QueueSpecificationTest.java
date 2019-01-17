@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,13 @@
 
 package reactor.rabbitmq;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 class QueueSpecificationTest {
 
@@ -26,82 +30,75 @@ class QueueSpecificationTest {
     class NullName {
         @Test
         void nullNameShouldReturnANonDurableQueue() {
-            Assertions.assertFalse(
-                QueueSpecification.queue().isDurable());
+            assertFalse(QueueSpecification.queue().isDurable());
         }
 
         @Test
         void passingNullNameShouldReturnANonDurableQueue() {
-            Assertions.assertFalse(
-                QueueSpecification.queue(null).isDurable());
+            assertFalse(QueueSpecification.queue(null).isDurable());
         }
 
         @Test
         void nullNameShouldNotAbleToConfigureDurableToTrue() {
-            Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> QueueSpecification.queue().durable(true),
-                "once a queue has null name, durable is always false");
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> QueueSpecification.queue().durable(true),
+                    "Once a queue has a null name, durable is always false");
         }
 
         @Test
         void nullNameShouldKeepDurableWhenConfigureDurableToFalse() {
-            Assertions.assertFalse(
-                QueueSpecification.queue().durable(false).isDurable());
+            assertFalse(QueueSpecification.queue().durable(false).isDurable());
         }
 
         @Test
         void passingNullNameShouldReturnAExclusiveQueue() {
-            Assertions.assertTrue(
-                QueueSpecification.queue().isExclusive());
+            assertTrue(QueueSpecification.queue().isExclusive());
         }
 
         @Test
         void nullNameShouldNotAbleToConfigureExclusiveToFalse() {
-            Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> QueueSpecification.queue().exclusive(false),
-                "once a queue has null name, exclusive is always true");
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> QueueSpecification.queue().exclusive(false),
+                    "Once a queue has a null name, exclusive is always true");
         }
 
         @Test
         void nullNameShouldKeepDurableWhenConfigureExclusiveToTrue() {
-            Assertions.assertTrue(
-                QueueSpecification.queue().exclusive(true).isExclusive());
+            assertTrue(QueueSpecification.queue().exclusive(true).isExclusive());
         }
 
         @Test
         void passingNullNameShouldReturnAnAutoDeleteQueue() {
-            Assertions.assertTrue(
-                QueueSpecification.queue().isAutoDelete());
+            assertTrue(QueueSpecification.queue().isAutoDelete());
         }
 
         @Test
         void nullNameShouldNotAbleToConfigureAutoDeleteToFalse() {
-            Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> QueueSpecification.queue().autoDelete(false),
-                "once a queue has null name, autoDelete is always true");
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> QueueSpecification.queue().autoDelete(false),
+                    "Once a queue has a null name, autoDelete is always true");
         }
 
         @Test
         void nullNameShouldKeepAutoDeleteWhenConfigureAutoDeleteToTrue() {
-            Assertions.assertTrue(
-                QueueSpecification.queue().autoDelete(true).isAutoDelete());
+            assertTrue(QueueSpecification.queue().autoDelete(true).isAutoDelete());
         }
 
         @Test
         void passingANonNullNameAfterShouldReturnAConfigurableQueueSpecification() {
             QueueSpecification queueSpecification = QueueSpecification.queue()
-                .name("not-null-anymore")
-                .durable(true)
-                .exclusive(false)
-                .autoDelete(false);
+                    .name("not-null-anymore")
+                    .durable(true)
+                    .exclusive(false)
+                    .autoDelete(false);
 
-            Assertions.assertEquals(queueSpecification.getName(), "not-null-anymore");
-            Assertions.assertTrue(queueSpecification.isDurable());
-            Assertions.assertFalse(queueSpecification.isAutoDelete());
-            Assertions.assertFalse(queueSpecification.isExclusive());
+            assertEquals(queueSpecification.getName(), "not-null-anymore");
+            assertTrue(queueSpecification.isDurable());
+            assertFalse(queueSpecification.isAutoDelete());
+            assertFalse(queueSpecification.isExclusive());
         }
     }
 
@@ -110,29 +107,41 @@ class QueueSpecificationTest {
         @Test
         void queueSpecificationShouldReturnCorrespondingProperties() {
             QueueSpecification queueSpecification = QueueSpecification.queue("my-queue")
-                .durable(false)
-                .autoDelete(false)
-                .exclusive(false);
+                    .durable(false)
+                    .autoDelete(false)
+                    .exclusive(false);
 
-            Assertions.assertEquals(queueSpecification.getName(), "my-queue");
-            Assertions.assertFalse(queueSpecification.isDurable());
-            Assertions.assertFalse(queueSpecification.isAutoDelete());
-            Assertions.assertFalse(queueSpecification.isExclusive());
-            Assertions.assertNull(queueSpecification.getArguments());
+            assertEquals(queueSpecification.getName(), "my-queue");
+            assertFalse(queueSpecification.isDurable());
+            assertFalse(queueSpecification.isAutoDelete());
+            assertFalse(queueSpecification.isExclusive());
+            assertNull(queueSpecification.getArguments());
         }
 
         @Test
         void queueSpecificationShouldReturnCorrespondingPropertiesWhenEmptyName() {
             QueueSpecification queueSpecification = QueueSpecification.queue("")
-                .durable(false)
-                .autoDelete(false)
-                .exclusive(false);
+                    .durable(false)
+                    .autoDelete(false)
+                    .exclusive(false);
 
-            Assertions.assertEquals(queueSpecification.getName(), "");
-            Assertions.assertFalse(queueSpecification.isDurable());
-            Assertions.assertFalse(queueSpecification.isAutoDelete());
-            Assertions.assertFalse(queueSpecification.isExclusive());
-            Assertions.assertNull(queueSpecification.getArguments());
+            assertEquals(queueSpecification.getName(), "");
+            assertFalse(queueSpecification.isDurable());
+            assertFalse(queueSpecification.isAutoDelete());
+            assertFalse(queueSpecification.isExclusive());
+            assertNull(queueSpecification.getArguments());
+        }
+
+        @Test
+        public void queueSpecificationShouldKeepArgumentsWhenNullName() {
+            QueueSpecification queueSpecification = QueueSpecification.queue("")
+                    .arguments(Collections.singletonMap("x-max-length", 1000))
+                    .name(null);
+            assertNull(queueSpecification.getName());
+            assertFalse(queueSpecification.isDurable());
+            assertTrue(queueSpecification.isAutoDelete());
+            assertTrue(queueSpecification.isExclusive());
+            assertThat(queueSpecification.getArguments()).isNotNull().hasSize(1).containsKeys("x-max-length");
         }
     }
 }

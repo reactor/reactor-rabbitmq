@@ -112,6 +112,18 @@ include::{test-examples}/ApiGuideSender.java[tag=resource-declaration]
 Note the `Sender#declare*` methods return their respective AMQP results
 wrapped into a `Mono`.
 
+[NOTE]
+====
+For queue creation, note that if a queue specification has a
+null name, the queue to be created will have a server-generated name
+and will be non-durable, exclusive, and auto-delete. If you want
+a queue to have a server-generated name but other parameters,
+specify an empty name `""` and set the parameters accordingly on
+the `QueueSpecification` instance. For more information about queues,
+see the https://www.rabbitmq.com/queues.html[official documentation].
+====
+
+
 One can also use the `ResourcesSpecification` factory class
 with a static import to reduce boilerplate code. Combined with
 `Mono` chaining and `Sender#declare` shortcuts, it allows for condensed syntax:
