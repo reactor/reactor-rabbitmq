@@ -14,11 +14,11 @@ with other systems to provide an end-to-end reactive pipeline.
 
 ## Getting started
 
-For the latest stable release, please see the [getting started](http://projectreactor.io/docs/rabbitmq/milestone/stable/#_getting_started)
-section in the [reference documentation](http://projectreactor.io/docs/rabbitmq/stable/reference/).
+For the latest stable release, please see the [getting started](http://projectreactor.io/docs/rabbitmq/release/reference/#_getting_started)
+section in the [reference documentation](http://projectreactor.io/docs/rabbitmq/release/reference/).
 
 For latest milestone:
-[Getting Started](http://projectreactor.io/docs/rabbitmq/milestone/reference/#_getting_started)
+[Getting Started](http://projectreactor.io/docs/rabbitmq/milestone/reference/#_getting_started) -
 [Reference Documentation](http://projectreactor.io/docs/rabbitmq/milestone/reference/)
 
 For snapshots:
