@@ -74,7 +74,7 @@ public class ApiGuideReceiver {
         // tag::auto-ack-retry-settings[]
         Flux<Delivery> inboundFlux = RabbitFlux
             .createReceiver()
-            .consumeNoAck("reactive.queue", new ConsumeOptions()
+            .consumeAutoAck("reactive.queue", new ConsumeOptions()
                 .exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
                     Duration.ofSeconds(20), Duration.ofMillis(500), // <1>
                     ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
