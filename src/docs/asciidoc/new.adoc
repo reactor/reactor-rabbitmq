@@ -7,7 +7,7 @@
 * Let user provide `Mono<Channel>` for sending messages
 * Add optional channel pooling for sending messages
 * Use Reactor 3.2.5.RELEASE
-* Use Java client 5.5.2
+* Use Java client 5.5.3
 
 === What's new in Reactor RabbitMQ 1.0
 
