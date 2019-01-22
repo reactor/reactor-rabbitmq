@@ -238,7 +238,7 @@ public class Sender implements AutoCloseable {
                 .durable(false)
                 .exclusive(true)
                 .autoDelete(true)
-                .arguments(null)
+                .arguments(specification.getArguments())
                 .build();
         } else {
             declare = new AMQImpl.Queue.Declare.Builder()
