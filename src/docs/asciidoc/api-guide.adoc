@@ -395,7 +395,6 @@ include::{test-examples}/ApiGuideReceiver.java[tag=manual-ack-retry]
 <1> Configure retry logic when exception occurs
 <2> Process message
 <3> Send acknowledgment after business processing
-<4> Execute retry on acknowledgment failure
 
 Note the exception handler is a `BiConsumer<Receiver.AcknowledgmentContext, Exception>`. This means
 acknowledgment failure can be handled in any way, here we choose to retry the acknowledgment.

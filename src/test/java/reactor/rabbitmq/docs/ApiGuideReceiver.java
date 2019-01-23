@@ -94,11 +94,7 @@ public class ApiGuideReceiver {
         receiver.consumeManualAck("queue")
             .subscribe(msg -> {
                 // ...                                                                   // <2>
-                try {
-                    msg.ack();                                                           // <3>
-                } catch (Exception e) {
-                    exceptionHandler.accept(new Receiver.AcknowledgmentContext(msg), e); // <4>
-                }
+                msg.ack();                                                               // <3>
             });
         // end::manual-ack-retry[]
     }

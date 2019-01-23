@@ -34,6 +34,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -134,13 +135,9 @@ public class Receiver implements Closeable {
 
     public Flux<Delivery> consumeAutoAck(final String queue, ConsumeOptions options) {
         // TODO why acking here and not just after emitter.next()?
-        return consumeManualAck(queue, options).doOnNext(msg -> {
-            try {
-                msg.ack();
-            } catch (Exception e) {
-                options.getExceptionHandler().accept(new AcknowledgmentContext(msg), e);
-            }
-        }).map(ackableMsg -> ackableMsg);
+        return consumeManualAck(queue, options)
+                .doOnNext(AcknowledgableDelivery::ack)
+                .map(ackableMsg -> ackableMsg);
     }
 
     public Flux<AcknowledgableDelivery> consumeManualAck(final String queue) {
@@ -157,7 +154,7 @@ public class Receiver implements Closeable {
                 }
 
                 DeliverCallback deliverCallback = (consumerTag, message) -> {
-                    AcknowledgableDelivery delivery = new AcknowledgableDelivery(message, channel);
+                    AcknowledgableDelivery delivery = new AcknowledgableDelivery(message, channel, options.getExceptionHandler());
                     if (options.getHookBeforeEmitBiFunction().apply(emitter.requestedFromDownstream(), delivery)) {
                         emitter.next(delivery);
                     }
@@ -215,13 +212,15 @@ public class Receiver implements Closeable {
     public static class AcknowledgmentContext {
 
         private final AcknowledgableDelivery delivery;
+        private final Consumer<AcknowledgableDelivery> consumer;
 
-        public AcknowledgmentContext(AcknowledgableDelivery delivery) {
+        public AcknowledgmentContext(AcknowledgableDelivery delivery, Consumer<AcknowledgableDelivery> consumer) {
             this.delivery = delivery;
+            this.consumer = consumer;
         }
 
-        public AcknowledgableDelivery getDelivery() {
-            return delivery;
+        public void ackOrNack() {
+            consumer.accept(delivery);
         }
     }
 

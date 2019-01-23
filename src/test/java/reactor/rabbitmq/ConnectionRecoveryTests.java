@@ -260,17 +260,12 @@ public class ConnectionRecoveryTests {
         BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
             ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
         );
-        receiver.consumeManualAck("whatever")
+        receiver.consumeManualAck("whatever", new ConsumeOptions().exceptionHandler(exceptionHandler))
             .subscribe(msg -> {
                 // do business stuff
                 // ...
-                try {
-                    // trying to ack
-                    msg.ack();
-                } catch (Exception e) {
-                    // when ack-ing fail, retry-ing
-                    exceptionHandler.accept(new Receiver.AcknowledgmentContext(msg), e);
-                }
+                // trying to ack
+                msg.ack();
                 ackedMessages.incrementAndGet();
             });
 
