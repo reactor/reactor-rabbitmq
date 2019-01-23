@@ -385,7 +385,11 @@ include::{test-examples}/ApiGuideReceiver.java[tag=auto-ack-retry-settings]
 <1> Retry acknowledgment for 20 seconds every 500 milliseconds on connection failure
 
 When using `Receiver#consumeManualAck`, acknowledgment is handled by the developer, who
-can do pretty anything they want on acknowledgment failure. It is possible to benefit from Reactor RabbitMQ
+can do pretty anything they want on acknowledgment failure.
+
+`AcknowledgableDelivery#ack` and `AcknowledgableDelivery#nack` methods handle retry internally
+based on `BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler` in the `ConsumeOptions`.
+Developer does not have to execute retry explicitly on acknowledgment failure and benefits from Reactor RabbitMQ
 retry support when acknowledging a message:
 
 [source,java,indent=0]
