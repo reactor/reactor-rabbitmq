@@ -52,6 +52,7 @@ public class AcknowledgableDelivery extends Delivery {
      * Acknowledges this message if it has not been previously acked or nacked.
      * Subsequent calls to the method for previously acknowledged message will not produce errors and will simply
      * return instantly.
+     * In case of connection failure, {@link AcknowledgableDelivery#exceptionHandler} is executed.
      * @param multiple Defines whether all messages up to and including the supplied delivery tag should be
      * acknowledged or not.
      */
@@ -69,6 +70,7 @@ public class AcknowledgableDelivery extends Delivery {
      * Acknowledges this message if it has not been previously acked or nacked.
      * Subsequent calls to the method for previously acknowledged message will not produce errors and will simply
      * return instantly.
+     * In case of connection failure, {@link AcknowledgableDelivery#exceptionHandler} is executed.
      */
     public void ack() {
         ack(false);
@@ -78,6 +80,7 @@ public class AcknowledgableDelivery extends Delivery {
      * Rejects this message if it has not been previously acked or nacked.
      * Subsequent calls to the method for previously acknowledged or rejected message will not produce errors and
      * will simply return instantly.
+     * In case of connection failure, {@link AcknowledgableDelivery#exceptionHandler} is executed.
      * @param multiple Defines whether all messages up to and including the supplied delivery tag should be
      * rejected or not.
      * @param requeue Defines if the message should be added to the queue again instead of being discarded.
@@ -96,6 +99,7 @@ public class AcknowledgableDelivery extends Delivery {
      * Rejects this message if it has not been previously acked or nacked.
      * Subsequent calls to the method for previously acknowledged or rejected message will not produce errors and
      * will simply return instantly.
+     * In case of connection failure, {@link AcknowledgableDelivery#exceptionHandler} is executed.
      */
     public void nack(boolean requeue) {
         nack(false, requeue);
