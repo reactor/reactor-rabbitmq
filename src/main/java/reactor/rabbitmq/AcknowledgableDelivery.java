@@ -21,6 +21,8 @@ import com.rabbitmq.client.Delivery;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * A RabbitMQ {@link Delivery} that can be manually acknowledged or rejected.
@@ -28,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AcknowledgableDelivery extends Delivery {
 
     private final Channel channel;
+    private final BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler;
 
     private final AtomicBoolean notAckedOrNacked = new AtomicBoolean(true);
 
@@ -37,29 +40,28 @@ public class AcknowledgableDelivery extends Delivery {
      *
      * @param delivery
      * @param channel
+     * @param exceptionHandler
      */
-    public AcknowledgableDelivery(Delivery delivery, Channel channel) {
+    public AcknowledgableDelivery(Delivery delivery, Channel channel, BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler) {
         super(delivery.getEnvelope(), delivery.getProperties(), delivery.getBody());
         this.channel = channel;
+        this.exceptionHandler = exceptionHandler;
     }
 
     /**
      * Acknowledges this message if it has not been previously acked or nacked.
      * Subsequent calls to the method for previously acknowledged message will not produce errors and will simply
      * return instantly.
+     * In case of connection failure, {@link AcknowledgableDelivery#exceptionHandler} is executed.
      * @param multiple Defines whether all messages up to and including the supplied delivery tag should be
      * acknowledged or not.
      */
     public void ack(boolean multiple) {
         if (notAckedOrNacked.getAndSet(false)) {
             try {
-                channel.basicAck(getEnvelope().getDeliveryTag(), multiple);
-            } catch (RuntimeException e) {
-                notAckedOrNacked.set(true);
-                throw e;
-            } catch (IOException e) {
-                notAckedOrNacked.set(true);
-                throw new RabbitFluxException(e);
+                basicAck(multiple);
+            } catch (Exception e) {
+                retry(e, (delivery) -> delivery.basicAck(multiple));
             }
         }
     }
@@ -68,6 +70,7 @@ public class AcknowledgableDelivery extends Delivery {
      * Acknowledges this message if it has not been previously acked or nacked.
      * Subsequent calls to the method for previously acknowledged message will not produce errors and will simply
      * return instantly.
+     * In case of connection failure, {@link AcknowledgableDelivery#exceptionHandler} is executed.
      */
     public void ack() {
         ack(false);
@@ -77,6 +80,7 @@ public class AcknowledgableDelivery extends Delivery {
      * Rejects this message if it has not been previously acked or nacked.
      * Subsequent calls to the method for previously acknowledged or rejected message will not produce errors and
      * will simply return instantly.
+     * In case of connection failure, {@link AcknowledgableDelivery#exceptionHandler} is executed.
      * @param multiple Defines whether all messages up to and including the supplied delivery tag should be
      * rejected or not.
      * @param requeue Defines if the message should be added to the queue again instead of being discarded.
@@ -84,13 +88,9 @@ public class AcknowledgableDelivery extends Delivery {
     public void nack(boolean multiple, boolean requeue) {
         if (notAckedOrNacked.getAndSet(false)) {
             try {
-                channel.basicNack(getEnvelope().getDeliveryTag(), multiple, requeue);
-            } catch (RuntimeException e) {
-                notAckedOrNacked.set(true);
-                throw e;
-            } catch (IOException e) {
-                notAckedOrNacked.set(true);
-                throw new RabbitFluxException(e);
+                basicNack(multiple, requeue);
+            } catch (Exception e) {
+                retry(e, (delivery) -> delivery.basicNack(multiple, requeue));
             }
         }
     }
@@ -99,8 +99,38 @@ public class AcknowledgableDelivery extends Delivery {
      * Rejects this message if it has not been previously acked or nacked.
      * Subsequent calls to the method for previously acknowledged or rejected message will not produce errors and
      * will simply return instantly.
+     * In case of connection failure, {@link AcknowledgableDelivery#exceptionHandler} is executed.
      */
     public void nack(boolean requeue) {
         nack(false, requeue);
+    }
+
+    private void basicAck(boolean multiple) {
+        try {
+            channel.basicAck(getEnvelope().getDeliveryTag(), multiple);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new RabbitFluxException(e);
+        }
+    }
+
+    private void basicNack(boolean multiple, boolean requeue) {
+        try {
+            channel.basicNack(getEnvelope().getDeliveryTag(), multiple, requeue);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new RabbitFluxException(e);
+        }
+    }
+
+    private void retry(Exception e, Consumer<AcknowledgableDelivery> consumer) {
+        try {
+            exceptionHandler.accept(new Receiver.AcknowledgmentContext(this, consumer), e);
+        } catch (Exception e2) {
+            notAckedOrNacked.set(true);
+            throw e2;
+        }
     }
 }

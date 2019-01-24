@@ -47,11 +47,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -148,10 +150,11 @@ public class RabbitFluxTests {
     @Test
     public void acknowledgableDeliveryAckNackIsIdempotent() throws Exception {
         Channel channel = mock(Channel.class);
+        BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = mock(ExceptionHandlers.RetryAcknowledgmentExceptionHandler.class);
         doNothing().doThrow(new IOException()).when(channel).basicAck(anyLong(), anyBoolean());
         doThrow(new IOException()).when(channel).basicNack(anyLong(), anyBoolean(), anyBoolean());
         AcknowledgableDelivery msg = new AcknowledgableDelivery(
-                new Delivery(new Envelope(0, true, null, null), null, null), channel
+                new Delivery(new Envelope(0, true, null, null), null, null), channel, exceptionHandler
         );
 
         msg.ack();
@@ -161,7 +164,43 @@ public class RabbitFluxTests {
 
         verify(channel, times(1)).basicAck(anyLong(), anyBoolean());
         verify(channel, never()).basicNack(anyLong(), anyBoolean(), anyBoolean());
+        verify(exceptionHandler, never()).accept(any(Receiver.AcknowledgmentContext.class), any(Exception.class));
     }
+
+    @Test
+    public void acknowledgableDeliveryWithSuccessfulRetry() throws Exception {
+        Channel channel = mock(Channel.class);
+        BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler =
+                (acknowledgmentContext, e) -> acknowledgmentContext.ackOrNack();
+
+        doThrow(new IOException()).doNothing().when(channel).basicAck(anyLong(), anyBoolean());
+
+        AcknowledgableDelivery msg = new AcknowledgableDelivery(
+                new Delivery(new Envelope(0, true, null, null), null, null), channel, exceptionHandler
+        );
+
+        msg.ack();
+
+        verify(channel, times(2)).basicAck(anyLong(), anyBoolean());
+    }
+
+    @Test
+    public void acknowledgableDeliveryWithUnsuccessfulRetry() throws Exception {
+        Channel channel = mock(Channel.class);
+        BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler =
+                (acknowledgmentContext, e) -> acknowledgmentContext.ackOrNack();
+
+        doThrow(new RuntimeException("exc")).when(channel).basicAck(anyLong(), anyBoolean());
+
+        AcknowledgableDelivery msg = new AcknowledgableDelivery(
+                new Delivery(new Envelope(0, true, null, null), null, null), channel, exceptionHandler
+        );
+
+        assertThatThrownBy(msg::ack).hasMessage("exc");
+
+        verify(channel, times(2)).basicAck(anyLong(), anyBoolean());
+    }
+
 
     @Test
     public void receiverConsumeNoAck() throws Exception {

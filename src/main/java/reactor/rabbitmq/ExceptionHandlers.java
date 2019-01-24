@@ -128,7 +128,7 @@ public class ExceptionHandlers {
         @Override
         public void accept(Receiver.AcknowledgmentContext acknowledgmentContext, Exception e) {
             retryTemplate.retry(() -> {
-                acknowledgmentContext.getDelivery().ack();
+                acknowledgmentContext.ackOrNack();
                 return null;
             }, e);
         }

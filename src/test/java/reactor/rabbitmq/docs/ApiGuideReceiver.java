@@ -91,15 +91,12 @@ public class ApiGuideReceiver {
                 Duration.ofSeconds(20), Duration.ofMillis(500),
                 ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
         );
-        receiver.consumeManualAck("queue")
-            .subscribe(msg -> {
-                // ...                                                                   // <2>
-                try {
-                    msg.ack();                                                           // <3>
-                } catch (Exception e) {
-                    exceptionHandler.accept(new Receiver.AcknowledgmentContext(msg), e); // <4>
-                }
-            });
+        receiver.consumeManualAck("queue",
+                    new ConsumeOptions().exceptionHandler(exceptionHandler))
+                .subscribe(msg -> {
+                    // ...                                                              // <2>
+                    msg.ack();                                                          // <3>
+                });
         // end::manual-ack-retry[]
     }
 
