@@ -1,5 +1,5 @@
 = Reactor RabbitMQ Reference Guide
-Arnaud Cogoluègnes
+Arnaud Cogoluègnes, Pawel Mackowski
 // version is automatically set in doc.gradle, no need to change it here
 :appversion: 1.0.0.BUILD-SNAPSHOT
 ifndef::host-github[:ext-relative: {outfilesuffix}]
