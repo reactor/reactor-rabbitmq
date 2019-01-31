@@ -16,19 +16,19 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Delivery;
-import com.rabbitmq.client.RpcServer;
+import com.rabbitmq.client.*;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -44,18 +44,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class RequestReplyTests {
 
-    static String QUEUE = "rpc.queue";
-
+    static final List<String> QUEUES = Arrays.asList(UUID.randomUUID().toString(), UUID.randomUUID().toString());
     Connection serverConnection;
     Channel serverChannel;
     RpcServer rpcServer;
     Sender sender;
 
-    public static Stream<Function<Sender, RpcClient>> requestReplyParameters() {
+    public static Stream<Arguments> requestReplyParameters() {
         return Stream.of(
-            sender -> sender.rpcClient("", QUEUE),
-            sender -> sender.rpcClient("", QUEUE, () -> UUID.randomUUID().toString())
+                Arguments.of(QUEUES.get(0), (Function<Sender, RpcClient>) sender -> sender.rpcClient("", QUEUES.get(0))),
+                Arguments.of(QUEUES.get(1), (Function<Sender, RpcClient>) sender -> sender.rpcClient("", QUEUES.get(1), () -> UUID.randomUUID().toString()))
         );
+    }
+
+    @BeforeAll
+    public static void initAll() throws Exception {
+        try (Connection c = new ConnectionFactory().newConnection()) {
+            Channel ch = c.createChannel();
+            for (String queue : QUEUES) {
+                ch.queueDeclare(queue, false, false, false, null);
+            }
+        }
+    }
+
+    @AfterAll
+    public static void tearDownAll() throws Exception {
+        try (Connection c = new ConnectionFactory().newConnection()) {
+            Channel ch = c.createChannel();
+            for (String queue : QUEUES) {
+                ch.queueDelete(queue);
+            }
+        }
     }
 
     @BeforeEach
@@ -64,16 +83,13 @@ public class RequestReplyTests {
         connectionFactory.useNio();
         serverConnection = connectionFactory.newConnection();
         serverChannel = serverConnection.createChannel();
-        serverChannel.queueDeclare(QUEUE, false, false, false, null);
+
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         if (rpcServer != null) {
             rpcServer.terminateMainloop();
-        }
-        if (serverChannel != null) {
-            serverChannel.queueDelete(QUEUE);
         }
         if (sender != null) {
             sender.close();
@@ -82,8 +98,8 @@ public class RequestReplyTests {
 
     @ParameterizedTest
     @MethodSource("requestReplyParameters")
-    public void requestReply(Function<Sender, RpcClient> rpcClientCreator) throws Exception {
-        rpcServer = new TestRpcServer(serverChannel, QUEUE);
+    public void requestReply(String queue, Function<Sender, RpcClient> rpcClientCreator) throws Exception {
+        rpcServer = new TestRpcServer(serverChannel, queue);
         new Thread(() -> {
             try {
                 rpcServer.mainloop();
