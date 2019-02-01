@@ -26,6 +26,5 @@ include::resources.adoc[]
 include::new.adoc[]
 = Reference Documentation
 include::api-guide.adoc[]
-//include::examples.adoc[]
 // ======================================================================================
 
