@@ -99,6 +99,34 @@ Run the sample receiver:
 The `SampleReceiver` consumes messages from the `demo-queue` queue and logs
 the message content in the console.
 
+===== Sample Spring Boot Application
+
+The https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SpringBootSample.java[`SpringBootSample`]
+code is on GitHub.
+
+Run the sample Spring Boot application:
+
+[source]
+--------
+> ./gradlew -q springboot
+...
+11:47:43.837 INFO r.rabbitmq.samples.SpringBootSample - Sending messages...
+11:47:43.846 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_1
+11:47:43.849 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_2
+11:47:43.850 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_3
+11:47:43.850 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_4
+11:47:43.851 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_5
+11:47:43.851 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_6
+11:47:43.851 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_7
+11:47:43.851 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_8
+11:47:43.851 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_9
+11:47:43.851 INFO r.rabbitmq.samples.SpringBootSample - Received message Message_10
+--------
+
+The Spring Boot sample publishes messages with a `Sender` and consumes them with
+a `Receiver`. This application illustrates how to configure Reactor RabbitMQ in a Spring
+Boot environment.
+
 ==== Building Reactor RabbitMQ Applications
 
 To build your own application using the Reactor RabbitMQ API,
