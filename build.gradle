@@ -148,11 +148,15 @@ configure(rootProject) {
 project(':reactor-rabbitmq-samples') {
 	archivesBaseName = 'reactor-rabbitmq-samples'
 	description = 'Samples for Reactor RabbitMQ'
+
 	dependencies {
 		compile rootProject
 		runtime "ch.qos.logback:logback-classic:$logbackVersion"
+		implementation 'org.springframework.boot:spring-boot-starter:2.1.2.RELEASE'
+		implementation 'org.springframework.amqp:spring-rabbit:2.1.3.RELEASE'
 
 		testCompile rootProject.sourceSets.test.output
+		testRuntime 'org.springframework.boot:spring-boot-starter-test:2.1.2.RELEASE'
 	}
 
 	task sender(type:JavaExec) {
@@ -162,6 +166,11 @@ project(':reactor-rabbitmq-samples') {
 
 	task receiver(type:JavaExec) {
 		main = 'reactor.rabbitmq.samples.SampleReceiver'
+		classpath = sourceSets.main.runtimeClasspath
+	}
+
+	task springboot(type:JavaExec) {
+		main = 'reactor.rabbitmq.samples.SpringBootSample'
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
