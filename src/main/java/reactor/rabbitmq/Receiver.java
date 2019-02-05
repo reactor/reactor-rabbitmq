@@ -89,8 +89,10 @@ public class Receiver implements Closeable {
                         emitter.complete();
                     }
                 };
+                AtomicBoolean basicCancel = new AtomicBoolean(true);
                 CancelCallback cancelCallback = consumerTag -> {
                     LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+                    basicCancel.set(false);
                     emitter.complete();
                 };
 
@@ -104,7 +106,9 @@ public class Receiver implements Closeable {
                     if (cancelled.compareAndSet(false, true)) {
                         try {
                             if (channel.isOpen() && channel.getConnection().isOpen()) {
-                                channel.basicCancel(consumerTag);
+                                if (basicCancel.compareAndSet(true, false)) {
+                                    channel.basicCancel(consumerTag);
+                                }
                                 channel.close();
                             }
                         } catch (TimeoutException | IOException e) {
@@ -162,8 +166,11 @@ public class Receiver implements Closeable {
                         emitter.complete();
                     }
                 };
+
+                AtomicBoolean basicCancel = new AtomicBoolean(true);
                 CancelCallback cancelCallback = consumerTag -> {
                     LOGGER.info("Flux consumer {} has been cancelled", consumerTag);
+                    basicCancel.set(false);
                     emitter.complete();
                 };
 
@@ -171,12 +178,15 @@ public class Receiver implements Closeable {
 
                 final String consumerTag = channel.basicConsume(queue, false, deliverCallback, cancelCallback);
                 AtomicBoolean cancelled = new AtomicBoolean(false);
+                LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                 emitter.onDispose(() -> {
                     LOGGER.info("Cancelling consumer {} consuming from {}", consumerTag, queue);
                     if (cancelled.compareAndSet(false, true)) {
                         try {
                             if (channel.isOpen() && channel.getConnection().isOpen()) {
-                                channel.basicCancel(consumerTag);
+                                if (basicCancel.compareAndSet(true, false)) {
+                                    channel.basicCancel(consumerTag);
+                                }
                                 channel.close();
                             }
                         } catch (TimeoutException | IOException e) {

@@ -445,6 +445,58 @@ public class RabbitFluxTests {
 
     @ParameterizedTest
     @MethodSource("noAckAndManualAckFluxArguments")
+    public void receiverQueueDeleted(BiFunction<Receiver, String, Flux<? extends Delivery>> fluxFactory) throws Exception {
+        // given
+        Channel channel = connection.createChannel();
+        Channel channelSpy = spy(channel);
+        Connection mockConnection = mock(Connection.class);
+        when(mockConnection.createChannel()).thenReturn(channelSpy);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        channel.basicPublish("", queue, null, "Hello".getBytes());
+        receiver = RabbitFlux.createReceiver(new ReceiverOptions().connectionMono(Mono.just(mockConnection)));
+
+        fluxFactory.apply(receiver, queue).subscribe(delivery -> {
+            latch.countDown();
+        });
+
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+
+        // when
+        channel.queueDelete(queue); // calls CancelCallback, consumerTag is unknown
+
+        // then
+        verify(channelSpy, never()).basicCancel(anyString());
+    }
+
+    @ParameterizedTest
+    @MethodSource("noAckAndManualAckFluxArguments")
+    public void receiverOnDispose(BiFunction<Receiver, String, Flux<? extends Delivery>> fluxFactory) throws Exception {
+        // given
+        Channel channel = connection.createChannel();
+        Channel channelSpy = spy(channel);
+        Connection mockConnection = mock(Connection.class);
+        when(mockConnection.createChannel()).thenReturn(channelSpy);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        channel.basicPublish("", queue, null, "Hello".getBytes());
+        receiver = RabbitFlux.createReceiver(new ReceiverOptions().connectionMono(Mono.just(mockConnection)));
+
+        Disposable subscription = fluxFactory.apply(receiver, queue).subscribe(delivery -> {
+            latch.countDown();
+        });
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+
+        // when
+        subscription.dispose();
+
+        // then
+        verify(channelSpy).basicCancel(anyString());
+    }
+
+
+    @ParameterizedTest
+    @MethodSource("noAckAndManualAckFluxArguments")
     public void receiverErrorHandling(BiFunction<Receiver, String, Flux<? extends Delivery>> fluxFactory) {
         Mono<Connection> connectionMono = Mono.fromCallable(() -> {
             throw new RuntimeException();
