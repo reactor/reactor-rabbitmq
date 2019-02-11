@@ -137,7 +137,9 @@ You need a local running RabbitMQ instance.
 
 ## Community / Support
 
-* [GitHub Issues](https://github.com/reactor/reactor-rabbitmq/issues)
+* For Reactor and Reactor RabbitMQ questions: [![Join the chat at https://gitter.im/reactor/reactor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/reactor/reactor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+* For RabbitMQ questions: [RabbitMQ Users](https://groups.google.com/forum/#!forum/rabbitmq-users)
+* For reporting bugs and feature requests: [GitHub Issues](https://github.com/reactor/reactor-rabbitmq/issues)
 
 ## License ##
 
