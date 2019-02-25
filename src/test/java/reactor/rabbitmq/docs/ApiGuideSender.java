@@ -166,7 +166,8 @@ public class ApiGuideSender {
         Sender sender = RabbitFlux.createSender();
         sender.send(outboundFlux, new SendOptions().exceptionHandler(
            new ExceptionHandlers.RetrySendingExceptionHandler(
-               Duration.ofSeconds(20), Duration.ofMillis(500), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+               Duration.ofSeconds(20), Duration.ofMillis(500),
+               ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
            )
         ));
         // end::retry-settings[]
