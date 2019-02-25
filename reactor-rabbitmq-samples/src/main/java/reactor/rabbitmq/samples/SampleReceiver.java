@@ -48,12 +48,12 @@ public class SampleReceiver {
     }
 
     public Disposable consume(String queue, CountDownLatch latch) {
-        Mono<AMQP.Queue.DeclareOk> queueDeclaration = sender.declareQueue(QueueSpecification.queue(queue));
-        Flux<Delivery> messages = receiver.consumeAutoAck(queue);
-        return queueDeclaration.thenMany(messages).subscribe(m -> {
-            LOGGER.info("Received message {}", new String(m.getBody()));
-            latch.countDown();
-        });
+        return receiver.consumeAutoAck(queue)
+                       .delaySubscription(sender.declareQueue(QueueSpecification.queue(queue)))
+                       .subscribe(m -> {
+                           LOGGER.info("Received message {}", new String(m.getBody()));
+                           latch.countDown();
+                       });
     }
 
     public void close() {
