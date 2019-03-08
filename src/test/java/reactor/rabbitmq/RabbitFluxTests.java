@@ -53,6 +53,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
@@ -705,6 +706,36 @@ public class RabbitFluxTests {
         assertTrue(consumedLatch.await(1, TimeUnit.SECONDS));
         assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
+    }
+
+    @Test
+    void publishConfirmsMaxInFlight() throws InterruptedException {
+        int maxConcurrency = 4;
+        int nbMessages = 100;
+        CountDownLatch confirmedLatch = new CountDownLatch(nbMessages);
+
+        AtomicInteger inflight = new AtomicInteger();
+        AtomicInteger maxInflight = new AtomicInteger();
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> {
+            int current = inflight.incrementAndGet();
+            if (current > maxInflight.get())
+                maxInflight.set(current);
+            return new OutboundMessage("", queue, "".getBytes());
+        });
+
+        sender = createSender();
+        sender
+            .sendWithPublishConfirms(msgFlux, new SendOptions().maxInFlight(maxConcurrency))
+            .subscribe(outboundMessageResult -> {
+                inflight.decrementAndGet();
+                if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                    confirmedLatch.countDown();
+                }
+        });
+
+        assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
+        assertThat(maxInflight.get()).isLessThanOrEqualTo(maxConcurrency);
     }
 
     @Test

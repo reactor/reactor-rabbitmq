@@ -19,6 +19,9 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.Channel;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.concurrent.Queues;
 
 import java.time.Duration;
 import java.util.function.BiConsumer;
@@ -33,6 +36,21 @@ public class SendOptions {
     );
 
     /**
+     * The maximum number of in-flight records that are fetched
+     * from the outbound record publisher while publisher confirms are pending.
+     *
+     * @since 1.1.1
+     */
+    private int maxInFlight = Queues.SMALL_BUFFER_SIZE;
+
+    /**
+     * The scheduler used for publishing send results.
+     *
+     * @since 1.1.1
+     */
+    private Scheduler scheduler = Schedulers.newSingle("rabbitmq-sender-publishing");
+
+    /**
      * Channel mono to use to send messages.
      *
      * @since 1.1.0
@@ -45,6 +63,52 @@ public class SendOptions {
      * @since 1.1.0
      */
     private BiConsumer<SignalType, Channel> channelCloseHandler;
+
+    /**
+     * Returns the maximum number of in-flight records that are fetched
+     * from the outbound record publisher while publisher confirms are pending.
+     *
+     * @return maximum number of in-flight records
+     * @since 1.1.18
+     */
+    public int getMaxInFlight() {
+        return maxInFlight;
+    }
+
+    /**
+     * Set the maximum number of in-flight records that are fetched
+     * from the outbound record publisher while publisher confirms are pending.
+     *
+     * @param maxInFlight
+     * @return this {@link SendOptions} instance
+     * @since 1.1.1
+     */
+    public SendOptions maxInFlight(int maxInFlight) {
+        this.maxInFlight = maxInFlight;
+        return this;
+    }
+
+    /**
+     * The scheduler used for publishing send results.
+     *
+     * @return scheduler used for publishing send results
+     * @since 1.1.1
+     */
+    public Scheduler getScheduler() {
+        return scheduler;
+    }
+
+    /**
+     * Sets the scheduler used for publishing send results.
+     *
+     * @param scheduler
+     * @return this {@link SendOptions} instance
+     * @since 1.1.1
+     */
+    public SendOptions scheduler(Scheduler scheduler) {
+        this.scheduler = scheduler;
+        return this;
+    }
 
     public BiConsumer<Sender.SendContext, Exception> getExceptionHandler() {
         return exceptionHandler;

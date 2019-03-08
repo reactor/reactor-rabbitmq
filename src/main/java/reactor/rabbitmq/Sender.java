@@ -161,7 +161,8 @@ public class Sender implements AutoCloseable {
                     // so we need to complete in another thread
                     channelCloseThreadPool.execute(() -> channelCloseHandler.accept(signalType, channel));
                 }
-            }));
+            }))
+            .publishOn(sendOptions.getScheduler(), sendOptions.getMaxInFlight());
     }
 
     // package-protected for testing
