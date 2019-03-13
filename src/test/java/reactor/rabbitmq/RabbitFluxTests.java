@@ -759,12 +759,13 @@ public class RabbitFluxTests {
 
         int nbMessages = 10;
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
-        int nbMessagesAckNack = 2;
+        int nbMessagesAckNack = 1; // why it was 2, shouldn't it be 1 ??
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
             throw new RabbitFluxException(e);
-        }))
+        }))   // Before change: (onNext -> onError -> onNext )
+              // After change (maxInFlight): (onNext -> onError)
                 .subscribe(outboundMessageResult -> {
                             if (outboundMessageResult.getOutboundMessage() != null) {
                                 confirmLatch.countDown();
