@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *       https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 buildscript {
 	repositories {
-		maven { url "http://repo.spring.io/plugins-release" }
+		maven { url "https://repo.spring.io/plugins-release" }
 	}
 	dependencies {
 		classpath 'org.asciidoctor:asciidoctorj-pdf:1.5.0-alpha.11',
@@ -48,11 +48,11 @@ ext {
 	junitPlatformVersion = '1.0.0'
 	junitJupiterVersion  = '5.0.0'
 
-	javadocLinks = ["http://docs.oracle.com/javase/7/docs/api/",
-					"http://docs.oracle.com/javaee/6/api/",
-					"http://www.reactive-streams.org/reactive-streams-1.0.1-javadoc/",
-					"http://projectreactor.io/docs/core/release/api/",
-					"http://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/",] as String[]
+	javadocLinks = ["https://docs.oracle.com/javase/7/docs/api/",
+					"https://docs.oracle.com/javaee/6/api/",
+					"https://www.reactive-streams.org/reactive-streams-1.0.1-javadoc/",
+					"https://projectreactor.io/docs/core/release/api/",
+					"https://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/",] as String[]
 }
 
 apply from: "$gradleScriptDir/setup.gradle"
@@ -74,8 +74,8 @@ configure(allprojects) { project ->
 	group = 'io.projectreactor.rabbitmq'
 
 	repositories {
-		maven { url 'http://repo.spring.io/libs-release' }
-		maven { url 'http://repo.spring.io/libs-snapshot' }
+		maven { url 'https://repo.spring.io/libs-release' }
+		maven { url 'https://repo.spring.io/libs-snapshot' }
 		mavenCentral()
 		jcenter()
 	}
@@ -196,7 +196,7 @@ configure(allprojects) { project ->
 		apply plugin: 'spring-io'
 
 		repositories {
-			maven { url 'http://repo.spring.io/libs-snapshot' }
+			maven { url 'https://repo.spring.io/libs-snapshot' }
 		}
 
 		dependencyManagement {
@@ -260,7 +260,7 @@ project(':reactor-rabbitmq-samples') {
 /*
 buildscript {
   repositories {
-	maven { url "http://repo.spring.io/plugins-release" }
+	maven { url "https://repo.spring.io/plugins-release" }
   }
   dependencies {
 	classpath 'org.springframework.build.gradle:propdeps-plugin:0.0.7',
@@ -297,11 +297,11 @@ ext {
   junitPlatformVersion = '1.0.0'
   junitJupiterVersion  = '5.0.0'
 
-  javadocLinks = ["http://docs.oracle.com/javase/7/docs/api/",
-				  "http://docs.oracle.com/javaee/6/api/",
-				  "http://www.reactive-streams.org/reactive-streams-1.0.1-javadoc/",
-				  "http://projectreactor.io/docs/core/release/api/",
-				  "http://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/",] as String[]
+  javadocLinks = ["https://docs.oracle.com/javase/7/docs/api/",
+				  "https://docs.oracle.com/javaee/6/api/",
+				  "https://www.reactive-streams.org/reactive-streams-1.0.1-javadoc/",
+				  "https://projectreactor.io/docs/core/release/api/",
+				  "https://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/",] as String[]
 }
 
 apply from: "$gradleScriptDir/setup.gradle"
@@ -415,11 +415,11 @@ configure(rootProject) { project ->
   repositories {
 	if (version.endsWith('BUILD-SNAPSHOT') || project.hasProperty('platformVersion')) {
 	  mavenLocal()
-	  maven { url 'http://repo.spring.io/libs-snapshot' }
+	  maven { url 'https://repo.spring.io/libs-snapshot' }
 	  maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
 	}
-	maven { url 'http://repo.spring.io/libs-milestone' }
-	maven { url 'http://repo.spring.io/libs-release' }
+	maven { url 'https://repo.spring.io/libs-milestone' }
+	maven { url 'https://repo.spring.io/libs-release' }
 	maven { url "https://dl.bintray.com/rabbitmq/maven-milestones" }
 	maven { url "https://oss.sonatype.org/content/repositories/releases/" }
 	jcenter()
@@ -456,7 +456,7 @@ configure(rootProject) { project ->
 	apply plugin: 'spring-io'
 
 	repositories {
-	  maven { url 'http://repo.spring.io/libs-snapshot' }
+	  maven { url 'https://repo.spring.io/libs-snapshot' }
 	}
 
 	dependencyManagement {
