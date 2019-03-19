@@ -521,7 +521,7 @@ public class Sender implements AutoCloseable {
     }
 
     private static class PublishConfirmSubscriber implements
-        CoreSubscriber<OutboundMessage> {
+        CoreSubscriber<OutboundMessage>, Subscription {
 
         private final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
 
@@ -535,10 +535,22 @@ public class Sender implements AutoCloseable {
 
         private final BiConsumer<SendContext, Exception> exceptionHandler;
 
+        Subscription s;
+
         private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
             this.subscriber = subscriber;
             this.exceptionHandler = options.getExceptionHandler();
+        }
+
+        @Override
+        public void request(long n) {
+            s.request(n);
+        }
+
+        @Override
+        public void cancel() {
+            s.cancel();
         }
 
         @Override
@@ -582,7 +594,10 @@ public class Sender implements AutoCloseable {
                 }
             });
             state.set(SubscriberState.ACTIVE);
-            subscriber.onSubscribe(subscription);
+            if (Operators.validate(this.s, subscription)) {
+                this.s = subscription;
+                subscriber.onSubscribe(this);
+            }
         }
 
         @Override
