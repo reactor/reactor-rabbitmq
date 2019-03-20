@@ -42,7 +42,7 @@ Instead, it is aimed at providing an alternative API for reactive event-driven a
 
 ==== RabbitMQ Java Client
 
-For non-reactive applications, http://www.rabbitmq.com/api-guide.html[RabbitMQ Java Client]
+For non-reactive applications, https://www.rabbitmq.com/api-guide.html[RabbitMQ Java Client]
 provides the most complete API to manage resources, publish messages to and
 consume messages from RabbitMQ. Note Reactor RabbitMQ is based on RabbitMQ Java Client.
 
