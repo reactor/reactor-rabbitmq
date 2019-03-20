@@ -709,6 +709,55 @@ public class RabbitFluxTests {
     }
 
     @Test
+    public void publishConfirmsBackpressure() throws Exception {
+        int nbMessages = 10;
+        int subscriberRequest = 3;
+        CountDownLatch consumedLatch = new CountDownLatch(subscriberRequest);
+        CountDownLatch confirmedLatch = new CountDownLatch(subscriberRequest);
+        AtomicInteger counter = new AtomicInteger();
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, (consumerTag, delivery) -> {
+            counter.incrementAndGet();
+            consumedLatch.countDown();
+        }, consumerTag -> {
+        });
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        sender = createSender();
+        sender.sendWithPublishConfirms(msgFlux).subscribe(new BaseSubscriber<OutboundMessageResult>() {
+                @Override
+                protected void hookOnSubscribe(Subscription subscription) {
+                    subscription.request(subscriberRequest);
+                }
+
+                @Override
+                protected void hookOnNext(OutboundMessageResult outboundMessageResult) {
+                    if (outboundMessageResult.getOutboundMessage() != null) {
+                        confirmedLatch.countDown();
+                    }
+                }
+        });
+
+        assertTrue(consumedLatch.await(1, TimeUnit.SECONDS));
+        assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
+        assertEquals(subscriberRequest, counter.get());
+    }
+
+    @Test
+    public void publishConfirmsEmptyPublisher() throws Exception {
+        CountDownLatch finallyLatch = new CountDownLatch(1);
+        Flux<OutboundMessage> msgFlux = Flux.empty();
+
+        sender = createSender();
+        sender.sendWithPublishConfirms(msgFlux)
+                .doFinally(signalType -> finallyLatch.countDown())
+                .subscribe();
+
+        assertTrue(finallyLatch.await(1, TimeUnit.SECONDS));
+    }
+
+    @Test
     void publishConfirmsMaxInFlight() throws InterruptedException {
         int maxConcurrency = 4;
         int nbMessages = 100;

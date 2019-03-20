@@ -143,7 +143,7 @@ public class Sender implements AutoCloseable {
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
 
-        return currentChannelMono.map(channel -> {
+        Flux<OutboundMessageResult> result = currentChannelMono.map(channel -> {
                 try {
                     channel.confirmSelect();
                 } catch (IOException e) {
@@ -161,8 +161,12 @@ public class Sender implements AutoCloseable {
                     // so we need to complete in another thread
                     channelCloseThreadPool.execute(() -> channelCloseHandler.accept(signalType, channel));
                 }
-            }))
-            .publishOn(sendOptions.getScheduler(), sendOptions.getMaxInFlight());
+            }));
+
+        if (sendOptions.getMaxInFlight() != null) {
+            result = result.publishOn(sendOptions.getScheduler(), sendOptions.getMaxInFlight());
+        }
+        return result;
     }
 
     // package-protected for testing
@@ -525,7 +529,7 @@ public class Sender implements AutoCloseable {
 
         private final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
 
-        private final AtomicReference<Throwable> firstException = new AtomicReference<Throwable>();
+        private final AtomicReference<Throwable> firstException = new AtomicReference<>();
 
         private final ConcurrentNavigableMap<Long, OutboundMessage> unconfirmed = new ConcurrentSkipListMap<>();
 
@@ -535,7 +539,7 @@ public class Sender implements AutoCloseable {
 
         private final BiConsumer<SendContext, Exception> exceptionHandler;
 
-        Subscription s;
+        private Subscription subscription;
 
         private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
@@ -545,12 +549,12 @@ public class Sender implements AutoCloseable {
 
         @Override
         public void request(long n) {
-            s.request(n);
+            subscription.request(n);
         }
 
         @Override
         public void cancel() {
-            s.cancel();
+            subscription.cancel();
         }
 
         @Override
@@ -594,8 +598,8 @@ public class Sender implements AutoCloseable {
                 }
             });
             state.set(SubscriberState.ACTIVE);
-            if (Operators.validate(this.s, subscription)) {
-                this.s = subscription;
+            if (Operators.validate(this.subscription, subscription)) {
+                this.subscription = subscription;
                 subscriber.onSubscribe(this);
             }
         }
