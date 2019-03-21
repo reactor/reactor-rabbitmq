@@ -114,15 +114,15 @@ public class RequestReplyTests {
         CountDownLatch latch = new CountDownLatch(nbRequests);
         try (RpcClient rpcClient = rpcClientCreator.apply(sender)) {
             IntStream.range(0, nbRequests).forEach(i -> {
-                new Thread(() -> {
-                    String content = "hello " + i;
-                    Mono<Delivery> deliveryMono = rpcClient.rpc(Mono.just(new RpcClient.RpcRequest(content.getBytes())));
-                    assertEquals("*** " + content + " ***", new String(deliveryMono.block().getBody()));
-                    latch.countDown();
-                }).start();
+                String content = "hello " + i;
+                Mono<Delivery> deliveryMono = rpcClient.rpc(Mono.just(new RpcClient.RpcRequest(content.getBytes())));
+                String received = new String(deliveryMono.block().getBody());
+                assertEquals("*** " + content + " ***", received);
+                latch.countDown();
             });
+            assertTrue(latch.await(5, TimeUnit.SECONDS), "All requests should have dealt with by now");
         }
-        assertTrue(latch.await(5, TimeUnit.SECONDS), "All requests should have dealt with by now");
+
     }
 
     private static class TestRpcServer extends RpcServer {
