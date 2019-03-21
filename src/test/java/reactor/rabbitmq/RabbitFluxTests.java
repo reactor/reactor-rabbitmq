@@ -802,6 +802,12 @@ public class RabbitFluxTests {
         when(mockChannel.getNextPublishSeqNo()).thenAnswer(invocation -> publishSequence.incrementAndGet());
         when(mockChannel.isOpen()).thenReturn(true);
 
+        CountDownLatch channelCloseLatch = new CountDownLatch(1);
+        doAnswer(answer -> {
+            channelCloseLatch.countDown();
+            return null;
+        }).when(mockChannel).close();
+
         CountDownLatch serverPublishConfirmLatch = new CountDownLatch(1);
         doNothing()
                 .doAnswer(answer -> {
@@ -842,6 +848,7 @@ public class RabbitFluxTests {
         });
 
         assertTrue(confirmLatch.await(1L, TimeUnit.SECONDS));
+        assertTrue(channelCloseLatch.await(1L, TimeUnit.SECONDS));
         verify(mockChannel, times(1)).close();
     }
 
