@@ -809,7 +809,6 @@ public class RabbitFluxTests {
                     serverPublishConfirmLatch.await(5, TimeUnit.SECONDS);
                     throw new IOException("simulated error while publishing");
                 })
-                .doThrow()
                 .when(mockChannel).basicPublish(anyString(), anyString(), nullable(AMQP.BasicProperties.class), any(byte[].class));
 
 
