@@ -802,27 +802,31 @@ public class RabbitFluxTests {
         when(mockChannel.getNextPublishSeqNo()).thenAnswer(invocation -> publishSequence.incrementAndGet());
         when(mockChannel.isOpen()).thenReturn(true);
 
+        CountDownLatch serverPublishConfirmLatch = new CountDownLatch(1);
         doNothing()
-                .doThrow(new IOException("simulated error while publishing"))
+                .doAnswer(answer -> {
+                    // see https://github.com/reactor/reactor-rabbitmq/pull/67#issuecomment-472789735
+                    serverPublishConfirmLatch.await(5, TimeUnit.SECONDS);
+                    throw new IOException("simulated error while publishing");
+                })
+                .doThrow()
                 .when(mockChannel).basicPublish(anyString(), anyString(), nullable(AMQP.BasicProperties.class), any(byte[].class));
 
 
         int nbMessages = 10;
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
-        int nbMessagesAckNack = 1; // why it was 2, shouldn't it be 1 ??
+        int nbMessagesAckNack = 1 + 1; // first published message confirmed + "fake" confirmation because of sending failure
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
             throw new RabbitFluxException(e);
-        }))   // Before change: (onNext -> onError -> onNext )
-                // After change (maxInFlight): (onNext -> onError)
-                .subscribe(outboundMessageResult -> {
-                            if (outboundMessageResult.getOutboundMessage() != null) {
-                                confirmLatch.countDown();
-                            }
-                        },
-                        error -> {
-                        });
+        })).subscribe(outboundMessageResult -> {
+                    if (outboundMessageResult.getOutboundMessage() != null) {
+                        confirmLatch.countDown();
+                    }
+                },
+                error -> {
+                });
 
         // have to wait a bit the subscription propagates and add the confirm listener
         Thread.sleep(100L);
@@ -834,6 +838,7 @@ public class RabbitFluxTests {
         ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
         ioExecutor.submit(() -> {
             confirmListener.handleAck(1, false);
+            serverPublishConfirmLatch.countDown();
             return null;
         });
 
