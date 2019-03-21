@@ -37,15 +37,20 @@ public class SendOptions {
     /**
      * The maximum number of in-flight records that are fetched
      * from the outbound record publisher while publisher confirms are pending.
+     * <p>
+     * The number of in-flight records is not limited by default.
      *
-     * @since 1.1.1
+     * @since 1.2.0
      */
     private Integer maxInFlight;
 
     /**
-     * The scheduler used for publishing send results.
+     * The scheduler used for publishing publisher confirms when in-flight records are limited.
+     * <p>
+     * The default is {@link Schedulers#immediate()}, so the caller's thread.
      *
-     * @since 1.1.1
+     * @see #maxInFlight
+     * @since 1.2.0
      */
     private Scheduler scheduler = Schedulers.immediate();
 
@@ -68,7 +73,7 @@ public class SendOptions {
      * from the outbound record publisher while publisher confirms are pending.
      *
      * @return maximum number of in-flight records
-     * @since 1.1.1
+     * @since 1.2.0
      */
     public Integer getMaxInFlight() {
         return maxInFlight;
@@ -77,10 +82,12 @@ public class SendOptions {
     /**
      * Set the maximum number of in-flight records that are fetched
      * from the outbound record publisher while publisher confirms are pending.
+     * <p>
+     * The number of in-flight records is not limited by default.
      *
      * @param maxInFlight
      * @return this {@link SendOptions} instance
-     * @since 1.1.1
+     * @since 1.2.0
      */
     public SendOptions maxInFlight(int maxInFlight) {
         this.maxInFlight = maxInFlight;
@@ -95,7 +102,7 @@ public class SendOptions {
      * @param maxInFlight
      * @param scheduler
      * @return this {@link SendOptions} instance
-     * @since 1.1.1
+     * @since 1.2.0
      */
     public SendOptions maxInFlight(int maxInFlight, Scheduler scheduler) {
         this.maxInFlight = maxInFlight;
@@ -107,7 +114,7 @@ public class SendOptions {
      * The scheduler used for publishing send results.
      *
      * @return scheduler used for publishing send results
-     * @since 1.1.1
+     * @since 1.2.0
      */
     public Scheduler getScheduler() {
         return scheduler;

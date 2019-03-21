@@ -726,17 +726,17 @@ public class RabbitFluxTests {
 
         sender = createSender();
         sender.sendWithPublishConfirms(msgFlux).subscribe(new BaseSubscriber<OutboundMessageResult>() {
-                @Override
-                protected void hookOnSubscribe(Subscription subscription) {
-                    subscription.request(subscriberRequest);
-                }
+            @Override
+            protected void hookOnSubscribe(Subscription subscription) {
+                subscription.request(subscriberRequest);
+            }
 
-                @Override
-                protected void hookOnNext(OutboundMessageResult outboundMessageResult) {
-                    if (outboundMessageResult.getOutboundMessage() != null) {
-                        confirmedLatch.countDown();
-                    }
+            @Override
+            protected void hookOnNext(OutboundMessageResult outboundMessageResult) {
+                if (outboundMessageResult.getOutboundMessage() != null) {
+                    confirmedLatch.countDown();
                 }
+            }
         });
 
         assertTrue(consumedLatch.await(1, TimeUnit.SECONDS));
@@ -768,20 +768,21 @@ public class RabbitFluxTests {
 
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> {
             int current = inflight.incrementAndGet();
-            if (current > maxInflight.get())
+            if (current > maxInflight.get()) {
                 maxInflight.set(current);
+            }
             return new OutboundMessage("", queue, "".getBytes());
         });
 
         sender = createSender();
         sender
-            .sendWithPublishConfirms(msgFlux, new SendOptions().maxInFlight(maxConcurrency))
-            .subscribe(outboundMessageResult -> {
-                inflight.decrementAndGet();
-                if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
-                    confirmedLatch.countDown();
-                }
-        });
+                .sendWithPublishConfirms(msgFlux, new SendOptions().maxInFlight(maxConcurrency))
+                .subscribe(outboundMessageResult -> {
+                    inflight.decrementAndGet();
+                    if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                        confirmedLatch.countDown();
+                    }
+                });
 
         assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
         assertThat(maxInflight.get()).isLessThanOrEqualTo(maxConcurrency);
@@ -814,7 +815,7 @@ public class RabbitFluxTests {
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
             throw new RabbitFluxException(e);
         }))   // Before change: (onNext -> onError -> onNext )
-              // After change (maxInFlight): (onNext -> onError)
+                // After change (maxInFlight): (onNext -> onError)
                 .subscribe(outboundMessageResult -> {
                             if (outboundMessageResult.getOutboundMessage() != null) {
                                 confirmLatch.countDown();
