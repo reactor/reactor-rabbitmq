@@ -143,7 +143,7 @@ public class Sender implements AutoCloseable {
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
 
-        return currentChannelMono.map(channel -> {
+        Flux<OutboundMessageResult> result = currentChannelMono.map(channel -> {
                 try {
                     channel.confirmSelect();
                 } catch (IOException e) {
@@ -162,6 +162,11 @@ public class Sender implements AutoCloseable {
                     channelCloseThreadPool.execute(() -> channelCloseHandler.accept(signalType, channel));
                 }
             }));
+
+        if (sendOptions.getMaxInFlight() != null) {
+            result = result.publishOn(sendOptions.getScheduler(), sendOptions.getMaxInFlight());
+        }
+        return result;
     }
 
     // package-protected for testing
@@ -520,11 +525,11 @@ public class Sender implements AutoCloseable {
     }
 
     private static class PublishConfirmSubscriber implements
-        CoreSubscriber<OutboundMessage> {
+        CoreSubscriber<OutboundMessage>, Subscription {
 
         private final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
 
-        private final AtomicReference<Throwable> firstException = new AtomicReference<Throwable>();
+        private final AtomicReference<Throwable> firstException = new AtomicReference<>();
 
         private final ConcurrentNavigableMap<Long, OutboundMessage> unconfirmed = new ConcurrentSkipListMap<>();
 
@@ -534,6 +539,8 @@ public class Sender implements AutoCloseable {
 
         private final BiConsumer<SendContext, Exception> exceptionHandler;
 
+        private Subscription subscription;
+
         private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
             this.subscriber = subscriber;
@@ -541,47 +548,60 @@ public class Sender implements AutoCloseable {
         }
 
         @Override
+        public void request(long n) {
+            subscription.request(n);
+        }
+
+        @Override
+        public void cancel() {
+            subscription.cancel();
+        }
+
+        @Override
         public void onSubscribe(Subscription subscription) {
-            channel.addConfirmListener(new ConfirmListener() {
+            if (Operators.validate(this.subscription, subscription)) {
+                channel.addConfirmListener(new ConfirmListener() {
 
-                @Override
-                public void handleAck(long deliveryTag, boolean multiple) {
-                    handleAckNack(deliveryTag, multiple, true);
-                }
+                    @Override
+                    public void handleAck(long deliveryTag, boolean multiple) {
+                        handleAckNack(deliveryTag, multiple, true);
+                    }
 
-                @Override
-                public void handleNack(long deliveryTag, boolean multiple) {
-                    handleAckNack(deliveryTag, multiple, false);
-                }
+                    @Override
+                    public void handleNack(long deliveryTag, boolean multiple) {
+                        handleAckNack(deliveryTag, multiple, false);
+                    }
 
-                private void handleAckNack(long deliveryTag, boolean multiple, boolean ack) {
-                    if (multiple) {
-                        try {
-                            ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
-                            Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
-                            while (iterator.hasNext()) {
-                                subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
-                                iterator.remove();
+                    private void handleAckNack(long deliveryTag, boolean multiple, boolean ack) {
+                        if (multiple) {
+                            try {
+                                ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
+                                Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
+                                while (iterator.hasNext()) {
+                                    subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
+                                    iterator.remove();
+                                }
+                            } catch (Exception e) {
+                                handleError(e, null);
                             }
-                        } catch (Exception e) {
-                            handleError(e, null);
+                        } else {
+                            OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
+                            try {
+                                unconfirmed.remove(deliveryTag);
+                                subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
+                            } catch (Exception e) {
+                                handleError(e, new OutboundMessageResult(outboundMessage, ack));
+                            }
                         }
-                    } else {
-                        OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
-                        try {
-                            unconfirmed.remove(deliveryTag);
-                            subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
-                        } catch (Exception e) {
-                            handleError(e, new OutboundMessageResult(outboundMessage, ack));
+                        if (unconfirmed.size() == 0) {
+                            maybeComplete();
                         }
                     }
-                    if (unconfirmed.size() == 0) {
-                        maybeComplete();
-                    }
-                }
-            });
-            state.set(SubscriberState.ACTIVE);
-            subscriber.onSubscribe(subscription);
+                });
+                state.set(SubscriberState.ACTIVE);
+                this.subscription = subscription;
+                subscriber.onSubscribe(this);
+            }
         }
 
         @Override

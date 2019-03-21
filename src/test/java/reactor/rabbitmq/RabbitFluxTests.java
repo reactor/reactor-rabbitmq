@@ -53,6 +53,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
@@ -708,6 +709,85 @@ public class RabbitFluxTests {
     }
 
     @Test
+    public void publishConfirmsBackpressure() throws Exception {
+        int nbMessages = 10;
+        int subscriberRequest = 3;
+        CountDownLatch consumedLatch = new CountDownLatch(subscriberRequest);
+        CountDownLatch confirmedLatch = new CountDownLatch(subscriberRequest);
+        AtomicInteger counter = new AtomicInteger();
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, (consumerTag, delivery) -> {
+            counter.incrementAndGet();
+            consumedLatch.countDown();
+        }, consumerTag -> {
+        });
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+
+        sender = createSender();
+        sender.sendWithPublishConfirms(msgFlux).subscribe(new BaseSubscriber<OutboundMessageResult>() {
+                @Override
+                protected void hookOnSubscribe(Subscription subscription) {
+                    subscription.request(subscriberRequest);
+                }
+
+                @Override
+                protected void hookOnNext(OutboundMessageResult outboundMessageResult) {
+                    if (outboundMessageResult.getOutboundMessage() != null) {
+                        confirmedLatch.countDown();
+                    }
+                }
+        });
+
+        assertTrue(consumedLatch.await(1, TimeUnit.SECONDS));
+        assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
+        assertEquals(subscriberRequest, counter.get());
+    }
+
+    @Test
+    public void publishConfirmsEmptyPublisher() throws Exception {
+        CountDownLatch finallyLatch = new CountDownLatch(1);
+        Flux<OutboundMessage> msgFlux = Flux.empty();
+
+        sender = createSender();
+        sender.sendWithPublishConfirms(msgFlux)
+                .doFinally(signalType -> finallyLatch.countDown())
+                .subscribe();
+
+        assertTrue(finallyLatch.await(1, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void publishConfirmsMaxInFlight() throws InterruptedException {
+        int maxConcurrency = 4;
+        int nbMessages = 100;
+        CountDownLatch confirmedLatch = new CountDownLatch(nbMessages);
+
+        AtomicInteger inflight = new AtomicInteger();
+        AtomicInteger maxInflight = new AtomicInteger();
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> {
+            int current = inflight.incrementAndGet();
+            if (current > maxInflight.get())
+                maxInflight.set(current);
+            return new OutboundMessage("", queue, "".getBytes());
+        });
+
+        sender = createSender();
+        sender
+            .sendWithPublishConfirms(msgFlux, new SendOptions().maxInFlight(maxConcurrency))
+            .subscribe(outboundMessageResult -> {
+                inflight.decrementAndGet();
+                if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                    confirmedLatch.countDown();
+                }
+        });
+
+        assertTrue(confirmedLatch.await(1, TimeUnit.SECONDS));
+        assertThat(maxInflight.get()).isLessThanOrEqualTo(maxConcurrency);
+    }
+
+    @Test
     public void publishConfirmsErrorWhilePublishing() throws Exception {
         ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
         Connection mockConnection = mock(Connection.class);
@@ -728,12 +808,13 @@ public class RabbitFluxTests {
 
         int nbMessages = 10;
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
-        int nbMessagesAckNack = 2;
+        int nbMessagesAckNack = 1; // why it was 2, shouldn't it be 1 ??
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler((ctx, e) -> {
             throw new RabbitFluxException(e);
-        }))
+        }))   // Before change: (onNext -> onError -> onNext )
+              // After change (maxInFlight): (onNext -> onError)
                 .subscribe(outboundMessageResult -> {
                             if (outboundMessageResult.getOutboundMessage() != null) {
                                 confirmLatch.countDown();
