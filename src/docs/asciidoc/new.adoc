@@ -2,6 +2,12 @@
 
 [[new]]
 
+=== What's new in Reactor RabbitMQ 1.2
+
+* Limit in-flight records in publisher confirms if requested
+* Implement back pressure in publisher confirms support
+* Use Reactor 3.2.6.RELEASE
+
 === What's new in Reactor RabbitMQ 1.1
 
 * Let user provide `Mono<Channel>` for sending messages
