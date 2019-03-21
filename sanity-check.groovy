@@ -2,7 +2,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.rabbitmq.OutboundMessage
 import reactor.rabbitmq.QueueSpecification
-@GrabResolver(name = 'spring-staging', root = 'http://repo.spring.io/libs-staging-local/')
+@GrabResolver(name = 'spring-staging', root = 'https://repo.spring.io/libs-staging-local/')
 @Grab(group = 'io.projectreactor.rabbitmq', module = 'reactor-rabbitmq', version = "${version}")
 @Grab(group = 'org.slf4j', module = 'slf4j-simple', version = '1.7.25')
 

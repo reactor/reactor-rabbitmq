@@ -189,7 +189,7 @@ include::{test-examples}/ApiGuideSender.java[tag=closing]
 The `send` and `sendWithPublishConfirms` methods can take an additional
 `SendOptions` parameter to specify the behavior to adopt if the publishing of a message
 fails. The default behavior is to retry every 200 milliseconds for 10 seconds
-in case of connection failure. As http://www.rabbitmq.com/api-guide.html#recovery[automatic connection recovery]
+in case of connection failure. As https://www.rabbitmq.com/api-guide.html#recovery[automatic connection recovery]
 is enabled by default,
 the connection is likely to be re-opened after a network glitch and the flux of
 outbound messages should stall only during connection recovery before restarting automatically.
@@ -308,7 +308,7 @@ include::{test-examples}/ApiGuideReceiver.java[tag=inbound-flux]
 
 The inbound RabbitMQ `Flux` is ready to be consumed.
 Each inbound message delivered by the Flux is represented as a
-http://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/com/rabbitmq/client/Delivery.html[`Delivery`].
+https://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/com/rabbitmq/client/Delivery.html[`Delivery`].
 
 See https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleReceiver.java[`SampleReceiver`]
 for a full code listing for a `Receiver`.
@@ -318,7 +318,7 @@ for a full code listing for a `Receiver`.
 The `Receiver` class has different flavors of the `receive*` method and each of them
 can accept a `ConsumeOptions` instance. Here are the different options:
 
-* `overflowStrategy`: the http://projectreactor.io/docs/core/release/api/reactor/core/publisher/FluxSink.OverflowStrategy.html[`OverflowStrategy`]
+* `overflowStrategy`: the https://projectreactor.io/docs/core/release/api/reactor/core/publisher/FluxSink.OverflowStrategy.html[`OverflowStrategy`]
 used when creating the `Flux` of messages. Default is `BUFFER`.
 * `qos`: the prefetch count used when message acknowledgment is enabled. Default is 250.
 * `hookBeforeEmitBiFunction`: a `BiFunction<Long, ? super Delivery, Boolean>` to decide
@@ -370,7 +370,7 @@ include::{test-examples}/ApiGuideReceiver.java[tag=closing]
 
 Network connection between the broker and the client can fail. This
 is transparent for consumers thanks to RabbitMQ Java client
-http://www.rabbitmq.com/api-guide.html#recovery[automatic connection recovery].
+https://www.rabbitmq.com/api-guide.html#recovery[automatic connection recovery].
 Connection failures affect sending though, and acknowledgment is a sending operation.
 
 When using `Receiver#consumeAutoAck`, acknowledgments are retried for 10 seconds every 200 milliseconds

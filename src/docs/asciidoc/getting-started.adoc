@@ -6,7 +6,7 @@
 You need Java JRE installed (Java 8 or later).
 
 You also need to install RabbitMQ. Follow the
-http://www.rabbitmq.com/download.html[instructions from the website].
+https://www.rabbitmq.com/download.html[instructions from the website].
 Note you should use RabbitMQ 3.6.x or later.
 
 === Quick Start
@@ -161,7 +161,7 @@ For gradle:
 [source,groovy]
 --------
 repositories {
-  maven { url 'http://repo.spring.io/milestone' }
+  maven { url 'https://repo.spring.io/milestone' }
 }
 --------
 
@@ -173,7 +173,7 @@ For maven:
     <repository>
         <id>spring-milestones</id>
         <name>Spring Milestones</name>
-        <url>http://repo.spring.io/milestone</url>
+        <url>https://repo.spring.io/milestone</url>
         <snapshots>
             <enabled>false</enabled>
         </snapshots>
