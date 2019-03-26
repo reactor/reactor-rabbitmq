@@ -31,7 +31,7 @@ avoiding unnecessary intermediate buffering or blocking.
 === Reactive API for RabbitMQ
 
 link:../api/index.html[Reactor RabbitMQ] is a reactive API for RabbitMQ
-based on Reactor and http://www.rabbitmq.com/api-guide.html[RabbitMQ Java Client].
+based on Reactor and https://www.rabbitmq.com/api-guide.html[RabbitMQ Java Client].
 Reactor RabbitMQ API enables messages to be published to
 RabbitMQ and consumed from RabbitMQ using functional APIs
 with non-blocking back-pressure and very low overheads.

@@ -13,7 +13,7 @@ ifndef::host-github[:ext-relative: {outfilesuffix}]
 :hide-uri-scheme:
 
 :github-repo: reactor/reactor-rabbitmq
-:github-code: http://github.com/{github-repo}
+:github-code: https://github.com/{github-repo}
 
 :test-examples: ../../test/java/reactor/rabbitmq/docs
 

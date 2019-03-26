@@ -4,9 +4,9 @@
 
 [![Travis CI](https://travis-ci.org/reactor/reactor-rabbitmq.svg?branch=master)](https://travis-ci.org/reactor/reactor-rabbitmq)
 
-Reactor RabbitMQ is a reactive API for [RabbitMQ](http://www.rabbitmq.com/) based on
-[Reactor](http://projectreactor.io/)
-and [RabbitMQ Java Client](http://www.rabbitmq.com/api-guide.html). Reactor RabbitMQ API enables messages to be
+Reactor RabbitMQ is a reactive API for [RabbitMQ](https://www.rabbitmq.com/) based on
+[Reactor](https://projectreactor.io/)
+and [RabbitMQ Java Client](https://www.rabbitmq.com/api-guide.html). Reactor RabbitMQ API enables messages to be
 published to RabbitMQ and consumed from RabbitMQ using functional APIs with
 non-blocking back-pressure and very low overheads. This enables applications
 using Reactor to use RabbitMQ as a message bus or streaming platform and integrate
@@ -14,26 +14,26 @@ with other systems to provide an end-to-end reactive pipeline.
 
 ## Getting started
 
-For the latest stable release, please see the [getting started](http://projectreactor.io/docs/rabbitmq/release/reference/#_getting_started)
-section in the [reference documentation](http://projectreactor.io/docs/rabbitmq/release/reference/).
+For the latest stable release, please see the [getting started](https://projectreactor.io/docs/rabbitmq/release/reference/#_getting_started)
+section in the [reference documentation](https://projectreactor.io/docs/rabbitmq/release/reference/).
 
 For latest milestone:
-[Getting Started](http://projectreactor.io/docs/rabbitmq/milestone/reference/#_getting_started) -
-[Reference Documentation](http://projectreactor.io/docs/rabbitmq/milestone/reference/)
+[Getting Started](https://projectreactor.io/docs/rabbitmq/milestone/reference/#_getting_started) -
+[Reference Documentation](https://projectreactor.io/docs/rabbitmq/milestone/reference/)
 
 For snapshots:
-[Getting Started](http://projectreactor.io/docs/rabbitmq/snapshot/reference/#_getting_started) -
-[Reference Documentation](http://projectreactor.io/docs/rabbitmq/snapshot/reference/)
+[Getting Started](https://projectreactor.io/docs/rabbitmq/snapshot/reference/#_getting_started) -
+[Reference Documentation](https://projectreactor.io/docs/rabbitmq/snapshot/reference/)
 
 ## Documentation
 
-[Reference documentation](http://projectreactor.io/docs/rabbitmq/milestone/reference/)
+[Reference documentation](https://projectreactor.io/docs/rabbitmq/milestone/reference/)
 
-[Javadoc](http://projectreactor.io/docs/rabbitmq/milestone/api/index.html)
+[Javadoc](https://projectreactor.io/docs/rabbitmq/milestone/api/index.html)
 
 ## Building applications using Reactor RabbitMQ API
 
-You need to have [Java 8](http://www.oracle.com/technetwork/java/javase/downloads/index.html) installed.
+You need to have [Java 8](https://www.oracle.com/technetwork/java/javase/downloads/index.html) installed.
 
 With Maven:
 ```xml
@@ -145,4 +145,4 @@ You need a local running RabbitMQ instance.
 
 Reactor RabbitMQ is [Apache 2.0 licensed](https://www.apache.org/licenses/LICENSE-2.0.html).
 
-_Sponsored by [Pivotal](http://pivotal.io)_
+_Sponsored by [Pivotal](https://pivotal.io)_

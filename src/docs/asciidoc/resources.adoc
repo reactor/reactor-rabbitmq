@@ -17,9 +17,9 @@ at https://github.com/reactor/reactor-rabbitmq.
 
 * https://github.com/reactor/reactor-rabbitmq[Reactor RabbitMQ on github]
 
-* http://www.rabbitmq.com/documentation.html[RabbitMQ]
+* https://www.rabbitmq.com/documentation.html[RabbitMQ]
 
-* http://projectreactor.io/[Project Reactor]
+* https://projectreactor.io/[Project Reactor]
 
 * https://github.com/reactor/reactor-core[Reactor Core]
 
