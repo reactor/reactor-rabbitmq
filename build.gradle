@@ -45,10 +45,10 @@ ext {
 	springAmqpVersion = '2.1.4.RELEASE'
 
 	// Testing
-	mockitoVersion = '2.25.0'
-	junitPlatformVersion = '1.4.0'
-	junitJupiterVersion  = '5.4.0'
-	assertjVersion = '3.11.1'
+	mockitoVersion = '2.25.1'
+	junitPlatformVersion = '1.4.1'
+	junitJupiterVersion  = '5.4.1'
+	assertjVersion = '3.12.2'
 
 	javadocLinks = ["https://docs.oracle.com/javase/7/docs/api/",
 					"https://docs.oracle.com/javaee/6/api/",
