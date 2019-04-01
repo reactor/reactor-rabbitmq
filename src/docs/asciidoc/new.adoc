@@ -6,7 +6,7 @@
 
 * Limit in-flight records in publisher confirms if requested
 * Implement back pressure in publisher confirms support
-* Use Reactor 3.2.6.RELEASE
+* Use Reactor 3.2.8.RELEASE
 
 === What's new in Reactor RabbitMQ 1.1
 
