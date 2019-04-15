@@ -16,17 +16,19 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.ShutdownSignalException;
+import com.rabbitmq.client.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static reactor.rabbitmq.RabbitFlux.createSender;
@@ -88,5 +90,32 @@ public class SenderTests {
         sender = createSender(new SenderOptions().channelMono(senderChannelMono));
         assertSame(senderChannelMono, sender.getChannelMono(new SendOptions()));
         assertSame(sendChannelMono, sender.getChannelMono(new SendOptions().channelMono(sendChannelMono)));
+    }
+
+    @Test
+    void createExchangeBeforePublishing() throws Exception {
+        int nbMessages = 10;
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        AtomicInteger counter = new AtomicInteger();
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, new DefaultConsumer(channel) {
+
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                counter.incrementAndGet();
+                latch.countDown();
+            }
+        });
+
+        String exchange = UUID.randomUUID().toString();
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage(exchange, queue, "".getBytes()));
+
+        sender = createSender();
+        sender.declare(ExchangeSpecification.exchange(exchange).type("direct").autoDelete(true))
+                .then(sender.bind(BindingSpecification.binding(exchange, queue, queue)))
+                .then(sender.send(msgFlux)).subscribe();
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        assertEquals(nbMessages, counter.get());
     }
 }
