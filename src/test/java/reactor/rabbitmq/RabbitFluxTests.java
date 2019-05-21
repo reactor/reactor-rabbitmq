@@ -1124,6 +1124,17 @@ public class RabbitFluxTests {
         sendAndReceiveMessages(queue);
     }
 
+    @Test
+    public void creatingNonExistentPassiveChannelResultsInError() {
+        ConnectionFactory connectionFactory = new ConnectionFactory();
+        connectionFactory.useNio();
+
+        sender = createSender(new SenderOptions()
+                .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("non-existing-passive-queue"))));
+        
+        StepVerifier.create(sender.declareQueue(QueueSpecification.queue("non-existing-queue").passive(true))).expectError(ShutdownSignalException.class).verify();
+    }
+
     private void sendAndReceiveMessages(String queue) throws Exception {
         int nbMessages = 10;
         CountDownLatch latch = new CountDownLatch(nbMessages);

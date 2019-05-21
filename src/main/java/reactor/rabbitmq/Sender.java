@@ -251,6 +251,7 @@ public class Sender implements AutoCloseable {
                 .durable(specification.isDurable())
                 .exclusive(specification.isExclusive())
                 .autoDelete(specification.isAutoDelete())
+                .passive(specification.isPassive())
                 .arguments(specification.getArguments())
                 .build();
         }
