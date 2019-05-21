@@ -25,7 +25,7 @@ public class ExchangeSpecification {
 
     private String name;
     private String type = "direct";
-    private boolean durable = false, autoDelete = false, internal = false;
+    private boolean durable = false, autoDelete = false, internal = false, passive = false;
     private Map<String, Object> arguments;
 
     public static ExchangeSpecification exchange() {
@@ -61,6 +61,11 @@ public class ExchangeSpecification {
         return this;
     }
 
+    public ExchangeSpecification passive(boolean passive) {
+        this.passive = passive;
+        return this;
+    }
+
     public ExchangeSpecification arguments(Map<String, Object> arguments) {
         this.arguments = arguments;
         return this;
@@ -86,7 +91,12 @@ public class ExchangeSpecification {
         return internal;
     }
 
+    public boolean isPassive() {
+        return passive;
+    }
+
     public Map<String, Object> getArguments() {
         return arguments;
     }
+
 }

@@ -331,6 +331,7 @@ public class Sender implements AutoCloseable {
             .durable(specification.isDurable())
             .autoDelete(specification.isAutoDelete())
             .internal(specification.isInternal())
+            .passive(specification.isPassive())
             .arguments(specification.getArguments())
             .build();
         return channelMono.map(channel -> {
