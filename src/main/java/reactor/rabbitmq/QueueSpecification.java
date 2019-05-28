@@ -17,6 +17,7 @@
 package reactor.rabbitmq;
 
 import java.util.Map;
+import java.util.Queue;
 
 /**
  * Fluent API to specify the creation of a queue.
@@ -32,6 +33,7 @@ public class QueueSpecification {
     protected boolean durable = false;
     protected boolean exclusive = false;
     protected boolean autoDelete = false;
+    protected boolean passive = false;
     protected Map<String, Object> arguments;
 
     public static QueueSpecification queue() {
@@ -71,6 +73,11 @@ public class QueueSpecification {
         return this;
     }
 
+    public QueueSpecification passive(boolean passive) {
+        this.passive = passive;
+        return this;
+    }
+
     public String getName() {
         return name;
     }
@@ -87,6 +94,10 @@ public class QueueSpecification {
         return autoDelete;
     }
 
+    public boolean isPassive() {
+        return passive;
+    }
+
     public Map<String, Object> getArguments() {
         return arguments;
     }
@@ -94,7 +105,7 @@ public class QueueSpecification {
     /**
      * Internal class to handle queues with a null name.
      * Those queues always have a server-generated name are non-durable,
-     * exclusive, and auto-delete.
+     * exclusive, auto-delete, and non-passive.
      */
     private static class NullNameQueueSpecification extends QueueSpecification {
 
@@ -103,6 +114,7 @@ public class QueueSpecification {
             this.durable = false;
             this.exclusive = true;
             this.autoDelete = true;
+            this.passive = false;
         }
 
         @Override
@@ -113,7 +125,8 @@ public class QueueSpecification {
             return QueueSpecification.queue(name)
                     .durable(durable)
                     .exclusive(exclusive)
-                    .autoDelete(autoDelete);
+                    .autoDelete(autoDelete)
+                    .passive(passive);
         }
 
         @Override
@@ -136,6 +149,14 @@ public class QueueSpecification {
         public QueueSpecification autoDelete(boolean autoDelete) {
             if (this.autoDelete != autoDelete) {
                 throw new IllegalArgumentException("Once a queue has a null name, autoDelete is always true");
+            }
+            return this;
+        }
+
+        @Override
+        public QueueSpecification passive(boolean passive) {
+            if (this.passive != passive) {
+                throw new IllegalArgumentException("Once a queue has a null name, passive is always false");
             }
             return this;
         }

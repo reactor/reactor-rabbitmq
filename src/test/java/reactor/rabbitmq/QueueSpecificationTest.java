@@ -93,12 +93,14 @@ class QueueSpecificationTest {
                     .name("not-null-anymore")
                     .durable(true)
                     .exclusive(false)
-                    .autoDelete(false);
+                    .autoDelete(false)
+                    .passive(false);
 
             assertEquals(queueSpecification.getName(), "not-null-anymore");
             assertTrue(queueSpecification.isDurable());
             assertFalse(queueSpecification.isAutoDelete());
             assertFalse(queueSpecification.isExclusive());
+            assertFalse(queueSpecification.isPassive());
         }
     }
 
@@ -109,12 +111,14 @@ class QueueSpecificationTest {
             QueueSpecification queueSpecification = QueueSpecification.queue("my-queue")
                     .durable(false)
                     .autoDelete(false)
-                    .exclusive(false);
+                    .exclusive(false)
+                    .passive(true);
 
             assertEquals(queueSpecification.getName(), "my-queue");
             assertFalse(queueSpecification.isDurable());
             assertFalse(queueSpecification.isAutoDelete());
             assertFalse(queueSpecification.isExclusive());
+            assertTrue(queueSpecification.isPassive());
             assertNull(queueSpecification.getArguments());
         }
 
@@ -123,12 +127,14 @@ class QueueSpecificationTest {
             QueueSpecification queueSpecification = QueueSpecification.queue("")
                     .durable(false)
                     .autoDelete(false)
-                    .exclusive(false);
+                    .exclusive(false)
+                    .passive(false);
 
             assertEquals(queueSpecification.getName(), "");
             assertFalse(queueSpecification.isDurable());
             assertFalse(queueSpecification.isAutoDelete());
             assertFalse(queueSpecification.isExclusive());
+            assertFalse(queueSpecification.isPassive());
             assertNull(queueSpecification.getArguments());
         }
 
@@ -141,6 +147,7 @@ class QueueSpecificationTest {
             assertFalse(queueSpecification.isDurable());
             assertTrue(queueSpecification.isAutoDelete());
             assertTrue(queueSpecification.isExclusive());
+            assertFalse(queueSpecification.isPassive());
             assertThat(queueSpecification.getArguments()).isNotNull().hasSize(1).containsKeys("x-max-length");
         }
     }
