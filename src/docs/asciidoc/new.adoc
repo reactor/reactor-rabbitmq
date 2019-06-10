@@ -2,6 +2,11 @@
 
 [[new]]
 
+=== What's new in Reactor RabbitMQ 1.3
+
+* Use Reactor 3.3.0
+* Allow passive exchange and queue declaration
+
 === What's new in Reactor RabbitMQ 1.2
 
 * Limit in-flight records in publisher confirms if requested
