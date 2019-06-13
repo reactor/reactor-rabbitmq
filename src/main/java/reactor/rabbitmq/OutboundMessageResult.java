@@ -25,15 +25,29 @@ public class OutboundMessageResult {
 
     private final boolean ack;
 
+    /**
+     * Constructs a result which is described by the initial message that has been published and the acknowledgment
+     * status.
+     * @param outboundMessage The message that has been published
+     * @param ack Whether the message has been acknowledged by the broker or not
+     */
     public OutboundMessageResult(OutboundMessage outboundMessage, boolean ack) {
         this.outboundMessage = outboundMessage;
         this.ack = ack;
     }
 
+    /**
+     * Defines the message that has been published.
+     * @return The message that has been published.
+     */
     public OutboundMessage getOutboundMessage() {
         return outboundMessage;
     }
 
+    /**
+     * Defines whether the message has been acknowledged by the broker or not.
+     * @return True if the message has been acknowledged, false otherwise.
+     */
     public boolean isAck() {
         return ack;
     }

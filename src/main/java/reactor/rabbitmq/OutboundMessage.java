@@ -36,6 +36,15 @@ public class OutboundMessage {
     // TODO add a correlation property to use for OutboundMessageResult
     // (instead of using the whole message)
 
+    /**
+     * Constructs a new message which is described by the body, the target exchange and the routing key which
+     * can be used for smart routing after the message is published to the exchange. The message will also be
+     * accompanied by the provided properties which define its behaviour in the broker.
+     * @param exchange The name of the target exchange.
+     * @param routingKey The routing key to be used if the message has to be routed in a specific way towards a queue.
+     * @param properties AMQP compatible properties that will be used during the publishing of the message.
+     * @param body The main body of the message.
+     */
     public OutboundMessage(String exchange, String routingKey, BasicProperties properties, byte[] body) {
         this.exchange = exchange;
         this.routingKey = routingKey;
@@ -43,22 +52,45 @@ public class OutboundMessage {
         this.body = body;
     }
 
+    /**
+     * Constructs a new message which is described by the body, the target exchange and the routing key which
+     * can be used for smart routing after the message is published to the exchange.
+     * @param exchange The name of the target exchange.
+     * @param routingKey The routing key to be used if the message has to be routed in a specific way towards a queue.
+     * @param body The main body of the message.
+     */
     public OutboundMessage(String exchange, String routingKey, byte[] body) {
         this(exchange, routingKey, null, body);
     }
 
+    /**
+     * Defines the exchange to which the message will be published.
+     * @return The exchange name.
+     */
     public String getExchange() {
         return exchange;
     }
 
+    /**
+     * Defines the routing key to be used if the message has to be routed in a specific way towards a queue
+     * @return The routing key
+     */
     public String getRoutingKey() {
         return routingKey;
     }
 
+    /**
+     * Defines any additional properties that will be used during the publishing of the message.
+     * @return All the properties that have been set. Null if no property is set.
+     */
     public BasicProperties getProperties() {
         return properties;
     }
 
+    /**
+     * Defines the main body of the message in byte array form.
+     * @return The body of the message
+     */
     public byte[] getBody() {
         return body;
     }
