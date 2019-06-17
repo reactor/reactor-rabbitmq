@@ -31,7 +31,7 @@ public class OutboundMessage {
 
     private final BasicProperties properties;
 
-    private final byte [] body;
+    private final byte[] body;
 
     // TODO add a correlation property to use for OutboundMessageResult
     // (instead of using the whole message)
@@ -40,10 +40,11 @@ public class OutboundMessage {
      * Constructs a new message which is described by the body, the target exchange and the routing key which
      * can be used for smart routing after the message is published to the exchange. The message will also be
      * accompanied by the provided properties which define its behaviour in the broker.
-     * @param exchange The name of the target exchange.
+     *
+     * @param exchange   The name of the target exchange.
      * @param routingKey The routing key to be used if the message has to be routed in a specific way towards a queue.
      * @param properties AMQP compatible properties that will be used during the publishing of the message.
-     * @param body The main body of the message.
+     * @param body       The main body of the message.
      */
     public OutboundMessage(String exchange, String routingKey, BasicProperties properties, byte[] body) {
         this.exchange = exchange;
@@ -55,9 +56,10 @@ public class OutboundMessage {
     /**
      * Constructs a new message which is described by the body, the target exchange and the routing key which
      * can be used for smart routing after the message is published to the exchange.
-     * @param exchange The name of the target exchange.
+     *
+     * @param exchange   The name of the target exchange.
      * @param routingKey The routing key to be used if the message has to be routed in a specific way towards a queue.
-     * @param body The main body of the message.
+     * @param body       The main body of the message.
      */
     public OutboundMessage(String exchange, String routingKey, byte[] body) {
         this(exchange, routingKey, null, body);
@@ -65,6 +67,7 @@ public class OutboundMessage {
 
     /**
      * Defines the exchange to which the message will be published.
+     *
      * @return The exchange name.
      */
     public String getExchange() {
@@ -73,6 +76,7 @@ public class OutboundMessage {
 
     /**
      * Defines the routing key to be used if the message has to be routed in a specific way towards a queue
+     *
      * @return The routing key
      */
     public String getRoutingKey() {
@@ -81,6 +85,7 @@ public class OutboundMessage {
 
     /**
      * Defines any additional properties that will be used during the publishing of the message.
+     *
      * @return All the properties that have been set. Null if no property is set.
      */
     public BasicProperties getProperties() {
@@ -89,6 +94,7 @@ public class OutboundMessage {
 
     /**
      * Defines the main body of the message in byte array form.
+     *
      * @return The body of the message
      */
     public byte[] getBody() {
@@ -98,10 +104,10 @@ public class OutboundMessage {
     @Override
     public String toString() {
         return "OutboundMessage{" +
-            "exchange='" + exchange + '\'' +
-            ", routingKey='" + routingKey + '\'' +
-            ", properties=" + properties +
-            ", body=" + Arrays.toString(body) +
-            '}';
+                "exchange='" + exchange + '\'' +
+                ", routingKey='" + routingKey + '\'' +
+                ", properties=" + properties +
+                ", body=" + Arrays.toString(body) +
+                '}';
     }
 }
