@@ -38,6 +38,8 @@ import reactor.util.function.Tuples;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -89,6 +91,14 @@ public class RabbitFluxTests {
                 new Object[]{10, (Function<Tuple3<Sender, Publisher<OutboundMessage>, SendOptions>, Publisher>) objects -> objects.getT1().send(objects.getT2(), objects.getT3()), 0},
                 new Object[]{10, (Function<Tuple3<Sender, Publisher<OutboundMessage>, SendOptions>, Publisher>) objects -> objects.getT1().sendWithPublishConfirms(objects.getT2(), objects.getT3()), 10}
         };
+    }
+
+    static Collection<ChannelOperation> declarePassiveArguments() {
+        return Arrays.asList(
+                (channel, ctx) -> {
+                },
+                (channel, ctx) -> channel.queueDeclare(ctx.toString(), false, false, false, null)
+        );
     }
 
     @BeforeEach
@@ -201,7 +211,6 @@ public class RabbitFluxTests {
 
         verify(channel, times(2)).basicAck(anyLong(), anyBoolean());
     }
-
 
     @Test
     public void receiverConsumeNoAck() throws Exception {
@@ -494,7 +503,6 @@ public class RabbitFluxTests {
         // then
         verify(channelSpy).basicCancel(anyString());
     }
-
 
     @ParameterizedTest
     @MethodSource("noAckAndManualAckFluxArguments")
@@ -1006,6 +1014,35 @@ public class RabbitFluxTests {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("declarePassiveArguments")
+    public void declarePassive(ChannelOperation channelOperation) throws Exception {
+        Channel channel = connection.createChannel();
+        final String queue = UUID.randomUUID().toString();
+        try {
+            channelOperation.doWithChannel(channel, queue);
+            CountDownLatch creationLatch = new CountDownLatch(1);
+            int messageCount = 10;
+            Flux<OutboundMessage> messages = Flux.range(0, messageCount)
+                    .map(i -> new OutboundMessage("", queue, "".getBytes()));
+            sender = createSender();
+            sender.declare(queue(queue).passive(true))
+                    .onErrorResume(exception -> sender.declare(queue(queue)))
+                    .then(sender.send(messages))
+                    .doFinally($$ -> creationLatch.countDown())
+                    .subscribe();
+
+            assertThat(creationLatch.await(5, TimeUnit.SECONDS)).isTrue();
+
+            CountDownLatch messagesLatch = new CountDownLatch(messageCount);
+            channel.basicConsume(queue, (consumerTag, message) -> messagesLatch.countDown(), ctag -> {
+            });
+            assertThat(messagesLatch.await(5, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            channel.queueDelete(queue);
+        }
+    }
+
     @Test
     public void shovel() throws Exception {
         final String sourceQueue = UUID.randomUUID().toString();
@@ -1131,7 +1168,7 @@ public class RabbitFluxTests {
 
         sender = createSender(new SenderOptions()
                 .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("non-existing-passive-queue"))));
-        
+
         StepVerifier.create(sender.declareQueue(QueueSpecification.queue("non-existing-queue").passive(true))).expectError(ShutdownSignalException.class).verify();
     }
 
@@ -1188,6 +1225,13 @@ public class RabbitFluxTests {
         } catch (Exception e) {
             throw new RabbitFluxException(e);
         }
+    }
+
+    @FunctionalInterface
+    interface ChannelOperation {
+
+        void doWithChannel(Channel channel, Object context) throws Exception;
+
     }
 
 }
