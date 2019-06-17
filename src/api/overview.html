@@ -31,13 +31,13 @@ This document is the API specification for the Reactor RabbitMQ library.
     </p>
     <h3><a href="reactor/rabbitmq/Sender.html">Sender</a></h3>
     <pre>
-    sender.send(Flux.range(0, 10).map(i -> new OutboundMessage(exchange, routingKey, ("Message_" + i).getBytes()));
+    sender.send(Flux.range(0, 10).map(i -&gt; new OutboundMessage(exchange, routingKey, ("Message_" + i).getBytes()));
           .subscribe();
     </pre>
     <h3><a href="reactor/rabbitmq/Receiver.html">Receiver</a></h3>
     <pre>
     receiver.consumeNoAck(queue)
-            .subscribe(r -> log.info("Received message {} ", r));
+            .subscribe(r -&gt; log.info("Received message {} ", r));
     </pre>
     <p>
         More detailed documentation is available in the <a href="../reference" target="_blank">Reference Guide</a>.
