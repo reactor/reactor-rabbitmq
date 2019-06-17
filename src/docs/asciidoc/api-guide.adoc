@@ -263,6 +263,15 @@ include::{test-examples}/ApiGuideSender.java[tag=rpc-supplier]
 
 This can be useful e.g. when the RPC server can make sense of the correlation ID.
 
+[NOTE]
+====
+`RpcClient#close()` does not close the underlying `Channel` the `RpcClient` uses.
+When creating the `RpcClient` with `Sender#rpcClient` the `Sender` instance provides
+a `Channel` that will be closed when the `Sender` is closed.
+It is possible to provide a given `Mono<Channel>` by using the `RpcClient` constructor,
+but the `Channel` will then need to be explicitly closed as well.
+====
+
 [[api-guide-receiver]]
 === Reactive RabbitMQ Receiver
 

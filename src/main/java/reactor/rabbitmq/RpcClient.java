@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,7 +141,8 @@ public class RpcClient implements AutoCloseable {
                     }
                 };
                 try {
-                    String ctag = channel.basicConsume(replyTo, true, deliver, consumerTag -> { });
+                    String ctag = channel.basicConsume(replyTo, true, deliver, consumerTag -> {
+                    });
                     consumerTag.set(ctag);
                 } catch (IOException e) {
                     handleError(e);
@@ -160,7 +161,7 @@ public class RpcClient implements AutoCloseable {
                 String correlationId = correlationIdSupplier.get();
                 AMQP.BasicProperties properties = request.properties;
                 properties = ((properties == null) ? new AMQP.BasicProperties.Builder() : properties.builder())
-                    .correlationId(correlationId).replyTo(replyTo).build();
+                        .correlationId(correlationId).replyTo(replyTo).build();
                 subscribers.put(correlationId, this);
                 channel.basicPublish(exchange, routingKey, properties, request.body);
             } catch (IOException e) {
@@ -171,8 +172,7 @@ public class RpcClient implements AutoCloseable {
         @Override
         public void onError(Throwable throwable) {
             if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.COMPLETE) ||
-                state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
-                closeResources();
+                    state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
                 // complete the state
                 subscriber.onError(throwable);
             } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
@@ -191,18 +191,7 @@ public class RpcClient implements AutoCloseable {
         private void maybeComplete() {
             boolean done = state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE);
             if (done) {
-                closeResources();
                 subscriber.onComplete();
-            }
-        }
-
-        private void closeResources() {
-            try {
-                if (channel.isOpen()) {
-                    channel.close();
-                }
-            } catch (Exception e) {
-                // not much we can do here
             }
         }
 

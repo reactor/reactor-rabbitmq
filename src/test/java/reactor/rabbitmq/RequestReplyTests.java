@@ -87,7 +87,7 @@ public class RequestReplyTests {
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
+    public void tearDown() {
         if (rpcServer != null) {
             rpcServer.terminateMainloop();
         }
