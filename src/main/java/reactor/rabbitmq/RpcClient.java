@@ -36,6 +36,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
@@ -60,6 +62,8 @@ public class RpcClient implements AutoCloseable {
     private final AtomicReference<String> consumerTag = new AtomicReference<>();
 
     private final Supplier<String> correlationIdSupplier;
+
+    private final Lock channelLock = new ReentrantLock();
 
     public RpcClient(Mono<Channel> channelMono, String exchange, String routingKey, Supplier<String> correlationIdSupplier) {
         this.channelMono = channelMono;
@@ -87,11 +91,25 @@ public class RpcClient implements AutoCloseable {
         }
         if (consumerTag.get() != null) {
             try {
-                this.channelMono.block().basicCancel(consumerTag.get());
+                Channel channel = this.channelMono.block();
+                lockChannel();
+                try {
+                    channel.basicCancel(consumerTag.get());
+                } finally {
+                    unlockChannel();
+                }
             } catch (IOException e) {
                 throw new RabbitFluxException(e);
             }
         }
+    }
+
+    protected void lockChannel() {
+        channelLock.lock();
+    }
+
+    protected void unlockChannel() {
+        channelLock.unlock();
     }
 
     public static class RpcRequest {
@@ -141,9 +159,14 @@ public class RpcClient implements AutoCloseable {
                     }
                 };
                 try {
-                    String ctag = channel.basicConsume(replyTo, true, deliver, consumerTag -> {
-                    });
-                    consumerTag.set(ctag);
+                    lockChannel();
+                    try {
+                        String ctag = channel.basicConsume(replyTo, true, deliver, consumerTag -> {
+                        });
+                        consumerTag.set(ctag);
+                    } finally {
+                        unlockChannel();
+                    }
                 } catch (IOException e) {
                     handleError(e);
                 }
@@ -163,7 +186,12 @@ public class RpcClient implements AutoCloseable {
                 properties = ((properties == null) ? new AMQP.BasicProperties.Builder() : properties.builder())
                         .correlationId(correlationId).replyTo(replyTo).build();
                 subscribers.put(correlationId, this);
-                channel.basicPublish(exchange, routingKey, properties, request.body);
+                lockChannel();
+                try {
+                    channel.basicPublish(exchange, routingKey, properties, request.body);
+                } finally {
+                    unlockChannel();
+                }
             } catch (IOException e) {
                 handleError(e);
             }

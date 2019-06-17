@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,19 +110,19 @@ public class RequestReplyTests {
 
         sender = RabbitFlux.createSender();
 
-        int nbRequests = 10;
+        int nbRequests = 100;
         CountDownLatch latch = new CountDownLatch(nbRequests);
-        try (RpcClient rpcClient = rpcClientCreator.apply(sender)) {
-            IntStream.range(0, nbRequests).forEach(i -> {
+        RpcClient rpcClient = rpcClientCreator.apply(sender);
+        IntStream.range(0, nbRequests).forEach(i -> {
+            new Thread(() -> {
                 String content = "hello " + i;
                 Mono<Delivery> deliveryMono = rpcClient.rpc(Mono.just(new RpcClient.RpcRequest(content.getBytes())));
-                String received = new String(deliveryMono.block().getBody());
-                assertEquals("*** " + content + " ***", received);
+                assertEquals("*** " + content + " ***", new String(deliveryMono.block().getBody()));
                 latch.countDown();
-            });
-            assertTrue(latch.await(5, TimeUnit.SECONDS), "All requests should have dealt with by now");
-        }
-
+            }).start();
+        });
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "All requests should have dealt with by now");
+        rpcClient.close();
     }
 
     private static class TestRpcServer extends RpcServer {
