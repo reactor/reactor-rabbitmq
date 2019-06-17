@@ -6,6 +6,9 @@
 
 * Use Reactor 3.3.0
 * Allow passive exchange and queue declaration
+* Emit exception on server-initiated channel closing in publish confirms
+flow
+* Use Java client 5.7.1
 
 === What's new in Reactor RabbitMQ 1.2
 
