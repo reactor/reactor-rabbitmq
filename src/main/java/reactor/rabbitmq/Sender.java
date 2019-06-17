@@ -16,10 +16,7 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.ConfirmListener;
-import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.*;
 import com.rabbitmq.client.impl.AMQImpl;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -598,6 +595,13 @@ public class Sender implements AutoCloseable {
                         if (unconfirmed.size() == 0) {
                             maybeComplete();
                         }
+                    }
+                });
+                channel.addShutdownListener(sse -> {
+                    // the server is closing the channel because of some error (e.g. exchange does not exist).
+                    // sending a signal downstream
+                    if (!sse.isHardError() && !sse.isInitiatedByApplication()) {
+                        subscriber.onError(sse);
                     }
                 });
                 state.set(SubscriberState.ACTIVE);

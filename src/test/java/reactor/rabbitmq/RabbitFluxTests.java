@@ -1043,6 +1043,22 @@ public class RabbitFluxTests {
         }
     }
 
+    @Test public void emitErrorOnPublisherConfWhenChannelIsClosedByServer() throws Exception {
+        String nonExistingExchange = UUID.randomUUID().toString();
+        int messageCount = 5;
+        Flux<OutboundMessage> msgFlux = Flux.range(0, messageCount)
+                .map(i -> new OutboundMessage(nonExistingExchange, queue, "".getBytes()));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        sender = createSender();
+        sender.sendWithPublishConfirms(msgFlux).doOnError(e -> {
+            if (e instanceof ShutdownSignalException) {
+                latch.countDown();
+            }
+        }).subscribe();
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
     @Test
     public void shovel() throws Exception {
         final String sourceQueue = UUID.randomUUID().toString();
