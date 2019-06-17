@@ -17,20 +17,23 @@
 package reactor.rabbitmq.samples;
 
 import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Queue;
-import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.rabbitmq.*;
 
+import javax.annotation.PreDestroy;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,6 +43,8 @@ public class SpringBootSample {
 
     static final String QUEUE = "reactor.rabbitmq.spring.boot";
     private static final Logger LOGGER = LoggerFactory.getLogger(SpringBootSample.class);
+    @Autowired
+    Mono<Connection> connectionMono;
 
     public static void main(String[] args) {
         SpringApplication.run(SpringBootSample.class, args).close();
@@ -53,9 +58,14 @@ public class SpringBootSample {
 
     // the mono for connection, it is cached to re-use the connection across sender and receiver instances
     // this should work properly in most cases
-    @Bean
-    Mono<Connection> connectionMono(ConnectionFactory connectionFactory) {
-        return Mono.fromCallable(() -> connectionFactory.createConnection().getDelegate()).cache();
+    @Bean()
+    Mono<Connection> connectionMono(RabbitProperties rabbitProperties) {
+        ConnectionFactory connectionFactory = new ConnectionFactory();
+        connectionFactory.setHost(rabbitProperties.getHost());
+        connectionFactory.setPort(rabbitProperties.getPort());
+        connectionFactory.setUsername(rabbitProperties.getUsername());
+        connectionFactory.setPassword(rabbitProperties.getPassword());
+        return Mono.fromCallable(() -> connectionFactory.newConnection("reactor-rabbit")).cache();
     }
 
     @Bean
@@ -71,6 +81,11 @@ public class SpringBootSample {
     @Bean
     Flux<Delivery> deliveryFlux(Receiver receiver) {
         return receiver.consumeNoAck(QUEUE);
+    }
+
+    @PreDestroy
+    public void close() throws Exception {
+        connectionMono.block().close();
     }
 
     // a runner that publishes messages with the sender bean and consumes them with the receiver bean
