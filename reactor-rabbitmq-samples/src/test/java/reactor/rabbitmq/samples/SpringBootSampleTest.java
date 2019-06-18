@@ -16,6 +16,8 @@
 
 package reactor.rabbitmq.samples;
 
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -25,7 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class SpringBootSampleTest {
 
     @Test
-    public void test() {
+    public void test() throws Exception {
+        ConnectionFactory connectionFactory = new ConnectionFactory();
+        try (Connection c = connectionFactory.newConnection()) {
+            c.createChannel().queueDelete(SpringBootSample.QUEUE);
+        }
         try (ConfigurableApplicationContext ctx = SpringApplication.run(SpringBootSample.class)) {
             SpringBootSample.Runner runner = ctx.getBean(SpringBootSample.Runner.class);
             assertTrue(runner.latchCompleted.get());
