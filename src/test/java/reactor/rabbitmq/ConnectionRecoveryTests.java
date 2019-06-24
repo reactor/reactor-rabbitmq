@@ -180,9 +180,9 @@ public class ConnectionRecoveryTests {
         AtomicReference<DeliverCallback> deliverCallbackAtomicReference = new AtomicReference<>();
 
         when(mockChannel.basicConsume(
-            anyString(), anyBoolean(), any(DeliverCallback.class), any(CancelCallback.class)
+            anyString(), anyBoolean(), anyString(), any(DeliverCallback.class), any(CancelCallback.class)
         )).thenAnswer(answer -> {
-            deliverCallbackAtomicReference.set(answer.getArgument(2));
+            deliverCallbackAtomicReference.set(answer.getArgument(3));
             consumerRegisteredLatch.countDown();
             return "ctag";
         });
@@ -238,9 +238,9 @@ public class ConnectionRecoveryTests {
         AtomicReference<DeliverCallback> deliverCallbackAtomicReference = new AtomicReference<>();
 
         when(mockChannel.basicConsume(
-            anyString(), anyBoolean(), any(DeliverCallback.class), any(CancelCallback.class)
+            anyString(), anyBoolean(), anyString(), any(DeliverCallback.class), any(CancelCallback.class)
         )).thenAnswer(answer -> {
-            deliverCallbackAtomicReference.set(answer.getArgument(2));
+            deliverCallbackAtomicReference.set(answer.getArgument(3));
             consumerRegisteredLatch.countDown();
             return "ctag";
         });
