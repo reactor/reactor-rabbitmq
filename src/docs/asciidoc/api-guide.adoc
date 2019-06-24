@@ -330,6 +330,7 @@ can accept a `ConsumeOptions` instance. Here are the different options:
 * `overflowStrategy`: the https://projectreactor.io/docs/core/release/api/reactor/core/publisher/FluxSink.OverflowStrategy.html[`OverflowStrategy`]
 used when creating the `Flux` of messages. Default is `BUFFER`.
 * `qos`: the prefetch count used when message acknowledgment is enabled. Default is 250.
+* `consumerTag`: Consumer tag that could be used to cancel a consumer. Default is server-generated identifier.
 * `hookBeforeEmitBiFunction`: a `BiFunction<Long, ? super Delivery, Boolean>` to decide
 whether a message should be emitted downstream or not. Default is to always emit.
 * `stopConsumingBiFunction`: a `BiFunction<Long, ? super Delivery, Boolean>` to decide

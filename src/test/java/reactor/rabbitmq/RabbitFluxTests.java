@@ -86,6 +86,14 @@ public class RabbitFluxTests {
         );
     }
 
+    static Stream<Arguments> receiverConsumeWithCustomConsumerTag() {
+        ConsumeOptions consumeOptions = new ConsumeOptions().consumerTag("customConsumerTag");
+        return Stream.of(
+                of((BiFunction<Receiver, String, Flux<Delivery>>) (receiver, queue) -> receiver.consumeNoAck(queue, consumeOptions)),
+                of((BiFunction<Receiver, String, Flux<? extends Delivery>>) (receiver, queue) -> receiver.consumeManualAck(queue, consumeOptions))
+        );
+    }
+
     public static Object[][] senderWithCustomChannelCloseHandlerPriorityArguments() {
         return new Object[][]{
                 new Object[]{10, (Function<Tuple3<Sender, Publisher<OutboundMessage>, SendOptions>, Publisher>) objects -> objects.getT1().send(objects.getT2(), objects.getT3()), 0},
@@ -245,6 +253,26 @@ public class RabbitFluxTests {
         assertNull(connection.createChannel().basicGet(queue, true));
     }
 
+    @ParameterizedTest
+    @MethodSource("receiverConsumeWithCustomConsumerTag")
+    public void receiverConsumeWithCustomConsumerTag(BiFunction<Receiver, String, Flux<? extends Delivery>> fluxFactory) throws IOException {
+        Channel channel = connection.createChannel();
+
+        receiver = RabbitFlux.createReceiver();
+
+        StepVerifier.create(fluxFactory.apply(receiver, queue))
+                .then(() -> {
+                    try {
+                        channel.basicPublish("", queue, null, "Hello".getBytes());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .expectNextCount(1)
+                .thenCancel()
+                .verify(Duration.ofSeconds(1));
+    }
+
     @Test
     public void receiverConsumeAutoAck() throws Exception {
         Channel channel = connection.createChannel();
@@ -279,7 +307,7 @@ public class RabbitFluxTests {
     }
 
     @Test
-    public void receiverConsumeManuelAck() throws Exception {
+    public void receiverConsumeManualAck() throws Exception {
         Channel channel = connection.createChannel();
         int nbMessages = 10;
 

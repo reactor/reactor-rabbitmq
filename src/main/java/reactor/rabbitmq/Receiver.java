@@ -98,7 +98,7 @@ public class Receiver implements Closeable {
 
                 completeOnChannelShutdown(channel, emitter);
 
-                final String consumerTag = channel.basicConsume(queue, true, deliverCallback, cancelCallback);
+                final String consumerTag = channel.basicConsume(queue, true, options.getConsumerTag(), deliverCallback, cancelCallback);
                 AtomicBoolean cancelled = new AtomicBoolean(false);
                 LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                 emitter.onDispose(() -> {
@@ -176,7 +176,7 @@ public class Receiver implements Closeable {
 
                 completeOnChannelShutdown(channel, emitter);
 
-                final String consumerTag = channel.basicConsume(queue, false, deliverCallback, cancelCallback);
+                final String consumerTag = channel.basicConsume(queue, false, options.getConsumerTag(), deliverCallback, cancelCallback);
                 AtomicBoolean cancelled = new AtomicBoolean(false);
                 LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                 emitter.onDispose(() -> {

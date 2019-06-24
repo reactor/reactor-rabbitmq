@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,11 @@ public class ConsumeOptions {
      */
     private int qos = 250;
 
+    /**
+     * A client-generated consumer tag to establish context
+     */
+    private String consumerTag = "";
+
     private FluxSink.OverflowStrategy overflowStrategy = FluxSink.OverflowStrategy.BUFFER;
 
     /**
@@ -59,6 +64,18 @@ public class ConsumeOptions {
             throw new IllegalArgumentException("QoS must be greater or equal to 0");
         }
         this.qos = qos;
+        return this;
+    }
+
+    public String getConsumerTag() {
+        return consumerTag;
+    }
+
+    public ConsumeOptions consumerTag(String consumerTag) {
+        if (consumerTag == null) {
+            throw new IllegalArgumentException("consumerTag must be non-null");
+        }
+        this.consumerTag = consumerTag;
         return this;
     }
 
