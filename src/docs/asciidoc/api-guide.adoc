@@ -423,15 +423,45 @@ exception can be customized by providing a `Predicate<Throwable>` in place of
 
 This section covers advanced uses of the Reactor RabbitMQ API.
 
-==== Creating a connection with a custom `Mono`
+==== Customizing connection creation
 
 It is possible to specify only a `ConnectionFactory` for `Sender/ReceiverOptions` and
-let Reactor RabbitMQ create connection from this `ConnectionFactory`.
-If you want more control over the creation of connections, you can use
-`Sender/ReceiverOptions#connectionSupplier(ConnectionFactory)`. This is fine for most cases
-and doesn't use any reactive API. Both `Sender` and `Receiver` use internally a `Mono<Connection>`
-to open the connection only when needed. It is possible to provide this `Mono<Connection>`
-through the appropriate `*Options` class:
+let Reactor RabbitMQ create connection from this `ConnectionFactory`. Internally, Reactor
+RabbitMQ will create a `Mono<Connection>` to perform its operations and the connection
+will be created only when needed.
+
+When the developer
+lets Reactor RabbitMQ create a `Mono<Connection>`, the library will take responsibility
+for the following actions for each instance of `Sender` and `Receiver`:
+
+ * using a cache to avoid creating several connections (by using `Mono#cache()`)
+ * making the `Mono<Connection>` register on `connectionSubscriptionScheduler` (with `Mono#subscribeOn`)
+ * closing the connection when `Sender/Receiver#close()` is closed
+
+Reactor RabbitMQ provides 2 ways to have more control over the connection creation, e.g. to provide
+a name or to connect to different nodes:
+
+ * using a connection supplier (simplest option, no Reactive API involved)
+ * using a custom `Mono<Connection>` (implies Reactive API but provide more control)
+
+===== Creating a connection with a supplier
+
+The following snippet shows how to create connections with a custom name:
+
+[source,java,indent=0]
+--------
+include::{test-examples}/AdvancedFeatures.java[tag=connection-supplier]
+--------
+<1> Create and configure connection factory
+<2> Create supplier that creates connection with a name
+<3> Create supplier that creates connection with a name
+
+When using a connection supplier, Reactor RabbitMQ will create a `Mono<Connection>` and will take care
+of the operations mentioned above (caching, registering on a scheduler, and closing).
+
+===== Creating a connection with a custom `Mono`
+
+The following snippet shows how to provide custom `Mono<Connection>`:
 
 [source,java,indent=0]
 --------
@@ -442,7 +472,9 @@ include::{test-examples}/AdvancedFeatures.java[tag=connection-mono]
 <3> Create `Mono` that creates connection with a name
 
 Providing your own `Mono<Connection>` lets you take advantage of all the Reactor API
-(e.g. for caching).
+(e.g. for caching) but has some caveats: Reactor RabbitMQ will not cache the provided `Mono<Connection>`,
+will not use them on a scheduler, and will not close them automatically. This is developer's responsibility
+to take care of these actions if they make sense in their context.
 
 
 ==== Sharing the same connection between `Sender` and `Receiver`
@@ -451,18 +483,19 @@ Providing your own `Mono<Connection>` lets you take advantage of all the Reactor
 only one or a few `Connection` instances to be able to use exclusive resources between a `Sender`
 and a `Receiver` or simply to control the number of created connections.
 
-Both `SenderOptions` and `ReceiverOptions` have a `connectionMono` method that can encapsulate
-any logic to create the `Mono<Connection>` the `Sender` or `Receiver` will end up using. Reactor
-RabbitMQ provides a way to share the exact same connection instance from a `Mono<Connection>`:
+Both `SenderOptions` and `ReceiverOptions` have a `connectionSupplier` method that can encapsulate
+any logic to create the `Connection` the `Sender` or `Receiver` will end up using through
+a `Mono<Connection>`. Reactor
+RabbitMQ provides a way to share the exact same connection instance between some `Sender` and `Receiver` instances:
 
 [source,java,indent=0]
 --------
 include::{test-examples}/AdvancedFeatures.java[tag=shared-connection]
 --------
 <1> Create and configure connection factory
-<2> Create `Mono` that re-uses the same connection instance
-<3> Create sender with connection `Mono`
-<4> Create receiver with connection `Mono`
+<2> Create supplier that re-uses the same connection instance
+<3> Create sender with connection supplier
+<4> Create receiver with connection supplier
 
 Be aware that closing the first `Sender` or `Receiver` will close the underlying
 AMQP connection for all the others.

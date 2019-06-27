@@ -38,13 +38,11 @@ import reactor.util.function.Tuples;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -1158,7 +1156,11 @@ public class RabbitFluxTests {
     public void connectionMonoSharedConnection() throws Exception {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
-        Mono<? extends Connection> connectionMono = Utils.singleConnectionMono(connectionFactory, cf -> cf.newConnection());
+        AtomicInteger callCount = new AtomicInteger(0);
+        Mono<? extends Connection> connectionMono = Utils.singleConnectionMono(connectionFactory, cf -> {
+            callCount.incrementAndGet();
+            return cf.newConnection();
+        });
 
         sender = createSender(new SenderOptions().connectionMono(connectionMono));
         receiver = createReceiver(new ReceiverOptions().connectionMono(connectionMono));
@@ -1167,6 +1169,39 @@ public class RabbitFluxTests {
                 .block().getQueue();
 
         sendAndReceiveMessages(connectionQueue);
+        assertThat(callCount).hasValue(1);
+        connectionMono.block().close();
+    }
+
+    @Test
+    public void connectionSupplierConnectionIsSharedAndClosed() throws Exception {
+        AtomicInteger callCount = new AtomicInteger(0);
+        ConnectionFactory connectionFactory = new ConnectionFactory() {
+            @Override
+            public Connection newConnection() throws IOException, TimeoutException {
+                callCount.incrementAndGet();
+                return super.newConnection();
+            }
+        };
+        connectionFactory.useNio();
+
+        Collection<Utils.ExceptionFunction<ConnectionFactory, ? extends Connection>> connectionSuppliers = new ArrayList<>();
+        connectionSuppliers.add(Utils.singleConnectionSupplier(connectionFactory, cf -> cf.newConnection()));
+        connectionSuppliers.add(Utils.singleConnectionSupplier(connectionFactory));
+        connectionSuppliers.add(Utils.singleConnectionSupplier(() -> connectionFactory.newConnection()));
+
+        for (Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> connectionSupplier : connectionSuppliers) {
+            try (Sender s = createSender(new SenderOptions().connectionSupplier(connectionSupplier));
+                 Receiver r = createReceiver(new ReceiverOptions().connectionSupplier(connectionSupplier))) {
+                String connectionQueue = s.declare(QueueSpecification.queue().durable(false).autoDelete(true).exclusive(true))
+                        .block().getQueue();
+
+                sendAndReceiveMessages(connectionQueue, s, r);
+            }
+            assertThat(callCount).hasValue(1);
+            assertThat(connectionSupplier.apply(null).isOpen()).isFalse();
+            callCount.set(0);
+        }
     }
 
     @Test
@@ -1228,6 +1263,10 @@ public class RabbitFluxTests {
     }
 
     private void sendAndReceiveMessages(String queue) throws Exception {
+        sendAndReceiveMessages(queue, this.sender, this.receiver);
+    }
+
+    private void sendAndReceiveMessages(String queue, Sender sender, Receiver receiver) throws Exception {
         int nbMessages = 10;
         CountDownLatch latch = new CountDownLatch(nbMessages);
         Disposable subscriber = receiver.consumeAutoAck(queue).subscribe(delivery -> latch.countDown());

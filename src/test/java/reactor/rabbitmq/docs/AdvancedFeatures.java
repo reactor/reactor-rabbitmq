@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,35 +32,53 @@ import reactor.rabbitmq.Utils;
 @SuppressWarnings("unused")
 public class AdvancedFeatures {
 
+    void connectionSupplier() {
+        // tag::connection-supplier[]
+        ConnectionFactory connectionFactory = new ConnectionFactory();    // <1>
+        connectionFactory.useNio();
+
+        Sender sender = RabbitFlux.createSender(new SenderOptions()
+            .connectionFactory(connectionFactory)
+            .connectionSupplier(cf -> cf.newConnection("sender"))         // <2>
+        );
+
+        Receiver receiver = RabbitFlux.createReceiver(new ReceiverOptions()
+            .connectionFactory(connectionFactory)
+            .connectionSupplier(cf -> cf.newConnection("receiver"))       // <3>
+        );
+        // end::connection-supplier[]
+    }
+
     void connectionMono() {
         // tag::connection-mono[]
-        ConnectionFactory connectionFactory = new ConnectionFactory();                // <1>
+        ConnectionFactory connectionFactory = new ConnectionFactory();                        // <1>
         connectionFactory.useNio();
 
         Sender sender = RabbitFlux.createSender(new SenderOptions()
             .connectionMono(
-                Mono.fromCallable(() -> connectionFactory.newConnection("sender")))   // <2>
+                Mono.fromCallable(() -> connectionFactory.newConnection("sender")).cache())   // <2>
         );
         Receiver receiver = RabbitFlux.createReceiver(new ReceiverOptions()
             .connectionMono(
-                Mono.fromCallable(() -> connectionFactory.newConnection("receiver"))) // <3>
+                Mono.fromCallable(() -> connectionFactory.newConnection("receiver")).cache()) // <3>
         );
         // end::connection-mono[]
     }
 
     void sharedConnection() {
         // tag::shared-connection[]
-        ConnectionFactory connectionFactory = new ConnectionFactory();           // <1>
+        ConnectionFactory connectionFactory = new ConnectionFactory();                         // <1>
         connectionFactory.useNio();
-        Mono<? extends Connection> connectionMono = Utils.singleConnectionMono(  // <2>
-            connectionFactory, cf -> cf.newConnection()
+        Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> connectionsupplier =
+            Utils.singleConnectionSupplier(                                                    // <2>
+                connectionFactory, cf -> cf.newConnection()
         );
 
         Sender sender = RabbitFlux.createSender(
-            new SenderOptions().connectionMono(connectionMono)                   // <3>
+                new SenderOptions().connectionSupplier(connectionsupplier)                     // <3>
         );
         Receiver receiver = RabbitFlux.createReceiver(
-            new ReceiverOptions().connectionMono(connectionMono)                 // <4>
+                new ReceiverOptions().connectionSupplier(connectionsupplier)                   // <4>
         );
         // end::shared-connection[]
     }

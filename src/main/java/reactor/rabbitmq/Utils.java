@@ -20,7 +20,12 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Set of utilities.
@@ -39,9 +44,58 @@ public abstract class Utils {
         return Mono.fromCallable(() -> new IdempotentClosedConnection(supplier.call())).cache();
     }
 
+    public static Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> singleConnectionSupplier(
+            ConnectionFactory cf, Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> supplier) {
+        return new SingleConnectionSupplier(() -> supplier.apply(cf));
+    }
+
+    public static Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> singleConnectionSupplier(ConnectionFactory cf) {
+        return new SingleConnectionSupplier(() -> cf.newConnection());
+    }
+
+    public static Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> singleConnectionSupplier(Callable<? extends Connection> supplier) {
+        return new SingleConnectionSupplier(supplier);
+    }
+
     @FunctionalInterface
     public interface ExceptionFunction<T, R> {
 
         R apply(T t) throws Exception;
+    }
+
+    public static class SingleConnectionSupplier implements Utils.ExceptionFunction<ConnectionFactory, Connection> {
+
+        private final Callable<? extends Connection> creationAction;
+        private final Duration waitTimeout;
+
+        private final CountDownLatch latch = new CountDownLatch(1);
+        private AtomicBoolean created = new AtomicBoolean(false);
+        private AtomicReference<Connection> connection = new AtomicReference<>();
+
+        public SingleConnectionSupplier(Callable<? extends Connection> creationAction) {
+            this(creationAction, Duration.ofMinutes(5));
+        }
+
+        public SingleConnectionSupplier(Callable<? extends Connection> creationAction, Duration waitTimeout) {
+            this.creationAction = creationAction;
+            this.waitTimeout = waitTimeout;
+        }
+
+        @Override
+        public Connection apply(ConnectionFactory connectionFactory) throws Exception {
+            if (created.compareAndSet(false, true)) {
+                connection.set(new IdempotentClosedConnection(creationAction.call()));
+                latch.countDown();
+            } else {
+                boolean reachedZero = latch.await(waitTimeout.toMillis(), TimeUnit.MILLISECONDS);
+                if (!reachedZero) {
+                    if (connection.get() != null) { // if lucky
+                        return connection.get();
+                    }
+                    throw new RabbitFluxException("Reached timeout when waiting for connection to be created: " + waitTimeout);
+                }
+            }
+            return connection.get();
+        }
     }
 }
