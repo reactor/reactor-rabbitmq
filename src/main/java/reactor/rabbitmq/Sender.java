@@ -16,7 +16,10 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.*;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConfirmListener;
+import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.impl.AMQImpl;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -83,7 +86,14 @@ public class Sender implements AutoCloseable {
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
             createScheduler("rabbitmq-sender-connection-subscription") : options.getConnectionSubscriptionScheduler();
         this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
-            Mono.fromCallable(() -> options.getConnectionFactory().newConnection())
+            Mono.fromCallable(() -> {
+                    if (options.getConnectionSupplier() == null) {
+                        return options.getConnectionFactory().newConnection();
+                    } else {
+                        // the actual connection factory to use is already set in a function wrapper, not need to use one
+                        return options.getConnectionSupplier().apply(null);
+                    }
+                })
                 .doOnSubscribe(c -> hasConnection.set(true))
                 .subscribeOn(this.connectionSubscriptionScheduler)
                 .cache();

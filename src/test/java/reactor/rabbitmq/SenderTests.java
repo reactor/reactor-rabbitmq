@@ -24,7 +24,6 @@ import org.mockito.Mockito;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -101,7 +100,7 @@ public class SenderTests {
         channel.basicConsume(queue, true, new DefaultConsumer(channel) {
 
             @Override
-            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) {
                 counter.incrementAndGet();
                 latch.countDown();
             }
@@ -117,5 +116,33 @@ public class SenderTests {
                 .then(sender.send(msgFlux)).subscribe();
         assertTrue(latch.await(1, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
+    }
+
+    @Test
+    void connectionFromSupplierShouldBeCached() throws Exception {
+        ConnectionFactory cf = new ConnectionFactory();
+        cf.useNio();
+        Connection c = cf.newConnection();
+        AtomicInteger callToConnectionSupplierCount = new AtomicInteger(0);
+        SenderOptions options = new SenderOptions();
+        options.connectionSupplier(cf, connectionFactory -> {
+            callToConnectionSupplierCount.incrementAndGet();
+            return c;
+        });
+
+        int messageCount = 10;
+        CountDownLatch latch = new CountDownLatch(messageCount * 2);
+        sender = createSender(options);
+        String q = sender.declare(QueueSpecification.queue()).block().getQueue();
+        c.createChannel().basicConsume(q, true, ((consumerTag, message) -> latch.countDown()), (consumerTag -> {
+        }));
+        sender.send(Flux.range(0, messageCount)
+                .map(i -> new OutboundMessage("", q, i.toString().getBytes()))).block();
+        sender.send(Flux.range(0, messageCount)
+                .map(i -> new OutboundMessage("", q, i.toString().getBytes()))).block();
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        assertEquals(1, callToConnectionSupplierCount.get());
+
     }
 }

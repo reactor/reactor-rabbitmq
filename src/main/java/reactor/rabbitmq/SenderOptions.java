@@ -60,6 +60,8 @@ public class SenderOptions {
 
     private Mono<? extends Channel> resourceManagementChannelMono;
 
+    private Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> connectionSupplier;
+
     public ConnectionFactory getConnectionFactory() {
         return connectionFactory;
     }
@@ -76,6 +78,7 @@ public class SenderOptions {
     /**
      * Resource management scheduler.
      * It is developer's responsibility to close it if set.
+     *
      * @param resourceManagementScheduler
      * @return the current {@link SenderOptions} instance
      */
@@ -91,6 +94,7 @@ public class SenderOptions {
     /**
      * Scheduler used on connection creation subscription.
      * It is developer's responsibility to close it if set.
+     *
      * @param connectionSubscriptionScheduler
      * @return the current {@link SenderOptions} instance
      */
@@ -99,15 +103,46 @@ public class SenderOptions {
         return this;
     }
 
+    /**
+     * Set a callback that will be passed in the {@link ConnectionFactory} of this {@link SenderOptions} instance to create a {@link Connection}.
+     * <p>
+     * Note the created connection will be used by a {@link Sender} instance, which will cache it for re-use in its operations
+     * and close it when {@link Sender#close()} is called.
+     *
+     * @param function callback to create a {@link Connection}
+     * @return this current {@link SenderOptions} instance
+     */
     public SenderOptions connectionSupplier(Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> function) {
         return this.connectionSupplier(this.connectionFactory, function);
     }
 
+    /**
+     * Set a callback that will be passed in the given {@link ConnectionFactory} to create a {@link Connection}.
+     * <p>
+     * Note the created connection will be used by a {@link Sender} instance, which will cache it for re-use in its operations
+     * and close it when {@link Sender#close()} is called.
+     *
+     * @param connectionFactory the {@link ConnectionFactory} passed-in to the creation function
+     * @param function          callback to create a {@link Connection}
+     * @return this current {@link SenderOptions}
+     */
     public SenderOptions connectionSupplier(ConnectionFactory connectionFactory, Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> function) {
-        this.connectionMono = Mono.fromCallable(() -> function.apply(connectionFactory));
+        this.connectionSupplier = ignored -> function.apply(connectionFactory);
         return this;
     }
 
+    /**
+     * Send a {@link Mono} that the created {@link Sender} will use for its operations.
+     * <p>
+     * A {@link Sender} created from this {@link SenderOptions} instance will not cache for re-use, nor close
+     * on {@link Sender#close()} the underlying connection. It is recommended that the passed-in {@link Mono} handles
+     * caching of some sort to avoid a new connection to be created every time the {@link Sender} does an operation.
+     * It is the developer's responsibility to close the underlying {@link Connection} once the {@link Sender} is closed
+     * and no longer needs it.
+     *
+     * @param connectionMono
+     * @return this current {@link SenderOptions}
+     */
     public SenderOptions connectionMono(Mono<? extends Connection> connectionMono) {
         this.connectionMono = connectionMono;
         return this;
@@ -182,5 +217,9 @@ public class SenderOptions {
 
     public Mono<? extends Channel> getResourceManagementChannelMono() {
         return resourceManagementChannelMono;
+    }
+
+    public Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> getConnectionSupplier() {
+        return connectionSupplier;
     }
 }

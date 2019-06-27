@@ -16,11 +16,7 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.CancelCallback;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.DeliverCallback;
-import com.rabbitmq.client.Delivery;
+import com.rabbitmq.client.*;
 import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,12 +57,19 @@ public class Receiver implements Closeable {
     public Receiver(ReceiverOptions options) {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
-            createScheduler("rabbitmq-receiver-connection-subscription") : options.getConnectionSubscriptionScheduler();
+                createScheduler("rabbitmq-receiver-connection-subscription") : options.getConnectionSubscriptionScheduler();
         this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
-            Mono.fromCallable(() -> options.getConnectionFactory().newConnection())
-                .doOnSubscribe(c -> hasConnection.set(true))
-                .subscribeOn(this.connectionSubscriptionScheduler)
-                .cache();
+                Mono.fromCallable(() -> {
+                    if (options.getConnectionSupplier() == null) {
+                        return options.getConnectionFactory().newConnection();
+                    } else {
+                        // the actual connection factory to use is already set in a function wrapper, not need to use one
+                        return options.getConnectionSupplier().apply(null);
+                    }
+                })
+                        .doOnSubscribe(c -> hasConnection.set(true))
+                        .subscribeOn(this.connectionSubscriptionScheduler)
+                        .cache();
     }
 
     protected Scheduler createScheduler(String name) {
