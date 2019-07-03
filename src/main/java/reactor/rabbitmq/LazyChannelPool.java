@@ -74,10 +74,12 @@ class LazyChannelPool implements ChannelPool {
             Channel channel = channelsQueue.poll();
             if (channel == null) {
                 channel = createChannel(connection);
+            } else {
+                channel.clearConfirmListeners();
             }
             return channel;
         })
-                .subscribeOn(subscriptionScheduler);
+        .subscribeOn(subscriptionScheduler);
     }
 
     @Override
