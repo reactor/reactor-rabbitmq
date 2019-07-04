@@ -38,7 +38,7 @@ ext {
 	logbackVersion = '1.2.3'
 
 	// Libraries
-	rabbitMqJavaClientVersion = '5.7.1'
+	rabbitMqJavaClientVersion = '5.7.2'
 
 	// Sample
 	springBootVersion = '2.1.5.RELEASE'
