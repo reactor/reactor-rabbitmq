@@ -81,6 +81,8 @@ class LazyChannelPoolTests {
 
         verify(channel1).close();
         verify(channel2, never()).close();
+        verify(channel1).clearConfirmListeners();
+        verify(channel2, never()).clearConfirmListeners();
     }
 
     @Test
@@ -157,6 +159,8 @@ class LazyChannelPoolTests {
         verifyBasicPublish(channel2, 2);
         verify(channel1).close();
         verify(channel2, never()).close();
+        verify(channel1, never()).clearConfirmListeners();
+        verify(channel2).clearConfirmListeners();
 
         lazyChannelPool.close();
         verify(channel2).close();

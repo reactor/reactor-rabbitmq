@@ -550,6 +550,8 @@ public class Sender implements AutoCloseable {
 
         private Subscription subscription;
 
+        private ConfirmListener confirmListener;
+
         private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
             this.subscriber = subscriber;
@@ -569,7 +571,7 @@ public class Sender implements AutoCloseable {
         @Override
         public void onSubscribe(Subscription subscription) {
             if (Operators.validate(this.subscription, subscription)) {
-                channel.addConfirmListener(new ConfirmListener() {
+                this.confirmListener = new ConfirmListener() {
 
                     @Override
                     public void handleAck(long deliveryTag, boolean multiple) {
@@ -606,7 +608,8 @@ public class Sender implements AutoCloseable {
                             maybeComplete();
                         }
                     }
-                });
+                };
+                channel.addConfirmListener(confirmListener);
                 channel.addShutdownListener(sse -> {
                     // the server is closing the channel because of some error (e.g. exchange does not exist).
                     // sending a signal downstream
@@ -650,6 +653,7 @@ public class Sender implements AutoCloseable {
             if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.COMPLETE) ||
                 state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
                 // complete the flux state
+                channel.removeConfirmListener(confirmListener);
                 subscriber.onError(throwable);
             } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
                 // already completed, drop the error
@@ -679,6 +683,7 @@ public class Sender implements AutoCloseable {
         private void maybeComplete() {
             boolean done = state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE);
             if (done) {
+                channel.removeConfirmListener(confirmListener);
                 subscriber.onComplete();
             }
         }
