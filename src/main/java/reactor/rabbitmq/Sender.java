@@ -653,6 +653,7 @@ public class Sender implements AutoCloseable {
             if (state.compareAndSet(SubscriberState.ACTIVE, SubscriberState.COMPLETE) ||
                 state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
                 // complete the flux state
+                channel.removeConfirmListener(confirmListener);
                 subscriber.onError(throwable);
             } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
                 // already completed, drop the error
