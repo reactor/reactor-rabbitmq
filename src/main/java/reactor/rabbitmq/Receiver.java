@@ -58,18 +58,25 @@ public class Receiver implements Closeable {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
                 createScheduler("rabbitmq-receiver-connection-subscription") : options.getConnectionSubscriptionScheduler();
-        this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
-                Mono.fromCallable(() -> {
-                    if (options.getConnectionSupplier() == null) {
-                        return options.getConnectionFactory().newConnection();
-                    } else {
-                        // the actual connection factory to use is already set in a function wrapper, not need to use one
-                        return options.getConnectionSupplier().apply(null);
-                    }
-                })
-                        .doOnSubscribe(c -> hasConnection.set(true))
-                        .subscribeOn(this.connectionSubscriptionScheduler)
-                        .cache();
+
+        Mono<? extends Connection> cm;
+        if (options.getConnectionMono() == null) {
+            cm = Mono.fromCallable(() -> {
+                if (options.getConnectionSupplier() == null) {
+                    return options.getConnectionFactory().newConnection();
+                } else {
+                    // the actual connection factory to use is already set in a function wrapper, not need to use one
+                    return options.getConnectionSupplier().apply(null);
+                }
+            });
+            cm = options.getConnectionMonoConfigurator().apply(cm);
+            cm = cm.doOnSubscribe(c -> hasConnection.set(true))
+                    .subscribeOn(this.connectionSubscriptionScheduler)
+                    .cache();
+        } else {
+            cm = options.getConnectionMono();
+        }
+        this.connectionMono = cm;
     }
 
     protected Scheduler createScheduler(String name) {
