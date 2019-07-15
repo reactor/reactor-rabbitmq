@@ -29,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static reactor.rabbitmq.RabbitFlux.createSender;
 
@@ -147,19 +148,31 @@ public class SenderTests {
     }
 
     @Test
-    public void trackReturnedOptionWillMarkReturnedMessage() {
-        String exchange = UUID.randomUUID().toString();
-
-        OutboundMessage msgFlux = new OutboundMessage(exchange, "nonExistentKey", "".getBytes());
+    public void trackReturnedOptionWillMarkReturnedMessage() throws Exception {
+        int messageCount = 10;
+        Flux<OutboundMessage> msgFlux = Flux.range(0, messageCount).map(i -> {
+            if (i == 3) {
+                return new OutboundMessage("", "non-existing-queue", (i + "").getBytes());
+            } else {
+                return new OutboundMessage("", queue, (i + "").getBytes());
+            }
+        });
 
         sender = createSender();
-        SendOptions sendOptions = new SendOptions().setTrackReturned(true);
+        SendOptions sendOptions = new SendOptions().trackReturned(true);
 
-        OutboundMessageResult result = sender.declare(ExchangeSpecification.exchange(exchange).type("direct").autoDelete(true))
-                .then(sender.bind(BindingSpecification.binding(exchange, queue, queue)))
-                .then(sender.sendWithPublishConfirms(Flux.just(msgFlux), sendOptions).next()
-                ).block();
-
-        assertTrue(result.isReturned());
+        CountDownLatch confirmedLatch = new CountDownLatch(messageCount);
+        sender.sendWithPublishConfirms(msgFlux, sendOptions).subscribe(outboundMessageResult -> {
+            String body = new String(outboundMessageResult.getOutboundMessage().getBody());
+            if ("3".equals(body)) {
+                assertThat(outboundMessageResult.isReturned()).isTrue();
+                assertThat(outboundMessageResult.isAck()).isTrue();
+            } else {
+                assertThat(outboundMessageResult.isReturned()).isFalse();
+                assertThat(outboundMessageResult.isAck()).isTrue();
+            }
+            confirmedLatch.countDown();
+        });
+        assertThat(confirmedLatch.await(10, TimeUnit.SECONDS)).isTrue();
     }
 }

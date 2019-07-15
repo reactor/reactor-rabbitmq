@@ -45,7 +45,7 @@ public class SendOptions {
     private Integer maxInFlight;
 
     /**
-     * Whether we should track returned (undeliverable) messages.
+     * Whether we should track returned (undeliverable) messages. Default is false.
      */
     private boolean trackReturned;
 
@@ -94,7 +94,17 @@ public class SendOptions {
         return trackReturned;
     }
 
-    public SendOptions setTrackReturned(boolean trackReturned) {
+
+    /**
+     * Set whether we should track returned (undeliverable) messages.
+     * <p>
+     * Default is false.
+     *
+     * @param trackReturned
+     * @return this {@link SendOptions} instance
+     * @since 1.3.0
+     */
+    public SendOptions trackReturned(boolean trackReturned) {
         this.trackReturned = trackReturned;
         return this;
     }

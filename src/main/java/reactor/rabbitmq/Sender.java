@@ -40,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -554,13 +555,20 @@ public class Sender implements AutoCloseable {
 
         private ReturnListener returnListener;
 
-        private boolean trackReturned;
+        private final boolean trackReturned;
+
+        private final BiFunction<AMQP.BasicProperties, Long, AMQP.BasicProperties> propertiesProcessor;
 
         private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
             this.subscriber = subscriber;
             this.exceptionHandler = options.getExceptionHandler();
             this.trackReturned = options.isTrackReturned();
+            if (this.trackReturned) {
+                this.propertiesProcessor = PublishConfirmSubscriber::addReactorRabbitMQDeliveryTag;
+            } else {
+                this.propertiesProcessor = (properties, deliveryTag) -> properties;
+            }
         }
 
         @Override
@@ -578,25 +586,21 @@ public class Sender implements AutoCloseable {
             if (Operators.validate(this.subscription, subscription)) {
 
                 if(this.trackReturned) {
-                    this.returnListener = new ReturnListener() {
-                        @Override
-                        public void handleReturn(int replyCode, String replyText, String exchange, String routingKey, AMQP.BasicProperties properties, byte[] body) {
-                            try {
-                                Object deliveryTagObj = properties.getHeaders().get(REACTOR_RABBITMQ_DELIVERY_TAG_HEADER);
-                                if(deliveryTagObj != null && deliveryTagObj instanceof Long) {
-                                    Long deliveryTag = (Long) deliveryTagObj;
-                                    OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
-                                    subscriber.onNext(new OutboundMessageResult(outboundMessage, true, true));
-                                    unconfirmed.remove(deliveryTag);
-                                } else {
-                                    handleError(new IllegalArgumentException("Missing header " + REACTOR_RABBITMQ_DELIVERY_TAG_HEADER), null);
-                                }
-                            } catch (Exception e) {
-                                handleError(e, null);
+                    this.returnListener = (replyCode, replyText, exchange, routingKey, properties, body) -> {
+                        try {
+                            Object deliveryTagObj = properties.getHeaders().get(REACTOR_RABBITMQ_DELIVERY_TAG_HEADER);
+                            if(deliveryTagObj != null && deliveryTagObj instanceof Long) {
+                                Long deliveryTag = (Long) deliveryTagObj;
+                                OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
+                                subscriber.onNext(new OutboundMessageResult(outboundMessage, true, true));
+                                unconfirmed.remove(deliveryTag);
+                            } else {
+                                handleError(new IllegalArgumentException("Missing header " + REACTOR_RABBITMQ_DELIVERY_TAG_HEADER), null);
                             }
+                        } catch (Exception e) {
+                            handleError(e, null);
                         }
                     };
-
                     channel.addReturnListener(this.returnListener);
                 }
 
@@ -664,22 +668,13 @@ public class Sender implements AutoCloseable {
             long nextPublishSeqNo = channel.getNextPublishSeqNo();
             try {
                 unconfirmed.putIfAbsent(nextPublishSeqNo, message);
-                if(this.trackReturned) {
-                    channel.basicPublish(
-                            message.getExchange(),
-                            message.getRoutingKey(),
-                            true,
-                            this.addReactorRabbitMQDeliveryTag(message.getProperties(), nextPublishSeqNo),
-                            message.getBody()
-                    );
-                } else {
-                    channel.basicPublish(
-                            message.getExchange(),
-                            message.getRoutingKey(),
-                            this.addReactorRabbitMQDeliveryTag(message.getProperties(), nextPublishSeqNo),
-                            message.getBody()
-                    );
-                }
+                channel.basicPublish(
+                        message.getExchange(),
+                        message.getRoutingKey(),
+                        this.trackReturned, // this happens to be the same value as the mandatory flag
+                        this.propertiesProcessor.apply(message.getProperties(), nextPublishSeqNo),
+                        message.getBody()
+                );
             } catch (Exception e) {
                 unconfirmed.remove(nextPublishSeqNo);
                 try {
@@ -690,10 +685,10 @@ public class Sender implements AutoCloseable {
             }
         }
 
-        private AMQP.BasicProperties addReactorRabbitMQDeliveryTag(AMQP.BasicProperties properties, long deliveryTag) {
+        private static AMQP.BasicProperties addReactorRabbitMQDeliveryTag(AMQP.BasicProperties properties, long deliveryTag) {
             AMQP.BasicProperties baseProperties = properties != null ? properties : new AMQP.BasicProperties();
 
-            Map<String, Object> headers = baseProperties.getHeaders() != null ? baseProperties.getHeaders() : new HashMap<>();
+            Map<String, Object> headers = baseProperties.getHeaders() != null ? new HashMap<>(baseProperties.getHeaders()) : new HashMap<>();
 
             headers.putIfAbsent(REACTOR_RABBITMQ_DELIVERY_TAG_HEADER, deliveryTag);
 
