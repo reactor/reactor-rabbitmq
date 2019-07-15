@@ -17,6 +17,7 @@
 package reactor.rabbitmq;
 
 import com.rabbitmq.client.Channel;
+import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Scheduler;
@@ -85,23 +86,26 @@ public class SendOptions {
     }
 
     /**
-     * Returns whether we should track returned (undeliverable) messages.
+     * Returns whether we should track returned (undeliverable) messages when publisher confirms are in use.
      *
      * @return whether we should track returned messages
+     * @see Sender#sendWithPublishConfirms(Publisher, SendOptions)
+     * @see <a href="https://www.rabbitmq.com/publishers.html#unroutable">Mandatory flag</a>
      * @since 1.3.0
      */
     public boolean isTrackReturned() {
         return trackReturned;
     }
 
-
     /**
-     * Set whether we should track returned (undeliverable) messages.
+     * Set whether we should track returned (undeliverable) messages when publisher confirms are in use.
      * <p>
      * Default is false.
      *
      * @param trackReturned
      * @return this {@link SendOptions} instance
+     * @see Sender#sendWithPublishConfirms(Publisher, SendOptions)
+     * @see <a href="https://www.rabbitmq.com/publishers.html#unroutable">Mandatory flag</a>
      * @since 1.3.0
      */
     public SendOptions trackReturned(boolean trackReturned) {

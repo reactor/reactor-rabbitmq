@@ -155,10 +155,30 @@ confirms] to make sure the broker has taken into account the outbound messages.
 -------
 include::{test-examples}/ApiGuideSender.java[tag=publisher-confirms]
 -------
+<1> Outbound message has reached the broker
 
 `Sender#sendWithPublishConfirms` returns a `Flux<OutboundMessageResult>`
 that can be subscribed to to know that outbound messages
 have successfully reached the broker.
+
+It is also possible to know about https://www.rabbitmq.com/publishers.html#unroutable[unroutable messages],
+that is messages not routed to any queue because they do not match any routing rule. Tracking
+of unroutable messages is disabled by default, it can be enabled by
+using the `Sender#sendWithPublishConfirms(Publisher<OutboundMessage>, SendOptions)` method and
+set the `trackReturned` flag on `SendOptions`:
+
+[source,java,indent=0]
+-------
+include::{test-examples}/ApiGuideSender.java[tag=publisher-confirms-with-returned-tracking]
+-------
+<1> Track unroutable messages
+<2> Outbound message was not routed to any queue
+
+The `OutboundMessageResult#isReturned` method then tells whether a message has been routed somewhere or not.
+This method always returns `false` if unroutable messages are not tracked. Note the
+`OutboundMessageResult#isAck` method returns `true` for unroutable messages, because the
+broker considered they have been taken care of (i.e. confirmed). So if you are interested
+in unroutable messages, the returned status should always be checked *before* the confirmed status.
 
 ==== Threading model
 

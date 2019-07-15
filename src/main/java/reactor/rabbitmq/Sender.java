@@ -142,10 +142,43 @@ public class Sender implements AutoCloseable {
         ).then();
     }
 
+    /**
+     * Publish a flux of messages and expect confirmations.
+     *
+     * <p>
+     * This method uses <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">RabbitMQ Publisher
+     * Confirms</a> extension to make sure
+     * outbound messages made it or not to the broker.
+     * <p>
+     * See {@link #sendWithPublishConfirms(Publisher, SendOptions)} to have more control over the publishing
+     * and the confirmations with {@link SendOptions}.
+     *
+     * @param messages flux of outbound messages
+     * @return flux of confirmations
+     * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
+     */
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages) {
         return sendWithPublishConfirms(messages, new SendOptions());
     }
 
+    /**
+     * Publish a flux of messages and expect confirmations.
+     * <p>
+     * This method uses <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">RabbitMQ Publisher
+     * Confirms</a> extension to make sure
+     * outbound messages made it or not to the broker.
+     * <p>
+     * It is also possible to know if a message has been routed to a least one queue
+     * by enabling the <a href="https://www.rabbitmq.com/publishers.html#unroutable">mandatory flag</a>. The
+     * default is to not use this flag.
+     *
+     * @param messages flux of outbound messages
+     * @param options  options to configure publishing
+     * @return flux of confirmations
+     * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
+     * @see <a href="https://www.rabbitmq.com/publishers.html#unroutable">Mandatory flag</a>
+     * @see SendOptions#trackReturned(boolean)
+     */
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages, SendOptions options) {
         SendOptions sendOptions = options == null ? new SendOptions() : options;
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
