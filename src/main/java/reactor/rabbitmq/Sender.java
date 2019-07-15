@@ -544,7 +544,6 @@ public class Sender implements AutoCloseable {
                         this.subscriber.propertiesProcessor.apply(message.getProperties(), nextPublishSeqNo),
                         outboundMessage.getBody()
                 );
-                super.publish(outboundMessage);
             } catch (Exception e) {
                 subscriber.unconfirmed.remove(nextPublishSeqNo);
                 throw e;
