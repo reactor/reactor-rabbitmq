@@ -461,7 +461,7 @@ public class Sender implements AutoCloseable {
         protected final Channel channel;
         protected final OutboundMessage message;
 
-        public SendContext(Channel channel, OutboundMessage message) {
+        protected SendContext(Channel channel, OutboundMessage message) {
             this.channel = channel;
             this.message = message;
         }
@@ -492,9 +492,11 @@ public class Sender implements AutoCloseable {
 
         private final PublishConfirmSubscriber subscriber;
 
-        public ConfirmSendContext(Channel channel, OutboundMessage message, PublishConfirmSubscriber subscriber) {
+
+        protected ConfirmSendContext(Channel channel, OutboundMessage message, PublishConfirmSubscriber subscriber) {
             super(channel, message);
             this.subscriber = subscriber;
+
         }
 
         @Override
@@ -502,6 +504,13 @@ public class Sender implements AutoCloseable {
             long nextPublishSeqNo = channel.getNextPublishSeqNo();
             try {
                 subscriber.unconfirmed.putIfAbsent(nextPublishSeqNo, this.message);
+                this.channel.basicPublish(
+                        outboundMessage.getExchange(),
+                        outboundMessage.getRoutingKey(),
+                        this.subscriber.trackReturned, // this happens to be the same value as the mandatory flag
+                        this.subscriber.propertiesProcessor.apply(message.getProperties(), nextPublishSeqNo),
+                        outboundMessage.getBody()
+                );
                 super.publish(outboundMessage);
             } catch (Exception e) {
                 subscriber.unconfirmed.remove(nextPublishSeqNo);
