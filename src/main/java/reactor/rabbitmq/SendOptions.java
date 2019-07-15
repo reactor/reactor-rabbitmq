@@ -45,6 +45,11 @@ public class SendOptions {
     private Integer maxInFlight;
 
     /**
+     * Whether we should track returned (undeliverable) messages.
+     */
+    private boolean trackReturned;
+
+    /**
      * The scheduler used for publishing publisher confirms when in-flight records are limited.
      * <p>
      * The default is {@link Schedulers#immediate()}, so the caller's thread.
@@ -77,6 +82,21 @@ public class SendOptions {
      */
     public Integer getMaxInFlight() {
         return maxInFlight;
+    }
+
+    /**
+     * Returns whether we should track returned (undeliverable) messages.
+     *
+     * @return whether we should track returned messages
+     * @since 1.3.0
+     */
+    public boolean isTrackReturned() {
+        return trackReturned;
+    }
+
+    public SendOptions setTrackReturned(boolean trackReturned) {
+        this.trackReturned = trackReturned;
+        return this;
     }
 
     /**

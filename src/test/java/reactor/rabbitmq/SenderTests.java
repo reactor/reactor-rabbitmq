@@ -145,4 +145,21 @@ public class SenderTests {
         assertEquals(1, callToConnectionSupplierCount.get());
 
     }
+
+    @Test
+    public void trackReturnedOptionWillMarkReturnedMessage() {
+        String exchange = UUID.randomUUID().toString();
+
+        OutboundMessage msgFlux = new OutboundMessage(exchange, "nonExistentKey", "".getBytes());
+
+        sender = createSender();
+        SendOptions sendOptions = new SendOptions().setTrackReturned(true);
+
+        OutboundMessageResult result = sender.declare(ExchangeSpecification.exchange(exchange).type("direct").autoDelete(true))
+                .then(sender.bind(BindingSpecification.binding(exchange, queue, queue)))
+                .then(sender.sendWithPublishConfirms(Flux.just(msgFlux), sendOptions).next()
+                ).block();
+
+        assertTrue(result.isReturned());
+    }
 }

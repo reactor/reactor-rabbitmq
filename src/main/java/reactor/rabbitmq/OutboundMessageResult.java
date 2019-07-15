@@ -25,16 +25,19 @@ public class OutboundMessageResult {
 
     private final boolean ack;
 
+    private final boolean returned;
+
     /**
      * Constructs a result which is described by the initial message that has been published and the acknowledgment
      * status.
-     *
-     * @param outboundMessage The message that has been published
+     *  @param outboundMessage The message that has been published
      * @param ack             Whether the message has been acknowledged by the broker or not
+     * @param returned        Whether the message was undeliverable and hence returned
      */
-    public OutboundMessageResult(OutboundMessage outboundMessage, boolean ack) {
+    public OutboundMessageResult(OutboundMessage outboundMessage, boolean ack, boolean returned) {
         this.outboundMessage = outboundMessage;
         this.ack = ack;
+        this.returned = returned;
     }
 
     /**
@@ -47,12 +50,23 @@ public class OutboundMessageResult {
     }
 
     /**
-     * Defines whether the message has been acknowledged by the broker or not.
+     * Defines whether the message has been acknowledged by the broker or not. The message may still be returned if it
+     * could not be routed to the correct queue. This can be validated with the {@link #isReturned() isReturned} method.
+     *
      *
      * @return True if the message has been acknowledged, false otherwise.
      */
     public boolean isAck() {
         return ack;
+    }
+
+    /**
+     * Defines whether the message has been returned by the broker or not.
+     *
+     * @return True if the message was undeliverable and has returned, false otherwise.
+     */
+    public boolean isReturned() {
+        return returned;
     }
 
     @Override
