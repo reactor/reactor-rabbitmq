@@ -33,6 +33,8 @@ import reactor.core.publisher.Operators;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -64,6 +66,8 @@ public class RpcClient implements AutoCloseable {
     private final Supplier<String> correlationIdSupplier;
 
     private final Lock channelLock = new ReentrantLock();
+
+    private final CountDownLatch consumerSetLatch = new CountDownLatch(1);
 
     public RpcClient(Mono<Channel> channelMono, String exchange, String routingKey, Supplier<String> correlationIdSupplier) {
         this.channelMono = channelMono;
@@ -169,6 +173,20 @@ public class RpcClient implements AutoCloseable {
                     }
                 } catch (IOException e) {
                     handleError(e);
+                } finally {
+                    consumerSetLatch.countDown();
+                }
+            } else {
+                // we make sure to wait that the consumer is set on the reply-to queue before
+                // triggering new requests. Not doing so can result in requests sent before
+                // we actually wait on the reply queue, which triggers "406 - fast reply consumer does not exist"
+                // errors.
+                try {
+                    if (!consumerSetLatch.await(60, TimeUnit.SECONDS)) {
+                        LOGGER.warn("Consumer setup not finished in 60 seconds, moving on.");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
             }
             state.set(SubscriberState.ACTIVE);

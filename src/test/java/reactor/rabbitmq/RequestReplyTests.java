@@ -17,6 +17,7 @@
 package reactor.rabbitmq;
 
 import com.rabbitmq.client.*;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,8 +37,9 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  *
@@ -121,7 +123,7 @@ public class RequestReplyTests {
                 latch.countDown();
             }).start();
         });
-        assertTrue(latch.await(5, TimeUnit.SECONDS), "All requests should have dealt with by now");
+        assertThat(latch.await(5, SECONDS)).as("All requests should have dealt with by now").isTrue();
         rpcClient.close();
     }
 
