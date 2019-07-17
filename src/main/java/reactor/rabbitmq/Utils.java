@@ -57,6 +57,16 @@ public abstract class Utils {
         return new SingleConnectionSupplier(supplier);
     }
 
+    public static <T> Mono<T> cache(Mono<T> mono) {
+        return mono.cache(
+                // cache success
+                element -> Duration.ofMillis(Long.MAX_VALUE),
+                // do not cache failures (allows retry to work)
+                throwable -> Duration.ZERO,
+                // do not cache empty
+                () -> Duration.ZERO);
+    }
+
     @FunctionalInterface
     public interface ExceptionFunction<T, R> {
 

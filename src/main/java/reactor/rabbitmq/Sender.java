@@ -99,7 +99,7 @@ public class Sender implements AutoCloseable {
             cm = options.getConnectionMonoConfigurator().apply(cm);
             cm = cm.doOnSubscribe(c -> hasConnection.set(true))
                     .subscribeOn(this.connectionSubscriptionScheduler)
-                    .cache();
+                    .transform(this::cache);
         } else {
             cm = options.getConnectionMono();
         }
@@ -113,11 +113,15 @@ public class Sender implements AutoCloseable {
         this.resourceManagementScheduler = options.getResourceManagementScheduler() == null ?
             createScheduler("rabbitmq-sender-resource-creation") : options.getResourceManagementScheduler();
         this.resourceManagementChannelMono = options.getResourceManagementChannelMono() == null ?
-            connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).cache() : options.getResourceManagementChannelMono();
+            connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).transform(this::cache) : options.getResourceManagementChannelMono();
     }
 
     protected Scheduler createScheduler(String name) {
         return Schedulers.newElastic(name);
+    }
+
+    protected <T> Mono<T> cache(Mono<T> mono) {
+        return Utils.cache(mono);
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {
@@ -197,11 +201,11 @@ public class Sender implements AutoCloseable {
     }
 
     public RpcClient rpcClient(String exchange, String routingKey) {
-        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).cache(), exchange, routingKey);
+        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).transform(this::cache), exchange, routingKey);
     }
 
     public RpcClient rpcClient(String exchange, String routingKey, Supplier<String> correlationIdProvider) {
-        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).cache(), exchange, routingKey, correlationIdProvider);
+        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).transform(this::cache), exchange, routingKey, correlationIdProvider);
     }
 
     /**

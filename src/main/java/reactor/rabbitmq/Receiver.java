@@ -72,11 +72,15 @@ public class Receiver implements Closeable {
             cm = options.getConnectionMonoConfigurator().apply(cm);
             cm = cm.doOnSubscribe(c -> hasConnection.set(true))
                     .subscribeOn(this.connectionSubscriptionScheduler)
-                    .cache();
+                    .transform(this::cache);
         } else {
             cm = options.getConnectionMono();
         }
         this.connectionMono = cm;
+    }
+
+    protected <T> Mono<T> cache(Mono<T> mono) {
+        return Utils.cache(mono);
     }
 
     protected Scheduler createScheduler(String name) {
