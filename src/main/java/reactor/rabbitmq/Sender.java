@@ -79,6 +79,8 @@ public class Sender implements AutoCloseable {
 
     private final int connectionClosingTimeout;
 
+    private final AtomicBoolean closingOrClosed = new AtomicBoolean(false);
+
     private static final String REACTOR_RABBITMQ_DELIVERY_TAG_HEADER = "reactor_rabbitmq_delivery_tag";
 
     public Sender() {
@@ -492,20 +494,39 @@ public class Sender implements AutoCloseable {
     }
 
     public void close() {
-        if (hasConnection.getAndSet(false)) {
-            try {
-                connectionMono.block().close(this.connectionClosingTimeout);
-            } catch (IOException e) {
-                throw new RabbitFluxException(e);
+        if (closingOrClosed.compareAndSet(false, true)) {
+            if (hasConnection.getAndSet(false)) {
+                safelyExecute(
+                        () -> connectionMono.block().close(this.connectionClosingTimeout),
+                        "Error while closing sender connection"
+                );
             }
+
+            if (this.privateConnectionSubscriptionScheduler) {
+                safelyExecute(
+                        () -> this.connectionSubscriptionScheduler.dispose(),
+                        "Error while disposing connection subscription scheduler"
+                );
+            }
+            if (this.privateResourceManagementScheduler) {
+                safelyExecute(
+                        () -> this.resourceManagementScheduler.dispose(),
+                        "Error while disposing resource management scheduler"
+                );
+            }
+            safelyExecute(
+                    () -> channelCloseThreadPool.shutdown(),
+                    "Error while closing channel closing thread pool"
+            );
         }
-        if (this.privateConnectionSubscriptionScheduler) {
-            this.connectionSubscriptionScheduler.dispose();
+    }
+
+    private void safelyExecute(Utils.ExceptionRunnable action, String message) {
+        try {
+            action.run();
+        } catch (Exception e) {
+            LOGGER.warn(message + ": {}", e.getCause());
         }
-        if (this.privateResourceManagementScheduler) {
-            this.resourceManagementScheduler.dispose();
-        }
-        channelCloseThreadPool.shutdown();
     }
 
     public static class SendContext {

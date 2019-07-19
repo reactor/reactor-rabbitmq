@@ -207,4 +207,18 @@ public class SenderTests {
         });
         assertThat(confirmedLatch.await(10, TimeUnit.SECONDS)).isTrue();
     }
+
+    @Test
+    public void closeIsIdempotent() throws Exception {
+        Sender sender = createSender();
+        int nbMessages = 10;
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, (consumerTag, message) -> latch.countDown(), consumerTag -> {
+        });
+        sender.send(Flux.range(1, 10).map(i -> new OutboundMessage("", queue, "".getBytes()))).block();
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        sender.close();
+        sender.close();
+    }
 }

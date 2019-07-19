@@ -53,6 +53,8 @@ public class Receiver implements Closeable {
 
     private final int connectionClosingTimeout;
 
+    private final AtomicBoolean closingOrClosed = new AtomicBoolean(false);
+
     public Receiver() {
         this(new ReceiverOptions());
     }
@@ -228,15 +230,27 @@ public class Receiver implements Closeable {
     // TODO consume with dynamic QoS and/or batch ack
 
     public void close() {
-        if (hasConnection.getAndSet(false)) {
-            try {
-                connectionMono.block().close(this.connectionClosingTimeout);
-            } catch (IOException e) {
-                throw new RabbitFluxException(e);
+        if (closingOrClosed.compareAndSet(false, true)) {
+            if (hasConnection.getAndSet(false)) {
+                safelyExecute(
+                        () -> connectionMono.block().close(this.connectionClosingTimeout),
+                        "Error while closing receiver connection"
+                );
+            }
+            if (privateConnectionSubscriptionScheduler) {
+                safelyExecute(
+                        () -> this.connectionSubscriptionScheduler.dispose(),
+                        "Error while disposing connection subscriber scheduler"
+                );
             }
         }
-        if (privateConnectionSubscriptionScheduler) {
-            this.connectionSubscriptionScheduler.dispose();
+    }
+
+    private void safelyExecute(Utils.ExceptionRunnable action, String message) {
+        try {
+            action.run();
+        } catch (Exception e) {
+            LOGGER.warn(message + ": {}", e.getCause());
         }
     }
 

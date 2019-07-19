@@ -27,6 +27,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import reactor.core.Disposable;
 
 import java.time.Duration;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,15 +43,30 @@ import static reactor.rabbitmq.RabbitFlux.createReceiver;
  */
 public class ReceiverTests {
 
+    Connection connection;
+    String queue;
     Receiver receiver;
 
     @BeforeEach
-    public void init() {
+    public void init() throws Exception {
+        ConnectionFactory connectionFactory = new ConnectionFactory();
+        connectionFactory.useNio();
+        connection = connectionFactory.newConnection();
+        Channel channel = connection.createChannel();
+        String queueName = UUID.randomUUID().toString();
+        queue = channel.queueDeclare(queueName, false, false, false, null).getQueue();
+        channel.close();
         receiver = null;
     }
 
     @AfterEach
-    public void tearDown() {
+    public void tearDown() throws Exception {
+        if (connection != null) {
+            Channel channel = connection.createChannel();
+            channel.queueDelete(queue);
+            channel.close();
+            connection.close();
+        }
         if (receiver != null) {
             receiver.close();
         }
@@ -126,5 +142,22 @@ public class ReceiverTests {
         receiver.close();
 
         verify(c, times(1)).close(timeoutInMs);
+    }
+
+    @Test
+    public void closeIsIdempotent() throws Exception {
+        Receiver receiver = createReceiver();
+        int nbMessages = 10;
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        Channel channel = connection.createChannel();
+        for (int i = 0; i < nbMessages; i++) {
+            channel.basicPublish("", queue, null, "".getBytes());
+        }
+
+        receiver.consumeNoAck(queue).subscribe(delivery -> latch.countDown());
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        receiver.close();
+        receiver.close();
     }
 }

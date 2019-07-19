@@ -73,6 +73,13 @@ public abstract class Utils {
         R apply(T t) throws Exception;
     }
 
+    @FunctionalInterface
+    interface ExceptionRunnable {
+
+        void run() throws Exception;
+
+    }
+
     public static class SingleConnectionSupplier implements Utils.ExceptionFunction<ConnectionFactory, Connection> {
 
         private final Callable<? extends Connection> creationAction;
