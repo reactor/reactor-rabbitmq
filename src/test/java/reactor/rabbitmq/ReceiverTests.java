@@ -22,14 +22,19 @@ import com.rabbitmq.client.ConnectionFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import reactor.core.Disposable;
 
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
 import static reactor.rabbitmq.RabbitFlux.createReceiver;
 
 /**
@@ -84,5 +89,42 @@ public class ReceiverTests {
         registration1.dispose();
         registration2.dispose();
         assertEquals(1, callToConnectionSupplierCount.get());
+    }
+
+    @ValueSource(ints = {-1, 0, 10000})
+    @ParameterizedTest
+    public void connectionIsClosedWithDefaultTimeoutAndOverriddenValue(int timeoutInMs) throws Exception {
+        Connection c = mock(Connection.class);
+        Channel ch = mock(Channel.class);
+        CountDownLatch channelCreatedLatch = new CountDownLatch(1);
+        when(c.createChannel()).thenAnswer(invocation -> {
+            channelCreatedLatch.countDown();
+            return ch;
+        });
+
+
+        ReceiverOptions options = new ReceiverOptions()
+                .connectionSupplier(cf -> c);
+
+        if (timeoutInMs > 0) {
+            // override
+            options.connectionClosingTimeout(Duration.ofMillis(timeoutInMs));
+        } else if (timeoutInMs == 0) {
+            // default
+            timeoutInMs = (int) options.getConnectionClosingTimeout().toMillis();
+        } else {
+            // no timeout
+            options.connectionClosingTimeout(Duration.ZERO);
+        }
+
+        Receiver receiver = new Receiver(options);
+
+        receiver.consumeNoAck("").subscribe();
+
+        assertThat(channelCreatedLatch.await(5, TimeUnit.SECONDS)).isTrue();
+
+        receiver.close();
+
+        verify(c, times(1)).close(timeoutInMs);
     }
 }

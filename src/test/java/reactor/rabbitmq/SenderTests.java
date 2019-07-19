@@ -20,16 +20,19 @@ import com.rabbitmq.client.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 import static reactor.rabbitmq.RabbitFlux.createSender;
 
 /**
@@ -80,8 +83,8 @@ public class SenderTests {
 
     @Test
     void channelMonoPriority() {
-        Mono<Channel> senderChannelMono = Mono.just(Mockito.mock(Channel.class));
-        Mono<Channel> sendChannelMono = Mono.just(Mockito.mock(Channel.class));
+        Mono<Channel> senderChannelMono = Mono.just(mock(Channel.class));
+        Mono<Channel> sendChannelMono = Mono.just(mock(Channel.class));
         sender = createSender();
         assertNotNull(sender.getChannelMono(new SendOptions()));
         assertSame(sendChannelMono, sender.getChannelMono(new SendOptions().channelMono(sendChannelMono)));
@@ -143,6 +146,35 @@ public class SenderTests {
 
         assertTrue(latch.await(10, TimeUnit.SECONDS));
         assertEquals(1, callToConnectionSupplierCount.get());
+    }
 
+    @ValueSource(ints = {-1, 0, 10000})
+    @ParameterizedTest
+    public void connectionIsClosedWithDefaultTimeoutAndOverriddenValue(int timeoutInMs) throws Exception {
+        Connection c = mock(Connection.class);
+        Channel ch = mock(Channel.class);
+        when(c.createChannel()).thenReturn(ch);
+
+        SenderOptions options = new SenderOptions()
+                .connectionSupplier(cf -> c);
+
+        if (timeoutInMs > 0) {
+            // override
+            options.connectionClosingTimeout(Duration.ofMillis(timeoutInMs));
+        } else if (timeoutInMs == 0) {
+            // default
+            timeoutInMs = (int) options.getConnectionClosingTimeout().toMillis();
+        } else {
+            // no timeout
+            options.connectionClosingTimeout(Duration.ZERO);
+        }
+
+        Sender sender = new Sender(options);
+
+        sender.send(Flux.range(1, 10).map(i -> new OutboundMessage("", "", null))).block();
+
+        sender.close();
+
+        verify(c, times(1)).close(timeoutInMs);
     }
 }

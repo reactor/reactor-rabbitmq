@@ -28,6 +28,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -49,6 +50,8 @@ public class Receiver implements Closeable {
     private final Scheduler connectionSubscriptionScheduler;
 
     private final boolean privateConnectionSubscriptionScheduler;
+
+    private final int connectionClosingTimeout;
 
     public Receiver() {
         this(new ReceiverOptions());
@@ -77,6 +80,11 @@ public class Receiver implements Closeable {
             cm = options.getConnectionMono();
         }
         this.connectionMono = cm;
+        if (options.getConnectionClosingTimeout() != null && !Duration.ZERO.equals(options.getConnectionClosingTimeout())) {
+            this.connectionClosingTimeout = (int) options.getConnectionClosingTimeout().toMillis();
+        } else {
+            this.connectionClosingTimeout = -1;
+        }
     }
 
     protected <T> Mono<T> cache(Mono<T> mono) {
@@ -222,8 +230,7 @@ public class Receiver implements Closeable {
     public void close() {
         if (hasConnection.getAndSet(false)) {
             try {
-                // FIXME use timeout on block (should be a parameter of the Receiver)
-                connectionMono.block().close();
+                connectionMono.block().close(this.connectionClosingTimeout);
             } catch (IOException e) {
                 throw new RabbitFluxException(e);
             }

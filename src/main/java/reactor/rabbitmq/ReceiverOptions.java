@@ -21,6 +21,7 @@ import com.rabbitmq.client.ConnectionFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
+import java.time.Duration;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -42,6 +43,15 @@ public class ReceiverOptions {
     private Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> connectionSupplier;
 
     private Function<Mono<? extends Connection>, Mono<? extends Connection>> connectionMonoConfigurator = cm -> cm;
+
+    /**
+     * Timeout for closing the {@link Receiver} connection.
+     * <p>
+     * Default is 30 seconds. Use {@link Duration#ZERO} for no timeout.
+     *
+     * @since 1.3.0
+     */
+    private Duration connectionClosingTimeout = Duration.ofSeconds(30);
 
     public ConnectionFactory getConnectionFactory() {
         return connectionFactory;
@@ -139,6 +149,24 @@ public class ReceiverOptions {
 
     public Function<Mono<? extends Connection>, Mono<? extends Connection>> getConnectionMonoConfigurator() {
         return connectionMonoConfigurator;
+    }
+
+    /**
+     * Timeout for closing the {@link Receiver} connection.
+     * <p>
+     * Default is 30 seconds. Use {@link Duration#ZERO} for no timeout.
+     *
+     * @param connectionClosingTimeout timeout for connection closing
+     * @return this {@link ReceiverOptions} instance
+     * @since 1.3.0
+     */
+    public ReceiverOptions connectionClosingTimeout(Duration connectionClosingTimeout) {
+        this.connectionClosingTimeout = connectionClosingTimeout;
+        return this;
+    }
+
+    public Duration getConnectionClosingTimeout() {
+        return connectionClosingTimeout;
     }
 
 }

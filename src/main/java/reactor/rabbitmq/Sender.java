@@ -32,6 +32,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -77,6 +78,8 @@ public class Sender implements AutoCloseable {
 
     private final ExecutorService channelCloseThreadPool = Executors.newCachedThreadPool();
 
+    private final int connectionClosingTimeout;
+
     public Sender() {
         this(new SenderOptions());
     }
@@ -114,6 +117,11 @@ public class Sender implements AutoCloseable {
             createScheduler("rabbitmq-sender-resource-creation") : options.getResourceManagementScheduler();
         this.resourceManagementChannelMono = options.getResourceManagementChannelMono() == null ?
             connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).transform(this::cache) : options.getResourceManagementChannelMono();
+        if (options.getConnectionClosingTimeout() != null && !Duration.ZERO.equals(options.getConnectionClosingTimeout())) {
+            this.connectionClosingTimeout = (int) options.getConnectionClosingTimeout().toMillis();
+        } else {
+            this.connectionClosingTimeout = -1;
+        }
     }
 
     protected Scheduler createScheduler(String name) {
@@ -452,8 +460,7 @@ public class Sender implements AutoCloseable {
     public void close() {
         if (hasConnection.getAndSet(false)) {
             try {
-                // FIXME use timeout on block (should be a parameter of the Sender)
-                connectionMono.block().close();
+                connectionMono.block().close(this.connectionClosingTimeout);
             } catch (IOException e) {
                 throw new RabbitFluxException(e);
             }
