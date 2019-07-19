@@ -16,10 +16,7 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.ConfirmListener;
-import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.*;
 import com.rabbitmq.client.impl.AMQImpl;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -33,6 +30,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -43,6 +41,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -79,6 +78,8 @@ public class Sender implements AutoCloseable {
     private final ExecutorService channelCloseThreadPool = Executors.newCachedThreadPool();
 
     private final int connectionClosingTimeout;
+
+    private static final String REACTOR_RABBITMQ_DELIVERY_TAG_HEADER = "reactor_rabbitmq_delivery_tag";
 
     public Sender() {
         this(new SenderOptions());
@@ -161,10 +162,43 @@ public class Sender implements AutoCloseable {
         ).then();
     }
 
+    /**
+     * Publish a flux of messages and expect confirmations.
+     *
+     * <p>
+     * This method uses <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">RabbitMQ Publisher
+     * Confirms</a> extension to make sure
+     * outbound messages made it or not to the broker.
+     * <p>
+     * See {@link #sendWithPublishConfirms(Publisher, SendOptions)} to have more control over the publishing
+     * and the confirmations with {@link SendOptions}.
+     *
+     * @param messages flux of outbound messages
+     * @return flux of confirmations
+     * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
+     */
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages) {
         return sendWithPublishConfirms(messages, new SendOptions());
     }
 
+    /**
+     * Publish a flux of messages and expect confirmations.
+     * <p>
+     * This method uses <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">RabbitMQ Publisher
+     * Confirms</a> extension to make sure
+     * outbound messages made it or not to the broker.
+     * <p>
+     * It is also possible to know if a message has been routed to a least one queue
+     * by enabling the <a href="https://www.rabbitmq.com/publishers.html#unroutable">mandatory flag</a>. The
+     * default is to not use this flag.
+     *
+     * @param messages flux of outbound messages
+     * @param options  options to configure publishing
+     * @return flux of confirmations
+     * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
+     * @see <a href="https://www.rabbitmq.com/publishers.html#unroutable">Mandatory flag</a>
+     * @see SendOptions#trackReturned(boolean)
+     */
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages, SendOptions options) {
         SendOptions sendOptions = options == null ? new SendOptions() : options;
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
@@ -479,7 +513,7 @@ public class Sender implements AutoCloseable {
         protected final Channel channel;
         protected final OutboundMessage message;
 
-        public SendContext(Channel channel, OutboundMessage message) {
+        protected SendContext(Channel channel, OutboundMessage message) {
             this.channel = channel;
             this.message = message;
         }
@@ -510,9 +544,11 @@ public class Sender implements AutoCloseable {
 
         private final PublishConfirmSubscriber subscriber;
 
-        public ConfirmSendContext(Channel channel, OutboundMessage message, PublishConfirmSubscriber subscriber) {
+
+        protected ConfirmSendContext(Channel channel, OutboundMessage message, PublishConfirmSubscriber subscriber) {
             super(channel, message);
             this.subscriber = subscriber;
+
         }
 
         @Override
@@ -520,7 +556,13 @@ public class Sender implements AutoCloseable {
             long nextPublishSeqNo = channel.getNextPublishSeqNo();
             try {
                 subscriber.unconfirmed.putIfAbsent(nextPublishSeqNo, this.message);
-                super.publish(outboundMessage);
+                this.channel.basicPublish(
+                        outboundMessage.getExchange(),
+                        outboundMessage.getRoutingKey(),
+                        this.subscriber.trackReturned, // this happens to be the same value as the mandatory flag
+                        this.subscriber.propertiesProcessor.apply(message.getProperties(), nextPublishSeqNo),
+                        outboundMessage.getBody()
+                );
             } catch (Exception e) {
                 subscriber.unconfirmed.remove(nextPublishSeqNo);
                 throw e;
@@ -571,10 +613,22 @@ public class Sender implements AutoCloseable {
 
         private ConfirmListener confirmListener;
 
+        private ReturnListener returnListener;
+
+        private final boolean trackReturned;
+
+        private final BiFunction<AMQP.BasicProperties, Long, AMQP.BasicProperties> propertiesProcessor;
+
         private PublishConfirmSubscriber(Channel channel, Subscriber<? super OutboundMessageResult> subscriber, SendOptions options) {
             this.channel = channel;
             this.subscriber = subscriber;
             this.exceptionHandler = options.getExceptionHandler();
+            this.trackReturned = options.isTrackReturned();
+            if (this.trackReturned) {
+                this.propertiesProcessor = PublishConfirmSubscriber::addReactorRabbitMQDeliveryTag;
+            } else {
+                this.propertiesProcessor = (properties, deliveryTag) -> properties;
+            }
         }
 
         @Override
@@ -590,6 +644,27 @@ public class Sender implements AutoCloseable {
         @Override
         public void onSubscribe(Subscription subscription) {
             if (Operators.validate(this.subscription, subscription)) {
+
+                if(this.trackReturned) {
+                    this.returnListener = (replyCode, replyText, exchange, routingKey, properties, body) -> {
+                        try {
+                            Object deliveryTagObj = properties.getHeaders().get(REACTOR_RABBITMQ_DELIVERY_TAG_HEADER);
+                            if(deliveryTagObj != null && deliveryTagObj instanceof Long) {
+                                Long deliveryTag = (Long) deliveryTagObj;
+                                OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
+                                subscriber.onNext(new OutboundMessageResult(outboundMessage, true, true));
+                                unconfirmed.remove(deliveryTag);
+                            } else {
+                                handleError(new IllegalArgumentException("Missing header " + REACTOR_RABBITMQ_DELIVERY_TAG_HEADER), null);
+                            }
+                        } catch (Exception e) {
+                            handleError(e, null);
+                        }
+                    };
+                    channel.addReturnListener(this.returnListener);
+                }
+
+
                 this.confirmListener = new ConfirmListener() {
 
                     @Override
@@ -608,7 +683,7 @@ public class Sender implements AutoCloseable {
                                 ConcurrentNavigableMap<Long, OutboundMessage> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
                                 Iterator<Map.Entry<Long, OutboundMessage>> iterator = unconfirmedToSend.entrySet().iterator();
                                 while (iterator.hasNext()) {
-                                    subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack));
+                                    subscriber.onNext(new OutboundMessageResult(iterator.next().getValue(), ack, false));
                                     iterator.remove();
                                 }
                             } catch (Exception e) {
@@ -616,14 +691,16 @@ public class Sender implements AutoCloseable {
                             }
                         } else {
                             OutboundMessage outboundMessage = unconfirmed.get(deliveryTag);
-                            try {
-                                unconfirmed.remove(deliveryTag);
-                                subscriber.onNext(new OutboundMessageResult(outboundMessage, ack));
-                            } catch (Exception e) {
-                                handleError(e, new OutboundMessageResult(outboundMessage, ack));
+                            if(outboundMessage != null) {
+                                try {
+                                    unconfirmed.remove(deliveryTag);
+                                    subscriber.onNext(new OutboundMessageResult(outboundMessage, ack, false));
+                                } catch (Exception e) {
+                                    handleError(e, new OutboundMessageResult(outboundMessage, ack, false));
+                                }
                             }
                         }
-                        if (unconfirmed.size() == 0) {
+                        if (unconfirmed.isEmpty()) {
                             maybeComplete();
                         }
                     }
@@ -652,19 +729,30 @@ public class Sender implements AutoCloseable {
             try {
                 unconfirmed.putIfAbsent(nextPublishSeqNo, message);
                 channel.basicPublish(
-                    message.getExchange(),
-                    message.getRoutingKey(),
-                    message.getProperties(),
-                    message.getBody()
+                        message.getExchange(),
+                        message.getRoutingKey(),
+                        this.trackReturned, // this happens to be the same value as the mandatory flag
+                        this.propertiesProcessor.apply(message.getProperties(), nextPublishSeqNo),
+                        message.getBody()
                 );
             } catch (Exception e) {
                 unconfirmed.remove(nextPublishSeqNo);
                 try {
                     this.exceptionHandler.accept(new ConfirmSendContext(channel, message, this), e);
                 } catch (Exception innerException) {
-                    handleError(innerException, new OutboundMessageResult(message, false));
+                    handleError(innerException, new OutboundMessageResult(message, false, false));
                 }
             }
+        }
+
+        private static AMQP.BasicProperties addReactorRabbitMQDeliveryTag(AMQP.BasicProperties properties, long deliveryTag) {
+            AMQP.BasicProperties baseProperties = properties != null ? properties : new AMQP.BasicProperties();
+
+            Map<String, Object> headers = baseProperties.getHeaders() != null ? new HashMap<>(baseProperties.getHeaders()) : new HashMap<>();
+
+            headers.putIfAbsent(REACTOR_RABBITMQ_DELIVERY_TAG_HEADER, deliveryTag);
+
+            return baseProperties.builder().headers(headers).build();
         }
 
         @Override
@@ -673,6 +761,11 @@ public class Sender implements AutoCloseable {
                 state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
                 // complete the flux state
                 channel.removeConfirmListener(confirmListener);
+
+                if (returnListener != null) {
+                    channel.removeReturnListener(returnListener);
+                }
+
                 subscriber.onError(throwable);
             } else if (firstException.compareAndSet(null, throwable) && state.get() == SubscriberState.COMPLETE) {
                 // already completed, drop the error
@@ -703,6 +796,11 @@ public class Sender implements AutoCloseable {
             boolean done = state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE);
             if (done) {
                 channel.removeConfirmListener(confirmListener);
+
+                if (returnListener != null) {
+                    channel.removeReturnListener(returnListener);
+                }
+
                 subscriber.onComplete();
             }
         }

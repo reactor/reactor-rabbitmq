@@ -128,9 +128,34 @@ public class ApiGuideSender {
             ));
         sender.sendWithPublishConfirms(outboundFlux)
             .subscribe(outboundMessageResult -> {
-                // outbound message has reached the broker
+                if (outboundMessageResult.isAck()) {
+                                                                            // <1>
+                }
             });
         // end::publisher-confirms[]
+    }
+
+    void publisherConfirmsWithReturnedTracking() {
+        ConnectionFactory connectionFactory = new ConnectionFactory();
+        connectionFactory.useNio();
+
+        SenderOptions senderOptions =  new SenderOptions()
+                .connectionFactory(connectionFactory)
+                .resourceManagementScheduler(Schedulers.elastic());
+        Sender sender = RabbitFlux.createSender(senderOptions);
+        // tag::publisher-confirms-with-returned-tracking[]
+        Flux<OutboundMessage> outboundFlux  = Flux.range(1, 10)
+                .map(i -> new OutboundMessage(
+                        "amq.direct",
+                        "routing.key", "hello".getBytes()
+                ));
+        sender.sendWithPublishConfirms(outboundFlux, new SendOptions().trackReturned(true))  // <1>
+                .subscribe(outboundMessageResult -> {
+                    if (outboundMessageResult.isReturned()) {
+                                                                                             // <2>
+                    }
+                });
+        // end::publisher-confirms-with-returned-tracking[]
     }
 
     void rpc() {

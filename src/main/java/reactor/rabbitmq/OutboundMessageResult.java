@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2019 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ public class OutboundMessageResult {
 
     private final boolean ack;
 
+    private final boolean returned;
+
     /**
      * Constructs a result which is described by the initial message that has been published and the acknowledgment
      * status.
@@ -33,8 +35,21 @@ public class OutboundMessageResult {
      * @param ack             Whether the message has been acknowledged by the broker or not
      */
     public OutboundMessageResult(OutboundMessage outboundMessage, boolean ack) {
+        this(outboundMessage, ack, false);
+    }
+
+    /**
+     * Constructs a result which is described by the initial message that has been published, the acknowledgment
+     * status, and the returned status.
+     *
+     * @param outboundMessage The message that has been published
+     * @param ack             Whether the message has been acknowledged by the broker or not
+     * @param returned        Whether the message was undeliverable and hence returned
+     */
+    public OutboundMessageResult(OutboundMessage outboundMessage, boolean ack, boolean returned) {
         this.outboundMessage = outboundMessage;
         this.ack = ack;
+        this.returned = returned;
     }
 
     /**
@@ -47,7 +62,8 @@ public class OutboundMessageResult {
     }
 
     /**
-     * Defines whether the message has been acknowledged by the broker or not.
+     * Defines whether the message has been acknowledged by the broker or not. The message may still be confirmed if it
+     * could not be routed to the correct queue. This can be validated with the {@link #isReturned() isReturned} method.
      *
      * @return True if the message has been acknowledged, false otherwise.
      */
@@ -55,11 +71,22 @@ public class OutboundMessageResult {
         return ack;
     }
 
+    /**
+     * Defines whether the message has been returned by the broker or not.
+     *
+     * @return True if the message was undeliverable and has returned, false otherwise.
+     * @since 1.3.0
+     */
+    public boolean isReturned() {
+        return returned;
+    }
+
     @Override
     public String toString() {
         return "OutboundMessageResult{" +
                 "outboundMessage=" + outboundMessage +
                 ", ack=" + ack +
+                ", returned=" + returned +
                 '}';
     }
 }

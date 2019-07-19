@@ -24,6 +24,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
@@ -58,8 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.of;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static reactor.rabbitmq.RabbitFlux.createReceiver;
 import static reactor.rabbitmq.RabbitFlux.createSender;
@@ -850,7 +850,7 @@ public class RabbitFluxTests {
                     serverPublishConfirmLatch.await(5, TimeUnit.SECONDS);
                     throw new IOException("simulated error while publishing");
                 })
-                .when(mockChannel).basicPublish(anyString(), anyString(), nullable(AMQP.BasicProperties.class), any(byte[].class));
+                .when(mockChannel).basicPublish(anyString(), anyString(), eq(false), nullable(AMQP.BasicProperties.class), any(byte[].class));
 
 
         int nbMessages = 10;
