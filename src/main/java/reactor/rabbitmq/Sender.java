@@ -105,7 +105,7 @@ public class Sender implements AutoCloseable {
             cm = options.getConnectionMonoConfigurator().apply(cm);
             cm = cm.doOnSubscribe(c -> hasConnection.set(true))
                     .subscribeOn(this.connectionSubscriptionScheduler)
-                    .transform(this::cache);
+                    .composeNow(this::cache);
         } else {
             cm = options.getConnectionMono();
         }
@@ -119,7 +119,7 @@ public class Sender implements AutoCloseable {
         this.resourceManagementScheduler = options.getResourceManagementScheduler() == null ?
             createScheduler("rabbitmq-sender-resource-creation") : options.getResourceManagementScheduler();
         this.resourceManagementChannelMono = options.getResourceManagementChannelMono() == null ?
-            connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).transform(this::cache) : options.getResourceManagementChannelMono();
+            connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).composeNow(this::cache) : options.getResourceManagementChannelMono();
         if (options.getConnectionClosingTimeout() != null && !Duration.ZERO.equals(options.getConnectionClosingTimeout())) {
             this.connectionClosingTimeout = (int) options.getConnectionClosingTimeout().toMillis();
         } else {
@@ -245,11 +245,11 @@ public class Sender implements AutoCloseable {
     }
 
     public RpcClient rpcClient(String exchange, String routingKey) {
-        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).transform(this::cache), exchange, routingKey);
+        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).composeNow(this::cache), exchange, routingKey);
     }
 
     public RpcClient rpcClient(String exchange, String routingKey, Supplier<String> correlationIdProvider) {
-        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).transform(this::cache), exchange, routingKey, correlationIdProvider);
+        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).composeNow(this::cache), exchange, routingKey, correlationIdProvider);
     }
 
     /**

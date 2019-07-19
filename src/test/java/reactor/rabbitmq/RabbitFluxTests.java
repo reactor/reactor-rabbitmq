@@ -1107,7 +1107,7 @@ public class RabbitFluxTests {
                             sourceQueue,
                             new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
                     ).map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()))
-                            .transform(messages -> sender.send(messages)))
+                            .composeNow(messages -> sender.send(messages)))
                     .thenMany(receiver.consumeNoAck(destinationQueue)).subscribe(msg -> {
                         counter.incrementAndGet();
                         latch.countDown();
