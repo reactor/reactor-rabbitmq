@@ -31,8 +31,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static reactor.rabbitmq.Helpers.safelyExecute;
 
 /**
  * Reactive abstraction to consume messages as a {@link Flux}.
@@ -45,7 +48,7 @@ public class Receiver implements Closeable {
 
     private final Mono<? extends Connection> connectionMono;
 
-    private final AtomicBoolean hasConnection = new AtomicBoolean(false);
+    private final AtomicReference<Connection> connection = new AtomicReference<>();
 
     private final Scheduler connectionSubscriptionScheduler;
 
@@ -75,7 +78,7 @@ public class Receiver implements Closeable {
                 }
             });
             cm = options.getConnectionMonoConfigurator().apply(cm);
-            cm = cm.doOnSubscribe(c -> hasConnection.set(true))
+            cm = cm.doOnNext(conn -> connection.set(conn))
                     .subscribeOn(this.connectionSubscriptionScheduler)
                     .composeNow(this::cache);
         } else {
@@ -231,26 +234,20 @@ public class Receiver implements Closeable {
 
     public void close() {
         if (closingOrClosed.compareAndSet(false, true)) {
-            if (hasConnection.getAndSet(false)) {
+            if (connection.get() != null) {
                 safelyExecute(
-                        () -> connectionMono.block().close(this.connectionClosingTimeout),
+                        LOGGER,
+                        () -> connection.get().close(this.connectionClosingTimeout),
                         "Error while closing receiver connection"
                 );
             }
             if (privateConnectionSubscriptionScheduler) {
                 safelyExecute(
+                        LOGGER,
                         () -> this.connectionSubscriptionScheduler.dispose(),
                         "Error while disposing connection subscriber scheduler"
                 );
             }
-        }
-    }
-
-    private void safelyExecute(Utils.ExceptionRunnable action, String message) {
-        try {
-            action.run();
-        } catch (Exception e) {
-            LOGGER.warn(message + ": {}", e.getCause());
         }
     }
 

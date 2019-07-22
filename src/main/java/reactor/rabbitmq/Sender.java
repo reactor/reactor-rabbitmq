@@ -46,6 +46,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import static reactor.rabbitmq.Helpers.safelyExecute;
+
 /**
  * Reactive abstraction to create resources and send messages.
  */
@@ -63,7 +65,10 @@ public class Sender implements AutoCloseable {
 
     private final BiConsumer<SignalType, Channel> channelCloseHandler;
 
-    private final AtomicBoolean hasConnection = new AtomicBoolean(false);
+    /**
+     * To track the cached connection when {@link #connectionMono} is not provided.
+     */
+    private final AtomicReference<Connection> connection = new AtomicReference<>();
 
     private final Mono<? extends Channel> resourceManagementChannelMono;
 
@@ -103,7 +108,7 @@ public class Sender implements AutoCloseable {
                 }
             });
             cm = options.getConnectionMonoConfigurator().apply(cm);
-            cm = cm.doOnSubscribe(c -> hasConnection.set(true))
+            cm = cm.doOnNext(conn -> connection.set(conn))
                     .subscribeOn(this.connectionSubscriptionScheduler)
                     .composeNow(this::cache);
         } else {
@@ -495,37 +500,33 @@ public class Sender implements AutoCloseable {
 
     public void close() {
         if (closingOrClosed.compareAndSet(false, true)) {
-            if (hasConnection.getAndSet(false)) {
+            if (connection.get() != null) {
                 safelyExecute(
-                        () -> connectionMono.block().close(this.connectionClosingTimeout),
+                        LOGGER,
+                        () -> connection.get().close(this.connectionClosingTimeout),
                         "Error while closing sender connection"
                 );
             }
 
             if (this.privateConnectionSubscriptionScheduler) {
                 safelyExecute(
+                        LOGGER,
                         () -> this.connectionSubscriptionScheduler.dispose(),
                         "Error while disposing connection subscription scheduler"
                 );
             }
             if (this.privateResourceManagementScheduler) {
                 safelyExecute(
+                        LOGGER,
                         () -> this.resourceManagementScheduler.dispose(),
                         "Error while disposing resource management scheduler"
                 );
             }
             safelyExecute(
+                    LOGGER,
                     () -> channelCloseThreadPool.shutdown(),
                     "Error while closing channel closing thread pool"
             );
-        }
-    }
-
-    private void safelyExecute(Utils.ExceptionRunnable action, String message) {
-        try {
-            action.run();
-        } catch (Exception e) {
-            LOGGER.warn(message + ": {}", e.getCause());
         }
     }
 
