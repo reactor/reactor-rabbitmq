@@ -41,8 +41,8 @@ ext {
 	rabbitMqJavaClientVersion = '5.7.2'
 
 	// Sample
-	springBootVersion = '2.1.6.RELEASE'
-	springAmqpVersion = '2.1.7.RELEASE'
+	springBootVersion = '2.2.0.M4'
+	springAmqpVersion = '2.2.0.M3'
 
 	// Testing
 	mockitoVersion = '3.0.0'
