@@ -80,7 +80,7 @@ public class Receiver implements Closeable {
             cm = options.getConnectionMonoConfigurator().apply(cm);
             cm = cm.doOnNext(conn -> connection.set(conn))
                     .subscribeOn(this.connectionSubscriptionScheduler)
-                    .composeNow(this::cache);
+                    .transform(this::cache);
         } else {
             cm = options.getConnectionMono();
         }
