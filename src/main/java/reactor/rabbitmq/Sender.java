@@ -29,6 +29,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -44,6 +45,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import static reactor.rabbitmq.Helpers.safelyExecute;
 
 /**
  * Reactive abstraction to create resources and send messages.
@@ -62,7 +65,10 @@ public class Sender implements AutoCloseable {
 
     private final BiConsumer<SignalType, Channel> channelCloseHandler;
 
-    private final AtomicBoolean hasConnection = new AtomicBoolean(false);
+    /**
+     * To track the cached connection when {@link #connectionMono} is not provided.
+     */
+    private final AtomicReference<Connection> connection = new AtomicReference<>();
 
     private final Mono<? extends Channel> resourceManagementChannelMono;
 
@@ -76,6 +82,10 @@ public class Sender implements AutoCloseable {
 
     private final ExecutorService channelCloseThreadPool = Executors.newCachedThreadPool();
 
+    private final int connectionClosingTimeout;
+
+    private final AtomicBoolean closingOrClosed = new AtomicBoolean(false);
+
     private static final String REACTOR_RABBITMQ_DELIVERY_TAG_HEADER = "reactor_rabbitmq_delivery_tag";
 
     public Sender() {
@@ -86,18 +96,26 @@ public class Sender implements AutoCloseable {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
             createScheduler("rabbitmq-sender-connection-subscription") : options.getConnectionSubscriptionScheduler();
-        this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
-            Mono.fromCallable(() -> {
-                    if (options.getConnectionSupplier() == null) {
-                        return options.getConnectionFactory().newConnection();
-                    } else {
-                        // the actual connection factory to use is already set in a function wrapper, not need to use one
-                        return options.getConnectionSupplier().apply(null);
-                    }
-                })
-                .doOnSubscribe(c -> hasConnection.set(true))
-                .subscribeOn(this.connectionSubscriptionScheduler)
-                .cache();
+
+        Mono<? extends Connection> cm;
+        if (options.getConnectionMono() == null) {
+            cm = Mono.fromCallable(() -> {
+                if (options.getConnectionSupplier() == null) {
+                    return options.getConnectionFactory().newConnection();
+                } else {
+                    // the actual connection factory to use is already set in a function wrapper, not need to use one
+                    return options.getConnectionSupplier().apply(null);
+                }
+            });
+            cm = options.getConnectionMonoConfigurator().apply(cm);
+            cm = cm.doOnNext(conn -> connection.set(conn))
+                    .subscribeOn(this.connectionSubscriptionScheduler)
+                    .composeNow(this::cache);
+        } else {
+            cm = options.getConnectionMono();
+        }
+
+        this.connectionMono = cm;
         this.channelMono = options.getChannelMono();
         this.channelCloseHandler = options.getChannelCloseHandler() == null ?
                 ChannelCloseHandlers.SENDER_CHANNEL_CLOSE_HANDLER_INSTANCE :
@@ -106,11 +124,20 @@ public class Sender implements AutoCloseable {
         this.resourceManagementScheduler = options.getResourceManagementScheduler() == null ?
             createScheduler("rabbitmq-sender-resource-creation") : options.getResourceManagementScheduler();
         this.resourceManagementChannelMono = options.getResourceManagementChannelMono() == null ?
-            connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).cache() : options.getResourceManagementChannelMono();
+            connectionMono.map(CHANNEL_PROXY_CREATION_FUNCTION).composeNow(this::cache) : options.getResourceManagementChannelMono();
+        if (options.getConnectionClosingTimeout() != null && !Duration.ZERO.equals(options.getConnectionClosingTimeout())) {
+            this.connectionClosingTimeout = (int) options.getConnectionClosingTimeout().toMillis();
+        } else {
+            this.connectionClosingTimeout = -1;
+        }
     }
 
     protected Scheduler createScheduler(String name) {
         return Schedulers.newElastic(name);
+    }
+
+    protected <T> Mono<T> cache(Mono<T> mono) {
+        return Utils.cache(mono);
     }
 
     public Mono<Void> send(Publisher<OutboundMessage> messages) {
@@ -223,11 +250,11 @@ public class Sender implements AutoCloseable {
     }
 
     public RpcClient rpcClient(String exchange, String routingKey) {
-        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).cache(), exchange, routingKey);
+        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).composeNow(this::cache), exchange, routingKey);
     }
 
     public RpcClient rpcClient(String exchange, String routingKey, Supplier<String> correlationIdProvider) {
-        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).cache(), exchange, routingKey, correlationIdProvider);
+        return new RpcClient(connectionMono.map(CHANNEL_CREATION_FUNCTION).composeNow(this::cache), exchange, routingKey, correlationIdProvider);
     }
 
     /**
@@ -472,21 +499,35 @@ public class Sender implements AutoCloseable {
     }
 
     public void close() {
-        if (hasConnection.getAndSet(false)) {
-            try {
-                // FIXME use timeout on block (should be a parameter of the Sender)
-                connectionMono.block().close();
-            } catch (IOException e) {
-                throw new RabbitFluxException(e);
+        if (closingOrClosed.compareAndSet(false, true)) {
+            if (connection.get() != null) {
+                safelyExecute(
+                        LOGGER,
+                        () -> connection.get().close(this.connectionClosingTimeout),
+                        "Error while closing sender connection"
+                );
             }
+
+            if (this.privateConnectionSubscriptionScheduler) {
+                safelyExecute(
+                        LOGGER,
+                        () -> this.connectionSubscriptionScheduler.dispose(),
+                        "Error while disposing connection subscription scheduler"
+                );
+            }
+            if (this.privateResourceManagementScheduler) {
+                safelyExecute(
+                        LOGGER,
+                        () -> this.resourceManagementScheduler.dispose(),
+                        "Error while disposing resource management scheduler"
+                );
+            }
+            safelyExecute(
+                    LOGGER,
+                    () -> channelCloseThreadPool.shutdown(),
+                    "Error while closing channel closing thread pool"
+            );
         }
-        if (this.privateConnectionSubscriptionScheduler) {
-            this.connectionSubscriptionScheduler.dispose();
-        }
-        if (this.privateResourceManagementScheduler) {
-            this.resourceManagementScheduler.dispose();
-        }
-        channelCloseThreadPool.shutdown();
     }
 
     public static class SendContext {

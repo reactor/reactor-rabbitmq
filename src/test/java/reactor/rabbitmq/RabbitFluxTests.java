@@ -38,6 +38,7 @@ import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
 import java.io.IOException;
+import java.net.SocketException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1106,7 +1107,7 @@ public class RabbitFluxTests {
                             sourceQueue,
                             new ConsumeOptions().stopConsumingBiFunction((emitter, msg) -> Integer.parseInt(new String(msg.getBody())) == nbMessages - 1)
                     ).map(delivery -> new OutboundMessage("", destinationQueue, delivery.getBody()))
-                            .transform(messages -> sender.send(messages)))
+                            .composeNow(messages -> sender.send(messages)))
                     .thenMany(receiver.consumeNoAck(destinationQueue)).subscribe(msg -> {
                         counter.incrementAndGet();
                         latch.countDown();
@@ -1205,7 +1206,7 @@ public class RabbitFluxTests {
     }
 
     @Test
-    public void creatConnectionWithConnectionSupplier() throws Exception {
+    public void createConnectionWithConnectionSupplier() throws Exception {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
 
@@ -1260,6 +1261,44 @@ public class RabbitFluxTests {
                 .connectionMono(Mono.fromCallable(() -> connectionFactory.newConnection("non-existing-passive-exchange"))));
 
         StepVerifier.create(sender.declareExchange(ExchangeSpecification.exchange("non-existing-exchange").passive(true))).expectError(ShutdownSignalException.class).verify();
+    }
+
+    @Test public void useConnectionMonoConfiguratorForRetry() throws Exception {
+        AtomicInteger senderCallCount = new AtomicInteger(0);
+        AtomicInteger receiverCallCount = new AtomicInteger(0);
+        ConnectionFactory cf = new ConnectionFactory() {
+            @Override
+            public Connection newConnection(String name) throws IOException, TimeoutException {
+                if ("sender".equals(name)) {
+                    if (senderCallCount.incrementAndGet() < 4) {
+                        throw new SocketException();
+                    }
+                } else if ("receiver".equals(name)) {
+                    if (receiverCallCount.incrementAndGet() < 3) {
+                        throw new SocketException();
+                    }
+                } else {
+                    throw new IllegalArgumentException();
+                }
+                return super.newConnection(name);
+            }
+        };
+        cf.useNio();
+
+        sender = createSender(new SenderOptions()
+            .connectionFactory(cf)
+            .connectionSupplier(connectionFactory -> connectionFactory.newConnection("sender"))
+            .connectionMonoConfigurator(cm -> cm.retry(3, ex -> ex instanceof SocketException)));
+
+        receiver = createReceiver(new ReceiverOptions()
+                .connectionFactory(cf)
+                .connectionSupplier(connectionFactory -> connectionFactory.newConnection("receiver"))
+                .connectionMonoConfigurator(cm -> cm.retry(2, ex -> ex instanceof SocketException)));
+
+        String q = sender.declare(QueueSpecification.queue("").exclusive(false).autoDelete(true)).block().getQueue();
+        assertThat(senderCallCount).hasValue(4); // retried 3 times, so called 4 times
+        sendAndReceiveMessages(q, sender, receiver);
+        assertThat(receiverCallCount).hasValue(3); // retried 2 times, so called 3 times
     }
 
     private void sendAndReceiveMessages(String queue) throws Exception {

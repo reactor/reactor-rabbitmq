@@ -25,7 +25,7 @@ to transport messages to the broker. A `Sender` can also manage resources
 A `Sender` is created with an instance of sender configuration options
 `reactor.rabbitmq.SenderOptions`.
 The properties of `SenderOptions` contains the `ConnectionFactory` that creates
-connections to the broker and some Reactor `Scheduler`s used by the `Sender`.
+connections to the broker and a Reactor `Scheduler` used by the `Sender`.
 
 [source,java,indent=0]
 --------
@@ -462,7 +462,7 @@ Reactor RabbitMQ provides 2 ways to have more control over the connection creati
 a name or to connect to different nodes:
 
  * using a connection supplier (simplest option, no Reactive API involved)
- * using a custom `Mono<Connection>` (implies Reactive API but provide more control)
+ * using a custom `Mono<Connection>` (implies Reactive API but provides more control)
 
 ===== Creating a connection with a supplier
 
@@ -493,7 +493,7 @@ include::{test-examples}/AdvancedFeatures.java[tag=connection-mono]
 
 Providing your own `Mono<Connection>` lets you take advantage of all the Reactor API
 (e.g. for caching) but has some caveats: Reactor RabbitMQ will not cache the provided `Mono<Connection>`,
-will not use them on a scheduler, and will not close them automatically. This is developer's responsibility
+will not use it on a scheduler, and will not close it automatically. This is developer's responsibility
 to take care of these actions if they make sense in their context.
 
 
@@ -578,4 +578,34 @@ without pooling at all. According to the same micro-benchmarks, channel pooling
 does not make sending with publisher confirms perform better, it appears to perform
 even worse. Don't take these conclusions for granted, you should always make your
 own benchmarks depending on your workloads.
+
+==== Retry configuration on connection opening
+
+Some applications may want to fail fast and throw an exception when the broker
+is unavailable. Other applications may want to retry connection opening when it fails.
+
+Both `SenderOptions` and `ReceiverOptions` provide a `Function<Mono<? extends Connection>, Mono<? extends Connection>>`
+`connectionMonoConfigurator`, which is a hook in the `Mono<Connection>` creation of the `Sender` or
+`Receiver` instance. This is a good place to customize the `Mono<Connection>` to configure a retry policy.
+
+The following snippet shows how to configure retry with an inline `connectionMonoConfigurator`
+for a `Sender`:
+
+[source,java,indent=0]
+-------
+include::{test-examples}/AdvancedFeatures.java[tag=retry-with-connection-mono-configurator]
+-------
+<1> Set up retry on connection opening
+
+Please read the Reactor Core documentation for more information about
+https://projectreactor.io/docs/core/release/reference/#_retrying[retry],
+https://projectreactor.io/docs/core/release/reference/#faq.exponentialBackoff[retry with exponential backoff],
+and https://projectreactor.io/docs/core/release/reference/#extra-repeat-retry[retry support in Reactor-Extra].
+
+[NOTE]
+====
+As `connectionMonoConfigurator` is simply a hook, operations the `Sender`/`Receiver` performs on the final
+`Mono<Connection>` like caching still happen. But note the `connectionMonoConfigurator` is not applied
+when a `Mono<Connection>` is provided to the `SenderOptions` or `ReceiverOptions`.
+====
 

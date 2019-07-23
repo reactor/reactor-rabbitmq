@@ -26,6 +26,8 @@ import reactor.rabbitmq.Sender;
 import reactor.rabbitmq.SenderOptions;
 import reactor.rabbitmq.Utils;
 
+import java.time.Duration;
+
 /**
  *
  */
@@ -81,6 +83,13 @@ public class AdvancedFeatures {
                 new ReceiverOptions().connectionSupplier(connectionsupplier)                   // <4>
         );
         // end::shared-connection[]
+    }
+
+    void retry() {
+        // tag::retry-with-connection-mono-configurator[]
+        Receiver receiver = RabbitFlux.createReceiver(new ReceiverOptions()
+            .connectionMonoConfigurator(cm -> cm.retryBackoff(3, Duration.ofSeconds(5)))); // <1>
+        // end::retry-with-connection-mono-configurator[]
     }
 
 }

@@ -28,10 +28,14 @@ import reactor.core.scheduler.Schedulers;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static reactor.rabbitmq.Helpers.safelyExecute;
 
 /**
  * Reactive abstraction to consume messages as a {@link Flux}.
@@ -44,11 +48,15 @@ public class Receiver implements Closeable {
 
     private final Mono<? extends Connection> connectionMono;
 
-    private final AtomicBoolean hasConnection = new AtomicBoolean(false);
+    private final AtomicReference<Connection> connection = new AtomicReference<>();
 
     private final Scheduler connectionSubscriptionScheduler;
 
     private final boolean privateConnectionSubscriptionScheduler;
+
+    private final int connectionClosingTimeout;
+
+    private final AtomicBoolean closingOrClosed = new AtomicBoolean(false);
 
     public Receiver() {
         this(new ReceiverOptions());
@@ -58,18 +66,34 @@ public class Receiver implements Closeable {
         this.privateConnectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null;
         this.connectionSubscriptionScheduler = options.getConnectionSubscriptionScheduler() == null ?
                 createScheduler("rabbitmq-receiver-connection-subscription") : options.getConnectionSubscriptionScheduler();
-        this.connectionMono = options.getConnectionMono() != null ? options.getConnectionMono() :
-                Mono.fromCallable(() -> {
-                    if (options.getConnectionSupplier() == null) {
-                        return options.getConnectionFactory().newConnection();
-                    } else {
-                        // the actual connection factory to use is already set in a function wrapper, not need to use one
-                        return options.getConnectionSupplier().apply(null);
-                    }
-                })
-                        .doOnSubscribe(c -> hasConnection.set(true))
-                        .subscribeOn(this.connectionSubscriptionScheduler)
-                        .cache();
+
+        Mono<? extends Connection> cm;
+        if (options.getConnectionMono() == null) {
+            cm = Mono.fromCallable(() -> {
+                if (options.getConnectionSupplier() == null) {
+                    return options.getConnectionFactory().newConnection();
+                } else {
+                    // the actual connection factory to use is already set in a function wrapper, not need to use one
+                    return options.getConnectionSupplier().apply(null);
+                }
+            });
+            cm = options.getConnectionMonoConfigurator().apply(cm);
+            cm = cm.doOnNext(conn -> connection.set(conn))
+                    .subscribeOn(this.connectionSubscriptionScheduler)
+                    .composeNow(this::cache);
+        } else {
+            cm = options.getConnectionMono();
+        }
+        this.connectionMono = cm;
+        if (options.getConnectionClosingTimeout() != null && !Duration.ZERO.equals(options.getConnectionClosingTimeout())) {
+            this.connectionClosingTimeout = (int) options.getConnectionClosingTimeout().toMillis();
+        } else {
+            this.connectionClosingTimeout = -1;
+        }
+    }
+
+    protected <T> Mono<T> cache(Mono<T> mono) {
+        return Utils.cache(mono);
     }
 
     protected Scheduler createScheduler(String name) {
@@ -209,16 +233,21 @@ public class Receiver implements Closeable {
     // TODO consume with dynamic QoS and/or batch ack
 
     public void close() {
-        if (hasConnection.getAndSet(false)) {
-            try {
-                // FIXME use timeout on block (should be a parameter of the Receiver)
-                connectionMono.block().close();
-            } catch (IOException e) {
-                throw new RabbitFluxException(e);
+        if (closingOrClosed.compareAndSet(false, true)) {
+            if (connection.get() != null) {
+                safelyExecute(
+                        LOGGER,
+                        () -> connection.get().close(this.connectionClosingTimeout),
+                        "Error while closing receiver connection"
+                );
             }
-        }
-        if (privateConnectionSubscriptionScheduler) {
-            this.connectionSubscriptionScheduler.dispose();
+            if (privateConnectionSubscriptionScheduler) {
+                safelyExecute(
+                        LOGGER,
+                        () -> this.connectionSubscriptionScheduler.dispose(),
+                        "Error while disposing connection subscriber scheduler"
+                );
+            }
         }
     }
 

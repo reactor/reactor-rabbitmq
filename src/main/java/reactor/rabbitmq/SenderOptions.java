@@ -23,7 +23,9 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Scheduler;
 
+import java.time.Duration;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -61,6 +63,17 @@ public class SenderOptions {
     private Mono<? extends Channel> resourceManagementChannelMono;
 
     private Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> connectionSupplier;
+
+    private Function<Mono<? extends Connection>, Mono<? extends Connection>> connectionMonoConfigurator = cm -> cm;
+
+    /**
+     * Timeout for closing the {@link Sender} connection.
+     * <p>
+     * Default is 30 seconds. Use {@link Duration#ZERO} for no timeout.
+     *
+     * @since 1.3.0
+     */
+    private Duration connectionClosingTimeout = Duration.ofSeconds(30);
 
     public ConnectionFactory getConnectionFactory() {
         return connectionFactory;
@@ -132,7 +145,7 @@ public class SenderOptions {
     }
 
     /**
-     * Send a {@link Mono} that the created {@link Sender} will use for its operations.
+     * Set a {@link Mono} that the created {@link Sender} will use for its operations.
      * <p>
      * A {@link Sender} created from this {@link SenderOptions} instance will not cache for re-use, nor close
      * on {@link Sender#close()} the underlying connection. It is recommended that the passed-in {@link Mono} handles
@@ -209,6 +222,21 @@ public class SenderOptions {
         return this;
     }
 
+    /**
+     * A {@link Function} to customize the connection {@link Mono} used in the created {@link Sender} instance.
+     * <p>
+     * This function can be used to configure retry when obtaining the {@link Connection}.
+     *
+     * <em>This function is not applied if a custom <code>connectionMono</code> is provided.</em> It is applied
+     * when a <code>connectionSupplier</code> is provided though.
+     *
+     * @param connectionMonoConfigurator the function to configure the passed-in connection mono
+     * @return the configured connection mono
+     */
+    public SenderOptions connectionMonoConfigurator(Function<Mono<? extends Connection>, Mono<? extends Connection>> connectionMonoConfigurator) {
+        this.connectionMonoConfigurator = connectionMonoConfigurator;
+        return this;
+    }
 
     public SenderOptions resourceManagementChannelMono(Mono<? extends Channel> resourceManagementChannelMono) {
         this.resourceManagementChannelMono = resourceManagementChannelMono;
@@ -221,5 +249,27 @@ public class SenderOptions {
 
     public Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> getConnectionSupplier() {
         return connectionSupplier;
+    }
+
+    public Function<Mono<? extends Connection>, Mono<? extends Connection>> getConnectionMonoConfigurator() {
+        return connectionMonoConfigurator;
+    }
+
+    /**
+     * Timeout for closing the {@link Sender} connection.
+     * <p>
+     * Default is 30 seconds. Use {@link Duration#ZERO} for no timeout.
+     *
+     * @param connectionClosingTimeout timeout for connection closing
+     * @return this {@link SenderOptions} instance
+     * @since 1.3.0
+     */
+    public SenderOptions connectionClosingTimeout(Duration connectionClosingTimeout) {
+        this.connectionClosingTimeout = connectionClosingTimeout;
+        return this;
+    }
+
+    public Duration getConnectionClosingTimeout() {
+        return connectionClosingTimeout;
     }
 }
