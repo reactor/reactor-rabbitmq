@@ -76,6 +76,7 @@ class LazyChannelPool implements ChannelPool {
                 channel = createChannel(connection);
             } else {
                 channel.clearConfirmListeners();
+                channel.clearReturnListeners();
             }
             return channel;
         })
