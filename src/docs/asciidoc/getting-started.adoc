@@ -142,7 +142,7 @@ dependencies {
 --------
 
 
-For maven:
+For Maven:
 
 [source,xml]
 --------
