@@ -34,21 +34,21 @@ ext {
 	reactorCoreVersion = "3.3.0.BUILD-SNAPSHOT"
 
 	// Logging
-	slf4jVersion = '1.7.26'
+	slf4jVersion = '1.7.28'
 	logbackVersion = '1.2.3'
 
 	// Libraries
 	rabbitMqJavaClientVersion = '5.7.3'
 
 	// Sample
-	springBootVersion = '2.2.0.M4'
-	springAmqpVersion = '2.2.0.M3'
+	springBootVersion = '2.2.0.M6'
+	springAmqpVersion = '2.2.0.RC1'
 
 	// Testing
 	mockitoVersion = '3.0.0'
-	junitPlatformVersion = '1.5.1'
-	junitJupiterVersion  = '5.5.1'
-	assertjVersion = '3.12.2'
+	junitPlatformVersion = '1.5.2'
+	junitJupiterVersion  = '5.5.2'
+	assertjVersion = '3.13.2'
 
 	javadocLinks = ["https://docs.oracle.com/javase/7/docs/api/",
 					"https://docs.oracle.com/javaee/6/api/",
