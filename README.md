@@ -40,7 +40,7 @@ With Maven:
 <dependency>
     <groupId>io.projectreactor.rabbitmq</groupId>
     <artifactId>reactor-rabbitmq</artifactId>
-    <version>1.2.0.RELEASE</version>
+    <version>1.3.0.RELEASE</version>
 </dependency>
 ```
 
@@ -48,7 +48,7 @@ With Maven:
 With Gradle:
 ```groovy
 dependencies {
-  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.2.0.RELEASE"
+  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.3.0.RELEASE"
 }
 ```
 
@@ -94,7 +94,7 @@ With Maven:
 <dependency>
     <groupId>io.projectreactor.rabbitmq</groupId>
     <artifactId>reactor-rabbitmq</artifactId>
-    <version>1.3.0.BUILD-SNAPSHOT</version>
+    <version>1.4.0.BUILD-SNAPSHOT</version>
 </dependency>
 
 <repositories>
@@ -117,7 +117,7 @@ repositories {
 }
 
 dependencies {
-  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.3.0.BUILD-SNAPSHOT"
+  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.4.0.BUILD-SNAPSHOT"
 }
 ```
 
