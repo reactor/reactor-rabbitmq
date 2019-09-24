@@ -96,7 +96,7 @@ public class RabbitFluxTests {
     public static Object[][] senderWithCustomChannelCloseHandlerPriorityArguments() {
         return new Object[][]{
                 new Object[]{10, (Function<Tuple3<Sender, Publisher<OutboundMessage>, SendOptions>, Publisher>) objects -> objects.getT1().send(objects.getT2(), objects.getT3()), 0},
-                new Object[]{10, (Function<Tuple3<Sender, Publisher<OutboundMessage>, SendOptions>, Publisher>) objects -> objects.getT1().sendWithPublishConfirms(objects.getT2(), objects.getT3()), 10}
+                new Object[]{10, (Function<Tuple3<Sender, Publisher<OutboundMessage<Void>>, SendOptions>, Publisher>) objects -> objects.getT1().sendWithPublishConfirms(objects.getT2(), objects.getT3()), 10}
         };
     }
 
@@ -729,7 +729,7 @@ public class RabbitFluxTests {
         }, consumerTag -> {
         });
 
-        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+        Flux<OutboundMessage<Void>> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage<>("", queue, "".getBytes()));
 
         sender = createSender();
         sender.sendWithPublishConfirms(msgFlux).subscribe(outboundMessageResult -> {
@@ -757,7 +757,7 @@ public class RabbitFluxTests {
         }, consumerTag -> {
         });
 
-        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+        Flux<OutboundMessage<Void>> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage<>("", queue, "".getBytes()));
 
         sender = createSender();
         sender.sendWithPublishConfirms(msgFlux).subscribe(new BaseSubscriber<OutboundMessageResult>() {
@@ -782,7 +782,7 @@ public class RabbitFluxTests {
     @Test
     public void publishConfirmsEmptyPublisher() throws Exception {
         CountDownLatch finallyLatch = new CountDownLatch(1);
-        Flux<OutboundMessage> msgFlux = Flux.empty();
+        Flux<OutboundMessage<Void>> msgFlux = Flux.empty();
 
         sender = createSender();
         sender.sendWithPublishConfirms(msgFlux)
@@ -801,12 +801,12 @@ public class RabbitFluxTests {
         AtomicInteger inflight = new AtomicInteger();
         AtomicInteger maxInflight = new AtomicInteger();
 
-        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> {
+        Flux<OutboundMessage<Void>> msgFlux = Flux.range(0, nbMessages).map(i -> {
             int current = inflight.incrementAndGet();
             if (current > maxInflight.get()) {
                 maxInflight.set(current);
             }
-            return new OutboundMessage("", queue, "".getBytes());
+            return new OutboundMessage<>("", queue, "".getBytes());
         });
 
         sender = createSender();
@@ -854,7 +854,7 @@ public class RabbitFluxTests {
 
 
         int nbMessages = 10;
-        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+        Flux<OutboundMessage<Void>> msgFlux = Flux.range(0, nbMessages).map(i -> new OutboundMessage<>("", queue, "".getBytes()));
         int nbMessagesAckNack = 1 + 1; // first published message confirmed + "fake" confirmation because of sending failure
         CountDownLatch confirmLatch = new CountDownLatch(nbMessagesAckNack);
         sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
@@ -1073,8 +1073,8 @@ public class RabbitFluxTests {
     @Test public void emitErrorOnPublisherConfWhenChannelIsClosedByServer() throws Exception {
         String nonExistingExchange = UUID.randomUUID().toString();
         int messageCount = 5;
-        Flux<OutboundMessage> msgFlux = Flux.range(0, messageCount)
-                .map(i -> new OutboundMessage(nonExistingExchange, queue, "".getBytes()));
+        Flux<OutboundMessage<Void>> msgFlux = Flux.range(0, messageCount)
+                .map(i -> new OutboundMessage<>(nonExistingExchange, queue, "".getBytes()));
 
         CountDownLatch latch = new CountDownLatch(1);
         sender = createSender();

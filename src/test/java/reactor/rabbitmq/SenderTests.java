@@ -182,11 +182,11 @@ public class SenderTests {
     @Test
     public void trackReturnedOptionWillMarkReturnedMessage() throws Exception {
         int messageCount = 10;
-        Flux<OutboundMessage> msgFlux = Flux.range(0, messageCount).map(i -> {
+        Flux<OutboundMessage<Integer>> msgFlux = Flux.range(0, messageCount).map(i -> {
             if (i == 3) {
-                return new OutboundMessage("", "non-existing-queue", (i + "").getBytes());
+                return new OutboundMessage<>("", "non-existing-queue", null, (i + "").getBytes(), i);
             } else {
-                return new OutboundMessage("", queue, (i + "").getBytes());
+                return new OutboundMessage<>("", queue, null, (i + "").getBytes(), i);
             }
         });
 
@@ -199,9 +199,11 @@ public class SenderTests {
             if ("3".equals(body)) {
                 assertThat(outboundMessageResult.isReturned()).isTrue();
                 assertThat(outboundMessageResult.isAck()).isTrue();
+                assertThat(outboundMessageResult.getOutboundMessage().getCorrelationMetadata()).isEqualTo(Integer.valueOf(body));
             } else {
                 assertThat(outboundMessageResult.isReturned()).isFalse();
                 assertThat(outboundMessageResult.isAck()).isTrue();
+                assertThat(outboundMessageResult.getOutboundMessage().getCorrelationMetadata()).isEqualTo(Integer.valueOf(body));
             }
             confirmedLatch.countDown();
         });

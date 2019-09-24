@@ -23,7 +23,7 @@ import java.util.Arrays;
 /**
  * Outbound message meant to be sent by a {@link Sender}.
  */
-public class OutboundMessage {
+public class OutboundMessage<T> {
 
     private final String exchange;
 
@@ -33,8 +33,19 @@ public class OutboundMessage {
 
     private final byte[] body;
 
-    // TODO add a correlation property to use for OutboundMessageResult
-    // (instead of using the whole message)
+    private final T correlationMetadata;
+
+    /**
+     * Constructs a new message which is described by the body, the target exchange and the routing key which
+     * can be used for smart routing after the message is published to the exchange.
+     *
+     * @param exchange   The name of the target exchange.
+     * @param routingKey The routing key to be used if the message has to be routed in a specific way towards a queue.
+     * @param body       The main body of the message.
+     */
+    public OutboundMessage(String exchange, String routingKey, byte[] body) {
+        this(exchange, routingKey, null, body);
+    }
 
     /**
      * Constructs a new message which is described by the body, the target exchange and the routing key which
@@ -47,22 +58,26 @@ public class OutboundMessage {
      * @param body       The main body of the message.
      */
     public OutboundMessage(String exchange, String routingKey, BasicProperties properties, byte[] body) {
-        this.exchange = exchange;
-        this.routingKey = routingKey;
-        this.properties = properties;
-        this.body = body;
+        this(exchange, routingKey, properties, body, null);
     }
 
     /**
      * Constructs a new message which is described by the body, the target exchange and the routing key which
-     * can be used for smart routing after the message is published to the exchange.
+     * can be used for smart routing after the message is published to the exchange. The message will also be
+     * accompanied by the provided properties which define its behaviour in the broker.
      *
-     * @param exchange   The name of the target exchange.
-     * @param routingKey The routing key to be used if the message has to be routed in a specific way towards a queue.
-     * @param body       The main body of the message.
+     * @param exchange            The name of the target exchange.
+     * @param routingKey          The routing key to be used if the message has to be routed in a specific way towards a queue.
+     * @param properties          AMQP compatible properties that will be used during the publishing of the message.
+     * @param body                The main body of the message.
+     * @param correlationMetadata The metadata correlated with the message
      */
-    public OutboundMessage(String exchange, String routingKey, byte[] body) {
-        this(exchange, routingKey, null, body);
+    public OutboundMessage(String exchange, String routingKey, BasicProperties properties, byte[] body, T correlationMetadata) {
+        this.exchange = exchange;
+        this.routingKey = routingKey;
+        this.properties = properties;
+        this.body = body;
+        this.correlationMetadata = correlationMetadata;
     }
 
     /**
@@ -99,6 +114,15 @@ public class OutboundMessage {
      */
     public byte[] getBody() {
         return body;
+    }
+
+    /**
+     * Defines the "correlation" metadata associated with a sent OutboundMessage
+     *
+     * @return The correlated metadata of the message
+     */
+    public T getCorrelationMetadata() {
+        return correlationMetadata;
     }
 
     @Override

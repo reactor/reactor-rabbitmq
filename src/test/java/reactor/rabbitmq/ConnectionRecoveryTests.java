@@ -327,8 +327,8 @@ public class ConnectionRecoveryTests {
         }, consumerTag -> {
         });
 
-        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages)
-            .map(i -> new OutboundMessage("", queue, "".getBytes()))
+        Flux<OutboundMessage<Void>> msgFlux = Flux.range(0, nbMessages)
+            .map(i -> new OutboundMessage<Void>("", queue, "".getBytes()))
             .delayElements(ofMillis(300));
 
         sender = createSender(new SenderOptions().connectionMono(connectionMono));

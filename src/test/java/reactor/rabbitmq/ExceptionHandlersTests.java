@@ -112,7 +112,7 @@ public class ExceptionHandlersTests {
     }
 
     private Sender.SendContext sendContext(Callable<Void> callable) {
-        return new Sender.SendContext(null, null) {
+        return new Sender.SendContext<Void>(null, null) {
 
             @Override
             public void publish() throws Exception {

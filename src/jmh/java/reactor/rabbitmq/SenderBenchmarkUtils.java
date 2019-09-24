@@ -25,8 +25,8 @@ import java.util.UUID;
 
 public class SenderBenchmarkUtils {
 
-    public static Flux<OutboundMessage> outboundMessageFlux(String queue, int nbMessages) {
-        return Flux.range(0, nbMessages).map(i -> new OutboundMessage("", queue, "".getBytes()));
+    public static Flux<OutboundMessage<Void>> outboundMessageFlux(String queue, int nbMessages) {
+        return Flux.range(0, nbMessages).map(i -> new OutboundMessage<>("", queue, "".getBytes()));
     }
 
     public static Connection newConnection() throws Exception {
