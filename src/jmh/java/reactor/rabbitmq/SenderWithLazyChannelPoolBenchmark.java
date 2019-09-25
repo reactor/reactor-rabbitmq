@@ -23,7 +23,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -38,7 +37,7 @@ public class SenderWithLazyChannelPoolBenchmark {
     ChannelPool channelPool;
     Sender sender;
     String queue;
-    Flux<OutboundMessage<Void>> msgFlux;
+    Flux<OutboundMessage> msgFlux;
 
     @Param({"1", "10", "25"})
     public int channelPoolSize;
@@ -75,7 +74,7 @@ public class SenderWithLazyChannelPoolBenchmark {
 
     @Benchmark
     public void send(Blackhole blackhole) {
-        blackhole.consume(sender.send(msgFlux.map(Function.identity()), new SendOptions().channelPool(channelPool)).block());
+        blackhole.consume(sender.send(msgFlux, new SendOptions().channelPool(channelPool)).block());
     }
 
     @Benchmark

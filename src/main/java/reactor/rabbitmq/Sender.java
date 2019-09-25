@@ -161,7 +161,7 @@ public class Sender implements AutoCloseable {
                             message.getBody()
                         );
                     } catch (Exception e) {
-                        exceptionHandler.accept(new SendContext<Void>(channel, message), e);
+                        exceptionHandler.accept(new SendContext<Object>(channel, message), e);
                     }
                 })
                 .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
@@ -184,7 +184,7 @@ public class Sender implements AutoCloseable {
      * @return flux of confirmations
      * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
      */
-    public <T> Flux<OutboundMessageResult<T>> sendWithPublishConfirms(Publisher<OutboundMessage<T>> messages) {
+    public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages) {
         return sendWithPublishConfirms(messages, new SendOptions());
     }
 
@@ -206,7 +206,49 @@ public class Sender implements AutoCloseable {
      * @see <a href="https://www.rabbitmq.com/publishers.html#unroutable">Mandatory flag</a>
      * @see SendOptions#trackReturned(boolean)
      */
-    public <T> Flux<OutboundMessageResult<T>> sendWithPublishConfirms(Publisher<OutboundMessage<T>> messages, SendOptions options) {
+    public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages, SendOptions options) {
+        return sendWithCorrelatedPublishConfirms(Flux.from(messages).map(message -> (OutboundMessage<Object>) message), options)
+            .map(Function.identity());
+    }
+
+    /**
+     * Publish a flux of messages with typed correlated metadata and expect confirmations.
+     *
+     * <p>
+     * This method uses <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">RabbitMQ Publisher
+     * Confirms</a> extension to make sure
+     * outbound messages made it or not to the broker.
+     * <p>
+     * See {@link #sendWithCorrelatedPublishConfirms(Publisher, SendOptions)} to have more control over the
+     * publishing and the confirmations with {@link SendOptions}.
+     *
+     * @param messages flux of outbound messages with typed correlated metadata
+     * @return flux of confirmations with typed correlated metadata
+     * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
+     */
+    public <T> Flux<OutboundMessageResult<T>> sendWithCorrelatedPublishConfirms(Publisher<OutboundMessage<T>> messages) {
+        return sendWithCorrelatedPublishConfirms(messages, new SendOptions());
+    }
+
+    /**
+     * Publish a flux of messages with typed correlated metadata and expect confirmations.
+     * <p>
+     * This method uses <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">RabbitMQ Publisher
+     * Confirms</a> extension to make sure
+     * outbound messages made it or not to the broker.
+     * <p>
+     * It is also possible to know if a message has been routed to a least one queue
+     * by enabling the <a href="https://www.rabbitmq.com/publishers.html#unroutable">mandatory flag</a>. The
+     * default is to not use this flag.
+     *
+     * @param messages flux of outbound messages with typed correlated metadata
+     * @param options  options to configure publishing
+     * @return flux of confirmations
+     * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
+     * @see <a href="https://www.rabbitmq.com/publishers.html#unroutable">Mandatory flag</a>
+     * @see SendOptions#trackReturned(boolean)
+     */
+    public <T> Flux<OutboundMessageResult<T>> sendWithCorrelatedPublishConfirms(Publisher<OutboundMessage<T>> messages, SendOptions options) {
         SendOptions sendOptions = options == null ? new SendOptions() : options;
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
@@ -219,7 +261,7 @@ public class Sender implements AutoCloseable {
                 }
                 return channel;
             })
-            .flatMapMany(channel -> Flux.from(new PublishConfirmOperator<>(messages, channel, sendOptions)).doFinally(signalType -> {
+            .flatMapMany(channel -> new PublishConfirmOperator<>(messages, channel, sendOptions).doFinally(signalType -> {
                 // channel closing is done here, to avoid creating threads inside PublishConfirmOperator,
                 // which would make ChannelPool useless
                 if (signalType == SignalType.ON_ERROR) {

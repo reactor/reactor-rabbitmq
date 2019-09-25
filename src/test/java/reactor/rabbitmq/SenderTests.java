@@ -182,11 +182,11 @@ public class SenderTests {
     @Test
     public void trackReturnedOptionWillMarkReturnedMessage() throws Exception {
         int messageCount = 10;
-        Flux<OutboundMessage<Integer>> msgFlux = Flux.range(0, messageCount).map(i -> {
+        Flux<OutboundMessage> msgFlux = Flux.range(0, messageCount).map(i -> {
             if (i == 3) {
-                return new OutboundMessage<>("", "non-existing-queue", null, (i + "").getBytes(), i);
+                return new OutboundMessage("", "non-existing-queue", (i + "").getBytes());
             } else {
-                return new OutboundMessage<>("", queue, null, (i + "").getBytes(), i);
+                return new OutboundMessage("", queue, (i + "").getBytes());
             }
         });
 
@@ -199,14 +199,31 @@ public class SenderTests {
             if ("3".equals(body)) {
                 assertThat(outboundMessageResult.isReturned()).isTrue();
                 assertThat(outboundMessageResult.isAck()).isTrue();
-                assertThat(outboundMessageResult.getOutboundMessage().getCorrelationMetadata()).isEqualTo(Integer.valueOf(body));
             } else {
                 assertThat(outboundMessageResult.isReturned()).isFalse();
                 assertThat(outboundMessageResult.isAck()).isTrue();
-                assertThat(outboundMessageResult.getOutboundMessage().getCorrelationMetadata()).isEqualTo(Integer.valueOf(body));
             }
             confirmedLatch.countDown();
         });
+        assertThat(confirmedLatch.await(10, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void sendingTypedCorrelationMetadataResultsInTypedCorrelationMetadataOnResults() throws Exception {
+        int messageCount = 10;
+        Flux<OutboundMessage<Integer>> msgFlux = Flux.range(0, messageCount)
+            .map(i -> new OutboundMessage<>("", queue, null, (i + "").getBytes(), i * 2));
+
+        sender = createSender();
+
+        CountDownLatch confirmedLatch = new CountDownLatch(messageCount);
+        sender.sendWithCorrelatedPublishConfirms(msgFlux).subscribe(outboundMessageResult -> {
+            String body = new String(outboundMessageResult.getOutboundMessage().getBody());
+            assertThat(outboundMessageResult.getOutboundMessage().getCorrelationMetadata())
+                .isEqualTo(Integer.parseInt(body) * 2);
+            confirmedLatch.countDown();
+        });
+
         assertThat(confirmedLatch.await(10, TimeUnit.SECONDS)).isTrue();
     }
 

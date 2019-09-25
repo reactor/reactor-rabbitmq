@@ -22,7 +22,6 @@ import org.openjdk.jmh.infra.Blackhole;
 import reactor.core.publisher.Flux;
 
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -36,7 +35,7 @@ public class SenderBenchmark {
     Connection connection;
     Sender sender;
     String queue;
-    Flux<OutboundMessage<Void>> msgFlux;
+    Flux<OutboundMessage> msgFlux;
 
     @Param({"1", "10", "100", "1000"})
     public int nbMessages;
@@ -68,7 +67,7 @@ public class SenderBenchmark {
 
     @Benchmark
     public void send(Blackhole blackhole) {
-        blackhole.consume(sender.send(msgFlux.map(Function.identity())).block());
+        blackhole.consume(sender.send(msgFlux).block());
     }
 
     @Benchmark

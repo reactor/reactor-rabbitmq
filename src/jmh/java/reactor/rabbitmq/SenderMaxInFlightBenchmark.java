@@ -35,7 +35,7 @@ public class SenderMaxInFlightBenchmark {
     Connection connection;
     Sender sender;
     String queue;
-    Flux<OutboundMessage<Void>> msgFlux;
+    Flux<OutboundMessage> msgFlux;
 
     @Param({"1", "10", "100", "1000"})
     public int nbMessages;

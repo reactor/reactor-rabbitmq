@@ -121,8 +121,8 @@ public class ApiGuideSender {
             .resourceManagementScheduler(Schedulers.elastic());
         Sender sender = RabbitFlux.createSender(senderOptions);
         // tag::publisher-confirms[]
-        Flux<OutboundMessage<Void>> outboundFlux  = Flux.range(1, 10)
-            .map(i -> new OutboundMessage<>(
+        Flux<OutboundMessage> outboundFlux  = Flux.range(1, 10)
+            .map(i -> new OutboundMessage(
                 "amq.direct",
                 "routing.key", "hello".getBytes()
             ));
@@ -144,8 +144,8 @@ public class ApiGuideSender {
                 .resourceManagementScheduler(Schedulers.elastic());
         Sender sender = RabbitFlux.createSender(senderOptions);
         // tag::publisher-confirms-with-returned-tracking[]
-        Flux<OutboundMessage<Void>> outboundFlux  = Flux.range(1, 10)
-                .map(i -> new OutboundMessage<>(
+        Flux<OutboundMessage> outboundFlux  = Flux.range(1, 10)
+                .map(i -> new OutboundMessage(
                         "amq.direct",
                         "routing.key", "hello".getBytes()
                 ));
