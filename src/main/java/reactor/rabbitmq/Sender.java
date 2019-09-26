@@ -161,7 +161,7 @@ public class Sender implements AutoCloseable {
                             message.getBody()
                         );
                     } catch (Exception e) {
-                        exceptionHandler.accept(new SendContext<Object>(channel, message), e);
+                        exceptionHandler.accept(new SendContext<>(channel, message), e);
                     }
                 })
                 .doOnError(e -> LOGGER.warn("Send failed with exception {}", e))
@@ -207,8 +207,7 @@ public class Sender implements AutoCloseable {
      * @see SendOptions#trackReturned(boolean)
      */
     public Flux<OutboundMessageResult> sendWithPublishConfirms(Publisher<OutboundMessage> messages, SendOptions options) {
-        return sendWithCorrelatedPublishConfirms(Flux.from(messages).map(message -> (OutboundMessage<Object>) message), options)
-            .map(Function.identity());
+        return Flux.from(sendWithTypedPublishConfirms(messages, options));
     }
 
     /**
@@ -219,15 +218,15 @@ public class Sender implements AutoCloseable {
      * Confirms</a> extension to make sure
      * outbound messages made it or not to the broker.
      * <p>
-     * See {@link #sendWithCorrelatedPublishConfirms(Publisher, SendOptions)} to have more control over the
+     * See {@link #sendWithTypedPublishConfirms(Publisher, SendOptions)} to have more control over the
      * publishing and the confirmations with {@link SendOptions}.
      *
      * @param messages flux of outbound messages with typed correlated metadata
      * @return flux of confirmations with typed correlated metadata
      * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
      */
-    public <T> Flux<OutboundMessageResult<T>> sendWithCorrelatedPublishConfirms(Publisher<OutboundMessage<T>> messages) {
-        return sendWithCorrelatedPublishConfirms(messages, new SendOptions());
+    public <T extends OutboundMessage> Flux<OutboundMessageResult<T>> sendWithTypedPublishConfirms(Publisher<T> messages) {
+        return sendWithTypedPublishConfirms(messages, new SendOptions());
     }
 
     /**
@@ -248,7 +247,7 @@ public class Sender implements AutoCloseable {
      * @see <a href="https://www.rabbitmq.com/publishers.html#unroutable">Mandatory flag</a>
      * @see SendOptions#trackReturned(boolean)
      */
-    public <T> Flux<OutboundMessageResult<T>> sendWithCorrelatedPublishConfirms(Publisher<OutboundMessage<T>> messages, SendOptions options) {
+    public <T extends OutboundMessage> Flux<OutboundMessageResult<T>> sendWithTypedPublishConfirms(Publisher<T> messages, SendOptions options) {
         SendOptions sendOptions = options == null ? new SendOptions() : options;
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
@@ -572,17 +571,17 @@ public class Sender implements AutoCloseable {
         }
     }
 
-    public static class SendContext<T> {
+    public static class SendContext<T extends OutboundMessage> {
 
         protected final Channel channel;
-        protected final OutboundMessage<T> message;
+        protected final T message;
 
-        protected SendContext(Channel channel, OutboundMessage<T> message) {
+        protected SendContext(Channel channel, T message) {
             this.channel = channel;
             this.message = message;
         }
 
-        public OutboundMessage<T> getMessage() {
+        public T getMessage() {
             return message;
         }
 
@@ -604,12 +603,12 @@ public class Sender implements AutoCloseable {
         }
     }
 
-    public static class ConfirmSendContext<T> extends SendContext<T> {
+    public static class ConfirmSendContext<T extends OutboundMessage> extends SendContext<T> {
 
         private final PublishConfirmSubscriber<T> subscriber;
 
 
-        protected ConfirmSendContext(Channel channel, OutboundMessage<T> message, PublishConfirmSubscriber<T> subscriber) {
+        protected ConfirmSendContext(Channel channel, T message, PublishConfirmSubscriber<T> subscriber) {
             super(channel, message);
             this.subscriber = subscriber;
 
@@ -639,14 +638,14 @@ public class Sender implements AutoCloseable {
         }
     }
 
-    private static class PublishConfirmOperator<T>
-        extends FluxOperator<OutboundMessage<T>, OutboundMessageResult<T>> {
+    private static class PublishConfirmOperator<T extends OutboundMessage>
+        extends FluxOperator<T, OutboundMessageResult<T>> {
 
         private final Channel channel;
 
         private final SendOptions options;
 
-        public PublishConfirmOperator(Publisher<OutboundMessage<T>> source, Channel channel, SendOptions options) {
+        public PublishConfirmOperator(Publisher<T> source, Channel channel, SendOptions options) {
             super(Flux.from(source));
             this.channel = channel;
             this.options = options;
@@ -658,14 +657,14 @@ public class Sender implements AutoCloseable {
         }
     }
 
-    private static class PublishConfirmSubscriber<T> implements
-        CoreSubscriber<OutboundMessage<T>>, Subscription {
+    private static class PublishConfirmSubscriber<T extends OutboundMessage> implements
+        CoreSubscriber<T>, Subscription {
 
         private final AtomicReference<SubscriberState> state = new AtomicReference<>(SubscriberState.INIT);
 
         private final AtomicReference<Throwable> firstException = new AtomicReference<>();
 
-        private final ConcurrentNavigableMap<Long, OutboundMessage<T>> unconfirmed = new ConcurrentSkipListMap<>();
+        private final ConcurrentNavigableMap<Long, T> unconfirmed = new ConcurrentSkipListMap<>();
 
         private final Channel channel;
 
@@ -715,7 +714,7 @@ public class Sender implements AutoCloseable {
                             Object deliveryTagObj = properties.getHeaders().get(REACTOR_RABBITMQ_DELIVERY_TAG_HEADER);
                             if(deliveryTagObj instanceof Long) {
                                 Long deliveryTag = (Long) deliveryTagObj;
-                                OutboundMessage<T> outboundMessage = unconfirmed.get(deliveryTag);
+                                T outboundMessage = unconfirmed.get(deliveryTag);
                                 subscriber.onNext(new OutboundMessageResult<>(outboundMessage, true, true));
                                 unconfirmed.remove(deliveryTag);
                             } else {
@@ -744,8 +743,8 @@ public class Sender implements AutoCloseable {
                     private void handleAckNack(long deliveryTag, boolean multiple, boolean ack) {
                         if (multiple) {
                             try {
-                                ConcurrentNavigableMap<Long, OutboundMessage<T>> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
-                                Iterator<Map.Entry<Long, OutboundMessage<T>>> iterator = unconfirmedToSend.entrySet().iterator();
+                                ConcurrentNavigableMap<Long, T> unconfirmedToSend = unconfirmed.headMap(deliveryTag, true);
+                                Iterator<Map.Entry<Long, T>> iterator = unconfirmedToSend.entrySet().iterator();
                                 while (iterator.hasNext()) {
                                     subscriber.onNext(new OutboundMessageResult<>(iterator.next().getValue(), ack, false));
                                     iterator.remove();
@@ -754,7 +753,7 @@ public class Sender implements AutoCloseable {
                                 handleError(e, null);
                             }
                         } else {
-                            OutboundMessage<T> outboundMessage = unconfirmed.get(deliveryTag);
+                            T outboundMessage = unconfirmed.get(deliveryTag);
                             if(outboundMessage != null) {
                                 try {
                                     unconfirmed.remove(deliveryTag);
@@ -784,7 +783,7 @@ public class Sender implements AutoCloseable {
         }
 
         @Override
-        public void onNext(OutboundMessage<T> message) {
+        public void onNext(T message) {
             if (checkComplete(message)) {
                 return;
             }
