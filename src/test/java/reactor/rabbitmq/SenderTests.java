@@ -209,6 +209,25 @@ public class SenderTests {
     }
 
     @Test
+    public void sendingTypedCorrelationMetadataResultsInTypedCorrelationMetadataOnResults() throws Exception {
+        int messageCount = 10;
+        Flux<CorrelableOutboundMessage<Integer>> msgFlux = Flux.range(0, messageCount)
+            .map(i -> new CorrelableOutboundMessage<>("", queue, null, (i + "").getBytes(), i * 2));
+
+        sender = createSender();
+
+        CountDownLatch confirmedLatch = new CountDownLatch(messageCount);
+        sender.sendWithTypedPublishConfirms(msgFlux).subscribe(outboundMessageResult -> {
+            String body = new String(outboundMessageResult.getOutboundMessage().getBody());
+            assertThat(outboundMessageResult.getOutboundMessage().getCorrelationMetadata())
+                .isEqualTo(Integer.parseInt(body) * 2);
+            confirmedLatch.countDown();
+        });
+
+        assertThat(confirmedLatch.await(10, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
     public void closeIsIdempotent() throws Exception {
         Sender sender = createSender();
         int nbMessages = 10;

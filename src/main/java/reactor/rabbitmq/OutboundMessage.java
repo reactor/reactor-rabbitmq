@@ -33,8 +33,17 @@ public class OutboundMessage {
 
     private final byte[] body;
 
-    // TODO add a correlation property to use for OutboundMessageResult
-    // (instead of using the whole message)
+    /**
+     * Constructs a new message which is described by the body, the target exchange and the routing key which
+     * can be used for smart routing after the message is published to the exchange.
+     *
+     * @param exchange   The name of the target exchange.
+     * @param routingKey The routing key to be used if the message has to be routed in a specific way towards a queue.
+     * @param body       The main body of the message.
+     */
+    public OutboundMessage(String exchange, String routingKey, byte[] body) {
+        this(exchange, routingKey, null, body);
+    }
 
     /**
      * Constructs a new message which is described by the body, the target exchange and the routing key which
@@ -51,18 +60,6 @@ public class OutboundMessage {
         this.routingKey = routingKey;
         this.properties = properties;
         this.body = body;
-    }
-
-    /**
-     * Constructs a new message which is described by the body, the target exchange and the routing key which
-     * can be used for smart routing after the message is published to the exchange.
-     *
-     * @param exchange   The name of the target exchange.
-     * @param routingKey The routing key to be used if the message has to be routed in a specific way towards a queue.
-     * @param body       The main body of the message.
-     */
-    public OutboundMessage(String exchange, String routingKey, byte[] body) {
-        this(exchange, routingKey, null, body);
     }
 
     /**
