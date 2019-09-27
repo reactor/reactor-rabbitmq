@@ -19,9 +19,9 @@ package reactor.rabbitmq;
 /**
  * Result of a sent message when using publisher confirm.
  */
-public class OutboundMessageResult<T extends OutboundMessage> {
+public class OutboundMessageResult<OMSG extends OutboundMessage> {
 
-    private final T outboundMessage;
+    private final OMSG outboundMessage;
 
     private final boolean ack;
 
@@ -34,7 +34,7 @@ public class OutboundMessageResult<T extends OutboundMessage> {
      * @param outboundMessage The message that has been published
      * @param ack             Whether the message has been acknowledged by the broker or not
      */
-    public OutboundMessageResult(T outboundMessage, boolean ack) {
+    public OutboundMessageResult(OMSG outboundMessage, boolean ack) {
         this(outboundMessage, ack, false);
     }
 
@@ -46,7 +46,7 @@ public class OutboundMessageResult<T extends OutboundMessage> {
      * @param ack             Whether the message has been acknowledged by the broker or not
      * @param returned        Whether the message was undeliverable and hence returned
      */
-    public OutboundMessageResult(T outboundMessage, boolean ack, boolean returned) {
+    public OutboundMessageResult(OMSG outboundMessage, boolean ack, boolean returned) {
         this.outboundMessage = outboundMessage;
         this.ack = ack;
         this.returned = returned;
@@ -57,7 +57,7 @@ public class OutboundMessageResult<T extends OutboundMessage> {
      *
      * @return The message that has been published.
      */
-    public T getOutboundMessage() {
+    public OMSG getOutboundMessage() {
         return outboundMessage;
     }
 
