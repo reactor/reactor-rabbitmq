@@ -37,6 +37,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -72,6 +74,8 @@ import static reactor.rabbitmq.RabbitFlux.createSender;
  *
  */
 public class ConnectionRecoveryTests {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionRecoveryTests.class);
 
     private static final long RECOVERY_INTERVAL = 2000;
 
@@ -322,28 +326,30 @@ public class ConnectionRecoveryTests {
         AtomicInteger counter = new AtomicInteger();
         Channel channel = connection.createChannel();
         channel.basicConsume(queue, true, (consumerTag, delivery) -> {
+            LOGGER.info("Consuming message {}", new String(delivery.getBody()));
             counter.incrementAndGet();
             consumedLatch.countDown();
         }, consumerTag -> {
         });
 
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages)
-            .map(i -> new OutboundMessage("", queue, "".getBytes()))
+            .map(i -> new OutboundMessage("", queue, String.valueOf(i).getBytes()))
             .delayElements(ofMillis(300));
 
         sender = createSender(new SenderOptions().connectionMono(connectionMono));
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler(
-            new ExceptionHandlers.RetrySendingExceptionHandler(ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE)))
+            new ExceptionHandlers.RetrySendingExceptionHandler(ofSeconds(10), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE)))
             .subscribe(outboundMessageResult -> {
                 if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                    LOGGER.info("Message {} confirmed", new String(outboundMessageResult.getOutboundMessage().getBody()));
                     confirmedLatch.countDown();
                 }
             });
 
         closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
 
-        assertTrue(consumedLatch.await(10, TimeUnit.SECONDS));
-        assertTrue(confirmedLatch.await(10, TimeUnit.SECONDS));
+        assertTrue(consumedLatch.await(20, TimeUnit.SECONDS));
+        assertTrue(confirmedLatch.await(20, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
     }
 

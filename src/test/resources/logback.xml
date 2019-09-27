@@ -25,6 +25,7 @@
     </appender>
 
     <logger name="reactor" level="warn"/>
+    <logger name="reactor.rabbitmq.ConnectionRecoveryTests" level="info"/>
 
     <root level="info">
         <appender-ref ref="stdout"/>
