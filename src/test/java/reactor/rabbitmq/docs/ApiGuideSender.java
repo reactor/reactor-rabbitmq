@@ -116,12 +116,12 @@ public class ApiGuideSender {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
 
-        SenderOptions senderOptions =  new SenderOptions()
+        SenderOptions senderOptions = new SenderOptions()
             .connectionFactory(connectionFactory)
             .resourceManagementScheduler(Schedulers.elastic());
         Sender sender = RabbitFlux.createSender(senderOptions);
         // tag::publisher-confirms[]
-        Flux<OutboundMessage> outboundFlux  = Flux.range(1, 10)
+        Flux<OutboundMessage> outboundFlux = Flux.range(1, 10)
             .map(i -> new OutboundMessage(
                 "amq.direct",
                 "routing.key", "hello".getBytes()
@@ -156,6 +156,23 @@ public class ApiGuideSender {
                     }
                 });
         // end::publisher-confirms-with-returned-tracking[]
+    }
+
+    void publisherConfirmsWithCorrelationMetadata() {
+        Sender sender = RabbitFlux.createSender();
+        // tag::publisher-confirms-with-correlation-metadata[]
+        Flux<CorrelableOutboundMessage<Integer>> outboundFlux = Flux.range(1, 10)
+            .map(i -> new CorrelableOutboundMessage<>(                                          // <1>
+                    "amq.direct",
+                    "routing.key", "hello".getBytes(),
+                    i                                                                           // <2>
+            ));
+        sender.sendWithTypedPublishConfirms(outboundFlux)
+            .subscribe(confirmation -> {
+                CorrelableOutboundMessage<Integer> message = confirmation.getOutboundMessage(); // <3>
+                Integer confirmedBusinessData = message.getCorrelationMetadata();               // <4>
+            });
+        // end::publisher-confirms-with-correlation-metadata[]
     }
 
     void rpc() {

@@ -180,6 +180,25 @@ This method always returns `false` if unroutable messages are not tracked. Note 
 broker considered they have been taken care of (i.e. confirmed). So if you are interested
 in unroutable messages, the returned status should always be checked *before* the confirmed status.
 
+Note it is possible to publish `OutboundMessage` instances of a custom class and get them
+back in the flux of `OutboundMessageResult`. To do so, use the `sendWithTypedPublishConfirms`
+method:
+
+[source,java,indent=0]
+-------
+include::{test-examples}/ApiGuideSender.java[tag=publisher-confirms-with-correlation-metadata]
+-------
+<1> Use a subclass of `OutboundMessage`
+<2> Provide some extra information in the outbound message
+<3> Get the original message
+<4> Retrieve the extra information
+
+The previous sample uses the provided `CorrelableOutboundMessage` class, but it could
+be any subclass of `OutboundMessage`. The `OutboundMessageResult` instances
+of the confirmation flux are typed with the original message class, so the extra information
+is available. This allows to perform any useful processing on this extra information
+when the outbound message is confirmed.
+
 ==== Threading model
 
 Reactor RabbitMQ configure by default the Java Client to use NIO, i.e. there's only
