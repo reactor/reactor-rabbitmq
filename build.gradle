@@ -42,7 +42,7 @@ ext {
 
 	// Sample
 	springBootVersion = '2.2.0.M6'
-	springAmqpVersion = '2.2.0.RC1'
+	springAmqpVersion = '2.2.0.RELEASE'
 
 	// Testing
 	mockitoVersion = '3.0.0'
