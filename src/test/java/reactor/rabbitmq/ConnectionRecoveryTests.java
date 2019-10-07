@@ -16,20 +16,7 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.AlreadyClosedException;
-import com.rabbitmq.client.CancelCallback;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.DefaultConsumer;
-import com.rabbitmq.client.DeliverCallback;
-import com.rabbitmq.client.Delivery;
-import com.rabbitmq.client.Envelope;
-import com.rabbitmq.client.Recoverable;
-import com.rabbitmq.client.RecoverableConnection;
-import com.rabbitmq.client.RecoveryListener;
-import com.rabbitmq.client.ShutdownSignalException;
+import com.rabbitmq.client.*;
 import com.rabbitmq.client.impl.NetworkConnection;
 import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
 import org.junit.jupiter.api.AfterEach;
@@ -59,14 +46,10 @@ import java.util.stream.Stream;
 
 import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static reactor.rabbitmq.RabbitFlux.createReceiver;
 import static reactor.rabbitmq.RabbitFlux.createSender;
 
@@ -89,11 +72,11 @@ public class ConnectionRecoveryTests {
 
     public static Stream<BiFunction<Receiver, String, Flux<? extends Delivery>>> consumeArguments() {
         return Stream.of(
-            (receiver, queue) -> receiver.consumeNoAck(queue, new ConsumeOptions().overflowStrategy(
-                FluxSink.OverflowStrategy.BUFFER
-            )),
-            (receiver, queue) -> receiver.consumeAutoAck(queue),
-            (receiver, queue) -> receiver.consumeManualAck(queue)
+                (receiver, queue) -> receiver.consumeNoAck(queue, new ConsumeOptions().overflowStrategy(
+                        FluxSink.OverflowStrategy.BUFFER
+                )),
+                (receiver, queue) -> receiver.consumeAutoAck(queue),
+                (receiver, queue) -> receiver.consumeManualAck(queue)
         );
     }
 
@@ -184,7 +167,7 @@ public class ConnectionRecoveryTests {
         AtomicReference<DeliverCallback> deliverCallbackAtomicReference = new AtomicReference<>();
 
         when(mockChannel.basicConsume(
-            anyString(), anyBoolean(), anyString(), any(DeliverCallback.class), any(CancelCallback.class)
+                anyString(), anyBoolean(), anyString(), any(DeliverCallback.class), any(CancelCallback.class)
         )).thenAnswer(answer -> {
             deliverCallbackAtomicReference.set(answer.getArgument(3));
             consumerRegisteredLatch.countDown();
@@ -206,12 +189,12 @@ public class ConnectionRecoveryTests {
 
         AtomicInteger ackedMessages = new AtomicInteger(0);
         receiver.consumeAutoAck("whatever",
-            new ConsumeOptions().exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(ofSeconds(5), ofMillis(100),
-                ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
-            )))
-            .subscribe(msg -> {
-                ackedMessages.incrementAndGet();
-            });
+                new ConsumeOptions().exceptionHandler(new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(ofSeconds(5), ofMillis(100),
+                        ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+                )))
+                .subscribe(msg -> {
+                    ackedMessages.incrementAndGet();
+                });
 
         assertTrue(consumerRegisteredLatch.await(1, TimeUnit.SECONDS), "Consumer should have been registered by now");
 
@@ -226,7 +209,7 @@ public class ConnectionRecoveryTests {
 
         assertEquals(nbMessages, ackedMessages.get(), "All messages should have been ack-ed, as ack is retried");
         assertEquals(nbMessages + errorAck.get(), ackCount.get(),
-            "There should have been nbMessages+ackInError calls to basicAck as acknowledgments are retried"
+                "There should have been nbMessages+ackInError calls to basicAck as acknowledgments are retried"
         );
     }
 
@@ -242,7 +225,7 @@ public class ConnectionRecoveryTests {
         AtomicReference<DeliverCallback> deliverCallbackAtomicReference = new AtomicReference<>();
 
         when(mockChannel.basicConsume(
-            anyString(), anyBoolean(), anyString(), any(DeliverCallback.class), any(CancelCallback.class)
+                anyString(), anyBoolean(), anyString(), any(DeliverCallback.class), any(CancelCallback.class)
         )).thenAnswer(answer -> {
             deliverCallbackAtomicReference.set(answer.getArgument(3));
             consumerRegisteredLatch.countDown();
@@ -262,16 +245,16 @@ public class ConnectionRecoveryTests {
 
         AtomicInteger ackedMessages = new AtomicInteger(0);
         BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
-            ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+                ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
         );
         receiver.consumeManualAck("whatever", new ConsumeOptions().exceptionHandler(exceptionHandler))
-            .subscribe(msg -> {
-                // do business stuff
-                // ...
-                // trying to ack
-                msg.ack();
-                ackedMessages.incrementAndGet();
-            });
+                .subscribe(msg -> {
+                    // do business stuff
+                    // ...
+                    // trying to ack
+                    msg.ack();
+                    ackedMessages.incrementAndGet();
+                });
 
         assertTrue(consumerRegisteredLatch.await(1, TimeUnit.SECONDS), "Consumer should have been registered by now");
 
@@ -303,14 +286,14 @@ public class ConnectionRecoveryTests {
         });
 
         Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages)
-            .map(i -> new OutboundMessage("", queue, "".getBytes()))
-            .delayElements(ofMillis(200));
+                .map(i -> new OutboundMessage("", queue, "".getBytes()))
+                .delayElements(ofMillis(200));
 
         sender = createSender(new SenderOptions().connectionMono(connectionMono));
         sender.send(msgFlux, new SendOptions().exceptionHandler(
-            new ExceptionHandlers.RetrySendingExceptionHandler(ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
-            )))
-            .subscribe();
+                new ExceptionHandlers.RetrySendingExceptionHandler(ofSeconds(5), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+                )))
+                .subscribe();
 
         closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
 
@@ -323,37 +306,63 @@ public class ConnectionRecoveryTests {
         int nbMessages = 10;
         CountDownLatch consumedLatch = new CountDownLatch(nbMessages);
         CountDownLatch confirmedLatch = new CountDownLatch(nbMessages);
-        AtomicInteger counter = new AtomicInteger();
+        AtomicInteger receivedMessageCount = new AtomicInteger();
         Channel channel = connection.createChannel();
         channel.basicConsume(queue, true, (consumerTag, delivery) -> {
             LOGGER.info("Consuming message {}", new String(delivery.getBody()));
-            counter.incrementAndGet();
+            receivedMessageCount.incrementAndGet();
             consumedLatch.countDown();
         }, consumerTag -> {
         });
 
-        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages)
-            .map(i -> new OutboundMessage("", queue, String.valueOf(i).getBytes()))
-            .delayElements(ofMillis(300));
+        AtomicInteger confirmedInListenerCount = new AtomicInteger();
+        AtomicInteger confirmedInFluxCount = new AtomicInteger();
 
-        sender = createSender(new SenderOptions().connectionMono(connectionMono));
+        Flux<OutboundMessage> msgFlux = Flux.range(1, nbMessages + 1)
+                .map(i -> new OutboundMessage("", queue, String.valueOf(i).getBytes()))
+                .delayElements(ofMillis(300));
+
+        Mono<Channel> channelMono = Mono.fromCallable(() -> {
+            Channel ch = connectionMono.block().createChannel();
+            ch.addConfirmListener(((deliveryTag, multiple) -> {
+                LOGGER.info("Acking message {} ({}) in listener", deliveryTag, multiple);
+                confirmedInListenerCount.incrementAndGet();
+            }), ((deliveryTag, multiple) -> {
+                LOGGER.info("Nacking message {} ({}) in listener", deliveryTag, multiple);
+            }));
+            return ch;
+        }).cache();
+
+        sender = createSender(new SenderOptions().connectionMono(connectionMono).channelMono(channelMono));
         sender.sendWithPublishConfirms(msgFlux, new SendOptions().exceptionHandler(
-            new ExceptionHandlers.RetrySendingExceptionHandler(ofSeconds(10), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE)))
-            .subscribe(outboundMessageResult -> {
-                if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
-                    LOGGER.info("Message {} confirmed", new String(outboundMessageResult.getOutboundMessage().getBody()));
-                    confirmedLatch.countDown();
-                }
-            });
+                new ExceptionHandlers.RetrySendingExceptionHandler(ofSeconds(10), ofMillis(100), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE)))
+                .subscribe(outboundMessageResult -> {
+                    if (outboundMessageResult.isAck() && outboundMessageResult.getOutboundMessage() != null) {
+                        String body = new String(outboundMessageResult.getOutboundMessage().getBody());
+                        LOGGER.info("Message {} confirmed in flux", body);
+                        confirmedInFluxCount.incrementAndGet();
+                        confirmedLatch.countDown();
+                    }
+                });
 
         closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
 
+        // we expect all messages to make to the queue (they're retried)
         assertTrue(consumedLatch.await(20, TimeUnit.SECONDS));
-        assertTrue(confirmedLatch.await(20, TimeUnit.SECONDS));
-        assertEquals(nbMessages, counter.get());
+        assertEquals(nbMessages, receivedMessageCount.get());
+        if (!confirmedLatch.await(20, TimeUnit.SECONDS)) {
+            LOGGER.info("Did not receive all confirmations");
+        }
+        // some confirmations may not arrive, but the corresponding messages can be recovered and published on the queue
+        assertThat(confirmedInFluxCount.get())
+                .as("at least half of messages should be confirmed")
+                .isGreaterThanOrEqualTo(nbMessages / 2)
+                .as("the confirmation flux should behave as a simple confirm listener")
+                .isEqualTo(confirmedInListenerCount.get());
     }
 
-    @Test public void topologyRecovery() throws Exception {
+    @Test
+    public void topologyRecovery() throws Exception {
         sender = createSender(new SenderOptions().connectionMono(connectionMono));
         String q = UUID.randomUUID().toString();
         String e = UUID.randomUUID().toString();
@@ -365,7 +374,7 @@ public class ConnectionRecoveryTests {
         Channel ch = connection.createChannel();
         AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
         receiver = createReceiver(new ReceiverOptions().connectionMono(connectionMono));
-        receiver.consumeNoAck(q).subscribe(delivery ->  latch.get().countDown());
+        receiver.consumeNoAck(q).subscribe(delivery -> latch.get().countDown());
 
         ch.basicPublish(e, "", null, "".getBytes());
 
