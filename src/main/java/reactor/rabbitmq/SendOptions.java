@@ -22,6 +22,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.function.BiConsumer;
@@ -81,6 +82,7 @@ public class SendOptions {
      * @return maximum number of in-flight records
      * @since 1.2.0
      */
+    @Nullable
     public Integer getMaxInFlight() {
         return maxInFlight;
     }
@@ -169,6 +171,7 @@ public class SendOptions {
      * @return the channel mono to use
      * @since 1.1.0
      */
+    @Nullable
     public Mono<? extends Channel> getChannelMono() {
         return channelMono;
     }
@@ -180,7 +183,7 @@ public class SendOptions {
      * @return this {@link SendOptions} instance
      * @since 1.1.0
      */
-    public SendOptions channelMono(Mono<? extends Channel> channelMono) {
+    public SendOptions channelMono(@Nullable Mono<? extends Channel> channelMono) {
         this.channelMono = channelMono;
         return this;
     }
@@ -191,6 +194,7 @@ public class SendOptions {
      * @return the closing logic to use
      * @since 1.1.0
      */
+    @Nullable
     public BiConsumer<SignalType, Channel> getChannelCloseHandler() {
         return channelCloseHandler;
     }
@@ -202,7 +206,7 @@ public class SendOptions {
      * @return this {@link SendOptions} instance
      * @since 1.1.0
      */
-    public SendOptions channelCloseHandler(BiConsumer<SignalType, Channel> channelCloseHandler) {
+    public SendOptions channelCloseHandler(@Nullable BiConsumer<SignalType, Channel> channelCloseHandler) {
         this.channelCloseHandler = channelCloseHandler;
         return this;
     }

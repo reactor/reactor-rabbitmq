@@ -24,6 +24,7 @@ import com.rabbitmq.client.ExceptionHandler;
 import com.rabbitmq.client.ShutdownListener;
 import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.client.UnblockedCallback;
+import reactor.util.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -81,6 +82,7 @@ public class IdempotentClosedConnection implements Connection {
     }
 
     @Override
+    @Nullable
     public String getClientProvidedName() {
         return this.delegate.getClientProvidedName();
     }
@@ -91,11 +93,13 @@ public class IdempotentClosedConnection implements Connection {
     }
 
     @Override
+    @Nullable
     public Channel createChannel() throws IOException {
         return this.delegate.createChannel();
     }
 
     @Override
+    @Nullable
     public Channel createChannel(int channelNumber) throws IOException {
         return this.delegate.createChannel(channelNumber);
     }
@@ -206,6 +210,7 @@ public class IdempotentClosedConnection implements Connection {
     }
 
     @Override
+    @Nullable
     public ShutdownSignalException getCloseReason() {
         return this.delegate.getCloseReason();
     }

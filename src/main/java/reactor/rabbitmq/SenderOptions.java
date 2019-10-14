@@ -22,6 +22,7 @@ import com.rabbitmq.client.ConnectionFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Scheduler;
+import reactor.util.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.function.BiConsumer;
@@ -84,6 +85,7 @@ public class SenderOptions {
         return this;
     }
 
+    @Nullable
     public Scheduler getResourceManagementScheduler() {
         return resourceManagementScheduler;
     }
@@ -95,11 +97,12 @@ public class SenderOptions {
      * @param resourceManagementScheduler
      * @return the current {@link SenderOptions} instance
      */
-    public SenderOptions resourceManagementScheduler(Scheduler resourceManagementScheduler) {
+    public SenderOptions resourceManagementScheduler(@Nullable Scheduler resourceManagementScheduler) {
         this.resourceManagementScheduler = resourceManagementScheduler;
         return this;
     }
 
+    @Nullable
     public Scheduler getConnectionSubscriptionScheduler() {
         return connectionSubscriptionScheduler;
     }
@@ -111,7 +114,7 @@ public class SenderOptions {
      * @param connectionSubscriptionScheduler
      * @return the current {@link SenderOptions} instance
      */
-    public SenderOptions connectionSubscriptionScheduler(Scheduler connectionSubscriptionScheduler) {
+    public SenderOptions connectionSubscriptionScheduler(@Nullable Scheduler connectionSubscriptionScheduler) {
         this.connectionSubscriptionScheduler = connectionSubscriptionScheduler;
         return this;
     }
@@ -156,11 +159,12 @@ public class SenderOptions {
      * @param connectionMono
      * @return this current {@link SenderOptions}
      */
-    public SenderOptions connectionMono(Mono<? extends Connection> connectionMono) {
+    public SenderOptions connectionMono(@Nullable Mono<? extends Connection> connectionMono) {
         this.connectionMono = connectionMono;
         return this;
     }
 
+    @Nullable
     public Mono<? extends Connection> getConnectionMono() {
         return connectionMono;
     }
@@ -172,7 +176,7 @@ public class SenderOptions {
      * @return this {@link SenderOptions} instance
      * @since 1.1.0
      */
-    public SenderOptions channelMono(Mono<? extends Channel> channelMono) {
+    public SenderOptions channelMono(@Nullable Mono<? extends Channel> channelMono) {
         this.channelMono = channelMono;
         return this;
     }
@@ -183,6 +187,7 @@ public class SenderOptions {
      * @return the channel mono to use
      * @since 1.1.0
      */
+    @Nullable
     public Mono<? extends Channel> getChannelMono() {
         return channelMono;
     }
@@ -193,6 +198,7 @@ public class SenderOptions {
      * @return the closing logic to use
      * @since 1.1.0
      */
+    @Nullable
     public BiConsumer<SignalType, Channel> getChannelCloseHandler() {
         return channelCloseHandler;
     }
@@ -204,7 +210,7 @@ public class SenderOptions {
      * @return this {@link SenderOptions} instance
      * @since 1.1.0
      */
-    public SenderOptions channelCloseHandler(BiConsumer<SignalType, Channel> channelCloseHandler) {
+    public SenderOptions channelCloseHandler(@Nullable BiConsumer<SignalType, Channel> channelCloseHandler) {
         this.channelCloseHandler = channelCloseHandler;
         return this;
     }
@@ -238,15 +244,17 @@ public class SenderOptions {
         return this;
     }
 
-    public SenderOptions resourceManagementChannelMono(Mono<? extends Channel> resourceManagementChannelMono) {
+    public SenderOptions resourceManagementChannelMono(@Nullable Mono<? extends Channel> resourceManagementChannelMono) {
         this.resourceManagementChannelMono = resourceManagementChannelMono;
         return this;
     }
 
+    @Nullable
     public Mono<? extends Channel> getResourceManagementChannelMono() {
         return resourceManagementChannelMono;
     }
 
+    @Nullable
     public Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> getConnectionSupplier() {
         return connectionSupplier;
     }
@@ -264,11 +272,12 @@ public class SenderOptions {
      * @return this {@link SenderOptions} instance
      * @since 1.3.0
      */
-    public SenderOptions connectionClosingTimeout(Duration connectionClosingTimeout) {
+    public SenderOptions connectionClosingTimeout(@Nullable Duration connectionClosingTimeout) {
         this.connectionClosingTimeout = connectionClosingTimeout;
         return this;
     }
 
+    @Nullable
     public Duration getConnectionClosingTimeout() {
         return connectionClosingTimeout;
     }

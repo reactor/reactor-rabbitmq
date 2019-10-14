@@ -17,6 +17,7 @@
 package reactor.rabbitmq;
 
 import com.rabbitmq.client.AMQP.BasicProperties;
+import reactor.util.annotation.Nullable;
 
 import java.util.Arrays;
 
@@ -55,7 +56,7 @@ public class OutboundMessage {
      * @param properties AMQP compatible properties that will be used during the publishing of the message.
      * @param body       The main body of the message.
      */
-    public OutboundMessage(String exchange, String routingKey, BasicProperties properties, byte[] body) {
+    public OutboundMessage(String exchange, String routingKey, @Nullable BasicProperties properties, byte[] body) {
         this.exchange = exchange;
         this.routingKey = routingKey;
         this.properties = properties;
@@ -85,6 +86,7 @@ public class OutboundMessage {
      *
      * @return All the properties that have been set. Null if no property is set.
      */
+    @Nullable
     public BasicProperties getProperties() {
         return properties;
     }

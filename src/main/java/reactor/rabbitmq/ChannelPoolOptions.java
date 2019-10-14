@@ -17,6 +17,7 @@
 package reactor.rabbitmq;
 
 import reactor.core.scheduler.Scheduler;
+import reactor.util.annotation.Nullable;
 
 /**
  * Options to when creating a {@link ChannelPool}.
@@ -44,6 +45,7 @@ public class ChannelPoolOptions {
         return this;
     }
 
+    @Nullable
     public Integer getMaxCacheSize() {
         return maxCacheSize;
     }
@@ -54,11 +56,12 @@ public class ChannelPoolOptions {
      * @param subscriptionScheduler
      * @return this {@link ChannelPoolOptions} instance
      */
-    public ChannelPoolOptions subscriptionScheduler(Scheduler subscriptionScheduler) {
+    public ChannelPoolOptions subscriptionScheduler(@Nullable Scheduler subscriptionScheduler) {
         this.subscriptionScheduler = subscriptionScheduler;
         return this;
     }
 
+    @Nullable
     public Scheduler getSubscriptionScheduler() {
         return subscriptionScheduler;
     }

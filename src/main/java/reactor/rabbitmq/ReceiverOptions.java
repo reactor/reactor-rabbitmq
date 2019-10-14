@@ -20,6 +20,7 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
+import reactor.util.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.function.Function;
@@ -62,6 +63,7 @@ public class ReceiverOptions {
         return this;
     }
 
+    @Nullable
     public Scheduler getConnectionSubscriptionScheduler() {
         return connectionSubscriptionScheduler;
     }
@@ -73,7 +75,7 @@ public class ReceiverOptions {
      * @param connectionSubscriptionScheduler
      * @return the current {@link ReceiverOptions} instance
      */
-    public ReceiverOptions connectionSubscriptionScheduler(Scheduler connectionSubscriptionScheduler) {
+    public ReceiverOptions connectionSubscriptionScheduler(@Nullable Scheduler connectionSubscriptionScheduler) {
         this.connectionSubscriptionScheduler = connectionSubscriptionScheduler;
         return this;
     }
@@ -118,7 +120,7 @@ public class ReceiverOptions {
      * @param connectionMono
      * @return this current {@link ReceiverOptions}
      */
-    public ReceiverOptions connectionMono(Mono<? extends Connection> connectionMono) {
+    public ReceiverOptions connectionMono(@Nullable Mono<? extends Connection> connectionMono) {
         this.connectionMono = connectionMono;
         return this;
     }
@@ -139,10 +141,12 @@ public class ReceiverOptions {
         return this;
     }
 
+    @Nullable
     public Mono<? extends Connection> getConnectionMono() {
         return connectionMono;
     }
 
+    @Nullable
     public Utils.ExceptionFunction<ConnectionFactory, ? extends Connection> getConnectionSupplier() {
         return connectionSupplier;
     }
@@ -160,11 +164,12 @@ public class ReceiverOptions {
      * @return this {@link ReceiverOptions} instance
      * @since 1.3.0
      */
-    public ReceiverOptions connectionClosingTimeout(Duration connectionClosingTimeout) {
+    public ReceiverOptions connectionClosingTimeout(@Nullable Duration connectionClosingTimeout) {
         this.connectionClosingTimeout = connectionClosingTimeout;
         return this;
     }
 
+    @Nullable
     public Duration getConnectionClosingTimeout() {
         return connectionClosingTimeout;
     }
