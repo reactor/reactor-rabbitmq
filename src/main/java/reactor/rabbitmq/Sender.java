@@ -27,6 +27,7 @@ import reactor.core.CoreSubscriber;
 import reactor.core.publisher.*;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.annotation.Nullable;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -144,7 +145,7 @@ public class Sender implements AutoCloseable {
         return send(messages, new SendOptions());
     }
 
-    public Mono<Void> send(Publisher<OutboundMessage> messages, SendOptions options) {
+    public Mono<Void> send(Publisher<OutboundMessage> messages, @Nullable SendOptions options) {
         options = options == null ? new SendOptions() : options;
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SendContext, Exception> exceptionHandler = options.getExceptionHandler();
@@ -269,7 +270,7 @@ public class Sender implements AutoCloseable {
      * @see SendOptions#trackReturned(boolean)
      * @since 1.4.0
      */
-    public <OMSG extends OutboundMessage> Flux<OutboundMessageResult<OMSG>> sendWithTypedPublishConfirms(Publisher<OMSG> messages, SendOptions options) {
+    public <OMSG extends OutboundMessage> Flux<OutboundMessageResult<OMSG>> sendWithTypedPublishConfirms(Publisher<OMSG> messages, @Nullable SendOptions options) {
         SendOptions sendOptions = options == null ? new SendOptions() : options;
         final Mono<? extends Channel> currentChannelMono = getChannelMono(options);
         final BiConsumer<SignalType, Channel> channelCloseHandler = getChannelCloseHandler(options);
@@ -340,7 +341,7 @@ public class Sender implements AutoCloseable {
      * @see QueueSpecification
      * @see ResourceManagementOptions
      */
-    public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification, ResourceManagementOptions options) {
+    public Mono<AMQP.Queue.DeclareOk> declare(QueueSpecification specification, @Nullable ResourceManagementOptions options) {
         return this.declareQueue(specification, options);
     }
 
@@ -364,7 +365,7 @@ public class Sender implements AutoCloseable {
      * @see QueueSpecification
      * @see ResourceManagementOptions
      */
-    public Mono<AMQP.Queue.DeclareOk> declareQueue(QueueSpecification specification, ResourceManagementOptions options) {
+    public Mono<AMQP.Queue.DeclareOk> declareQueue(QueueSpecification specification, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
 
         AMQP.Queue.Declare declare;
@@ -407,7 +408,7 @@ public class Sender implements AutoCloseable {
         return this.delete(specification, false, false);
     }
 
-    public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, ResourceManagementOptions options) {
+    public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, @Nullable ResourceManagementOptions options) {
         return this.delete(specification, false, false, options);
     }
 
@@ -415,7 +416,7 @@ public class Sender implements AutoCloseable {
         return this.deleteQueue(specification, ifUnused, ifEmpty);
     }
 
-    public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, boolean ifUnused, boolean ifEmpty, ResourceManagementOptions options) {
+    public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, boolean ifUnused, boolean ifEmpty, @Nullable ResourceManagementOptions options) {
         return this.deleteQueue(specification, ifUnused, ifEmpty, options);
     }
 
@@ -423,7 +424,7 @@ public class Sender implements AutoCloseable {
         return this.deleteQueue(specification, ifUnused, ifEmpty, null);
     }
 
-    public Mono<AMQP.Queue.DeleteOk> deleteQueue(QueueSpecification specification, boolean ifUnused, boolean ifEmpty, ResourceManagementOptions options) {
+    public Mono<AMQP.Queue.DeleteOk> deleteQueue(QueueSpecification specification, boolean ifUnused, boolean ifEmpty, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Queue.Delete delete = new AMQImpl.Queue.Delete.Builder()
             .queue(specification.getName())
@@ -446,7 +447,7 @@ public class Sender implements AutoCloseable {
         return this.declareExchange(specification, null);
     }
 
-    public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification, ResourceManagementOptions options) {
+    public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification, @Nullable ResourceManagementOptions options) {
         return this.declareExchange(specification, options);
     }
 
@@ -454,7 +455,7 @@ public class Sender implements AutoCloseable {
         return this.declareExchange(specification, null);
     }
 
-    public Mono<AMQP.Exchange.DeclareOk> declareExchange(ExchangeSpecification specification, ResourceManagementOptions options) {
+    public Mono<AMQP.Exchange.DeclareOk> declareExchange(ExchangeSpecification specification, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Exchange.Declare declare = new AMQImpl.Exchange.Declare.Builder()
             .exchange(specification.getName())
@@ -480,7 +481,7 @@ public class Sender implements AutoCloseable {
         return this.delete(specification, false);
     }
 
-    public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, ResourceManagementOptions options) {
+    public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, @Nullable ResourceManagementOptions options) {
         return this.delete(specification, false, options);
     }
 
@@ -488,7 +489,7 @@ public class Sender implements AutoCloseable {
         return this.deleteExchange(specification, ifUnused);
     }
 
-    public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, boolean ifUnused, ResourceManagementOptions options) {
+    public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, boolean ifUnused, @Nullable ResourceManagementOptions options) {
         return this.deleteExchange(specification, ifUnused, options);
     }
 
@@ -496,7 +497,7 @@ public class Sender implements AutoCloseable {
         return this.deleteExchange(specification, ifUnused, null);
     }
 
-    public Mono<AMQP.Exchange.DeleteOk> deleteExchange(ExchangeSpecification specification, boolean ifUnused, ResourceManagementOptions options) {
+    public Mono<AMQP.Exchange.DeleteOk> deleteExchange(ExchangeSpecification specification, boolean ifUnused, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Exchange.Delete delete = new AMQImpl.Exchange.Delete.Builder()
             .exchange(specification.getName())
@@ -517,7 +518,7 @@ public class Sender implements AutoCloseable {
         return this.unbind(specification, null);
     }
 
-    public Mono<AMQP.Queue.UnbindOk> unbind(BindingSpecification specification, ResourceManagementOptions options) {
+    public Mono<AMQP.Queue.UnbindOk> unbind(BindingSpecification specification, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Queue.Unbind unbinding = new AMQImpl.Queue.Unbind.Builder()
             .exchange(specification.getExchange())
@@ -541,7 +542,7 @@ public class Sender implements AutoCloseable {
         return this.bind(specification, null);
     }
 
-    public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification, ResourceManagementOptions options) {
+    public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Queue.Bind binding = new AMQImpl.Queue.Bind.Builder()
             .exchange(specification.getExchange())
@@ -865,7 +866,7 @@ public class Sender implements AutoCloseable {
             }
         }
 
-        private void handleError(Exception e, OutboundMessageResult<OMSG> result) {
+        private void handleError(Exception e, @Nullable OutboundMessageResult<OMSG> result) {
             LOGGER.error("error in publish confirm sending", e);
             boolean complete = checkComplete(e);
             firstException.compareAndSet(null, e);

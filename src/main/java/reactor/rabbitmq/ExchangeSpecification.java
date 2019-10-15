@@ -16,6 +16,8 @@
 
 package reactor.rabbitmq;
 
+import reactor.util.annotation.Nullable;
+
 import java.util.Map;
 
 /**
@@ -66,7 +68,7 @@ public class ExchangeSpecification {
         return this;
     }
 
-    public ExchangeSpecification arguments(Map<String, Object> arguments) {
+    public ExchangeSpecification arguments(@Nullable Map<String, Object> arguments) {
         this.arguments = arguments;
         return this;
     }
@@ -95,6 +97,7 @@ public class ExchangeSpecification {
         return passive;
     }
 
+    @Nullable
     public Map<String, Object> getArguments() {
         return arguments;
     }

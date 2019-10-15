@@ -18,6 +18,7 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.Channel;
 import reactor.core.publisher.Mono;
+import reactor.util.annotation.Nullable;
 
 /**
  * Options for resource management in {@link Sender}.
@@ -26,11 +27,12 @@ public class ResourceManagementOptions {
 
     private Mono<Channel> channelMono;
 
-    public ResourceManagementOptions channelMono(Mono<Channel> channelMono) {
+    public ResourceManagementOptions channelMono(@Nullable Mono<Channel> channelMono) {
         this.channelMono = channelMono;
         return this;
     }
 
+    @Nullable
     public Mono<Channel> getChannelMono() {
         return channelMono;
     }

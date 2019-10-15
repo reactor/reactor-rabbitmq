@@ -29,6 +29,7 @@ import reactor.core.CoreSubscriber;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoOperator;
 import reactor.core.publisher.Operators;
+import reactor.util.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -121,7 +122,7 @@ public class RpcClient implements AutoCloseable {
         private final AMQP.BasicProperties properties;
         private final byte[] body;
 
-        public RpcRequest(AMQP.BasicProperties properties, byte[] body) {
+        public RpcRequest(@Nullable AMQP.BasicProperties properties, byte[] body) {
             this.properties = properties;
             this.body = body;
         }

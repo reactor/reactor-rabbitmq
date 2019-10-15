@@ -16,6 +16,8 @@
 
 package reactor.rabbitmq;
 
+import reactor.util.annotation.Nullable;
+
 /**
  * API that combines {@link ExchangeSpecification}, {@link QueueSpecification}, and {@link BindingSpecification}.
  */
@@ -25,7 +27,7 @@ public class ResourcesSpecification {
         return ExchangeSpecification.exchange(name);
     }
 
-    public static QueueSpecification queue(String name) {
+    public static QueueSpecification queue(@Nullable String name) {
         return QueueSpecification.queue(name);
     }
 

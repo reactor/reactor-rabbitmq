@@ -16,6 +16,8 @@
 
 package reactor.rabbitmq;
 
+import reactor.util.annotation.Nullable;
+
 import java.util.Map;
 
 /**
@@ -49,7 +51,7 @@ public class BindingSpecification {
         return this;
     }
 
-    public BindingSpecification arguments(Map<String, Object> arguments) {
+    public BindingSpecification arguments(@Nullable Map<String, Object> arguments) {
         this.arguments = arguments;
         return this;
     }
@@ -66,6 +68,7 @@ public class BindingSpecification {
         return routingKey;
     }
 
+    @Nullable
     public Map<String, Object> getArguments() {
         return arguments;
     }

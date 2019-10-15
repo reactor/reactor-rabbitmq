@@ -16,8 +16,9 @@
 
 package reactor.rabbitmq;
 
+import reactor.util.annotation.Nullable;
+
 import java.util.Map;
-import java.util.Queue;
 
 /**
  * Fluent API to specify the creation of a queue.
@@ -40,11 +41,11 @@ public class QueueSpecification {
         return new NullNameQueueSpecification();
     }
 
-    public static QueueSpecification queue(String name) {
+    public static QueueSpecification queue(@Nullable String name) {
         return new QueueSpecification().name(name);
     }
 
-    public QueueSpecification name(String queue) {
+    public QueueSpecification name(@Nullable String queue) {
         if (queue == null) {
             return new NullNameQueueSpecification().arguments(this.arguments);
         }
@@ -68,7 +69,7 @@ public class QueueSpecification {
         return this;
     }
 
-    public QueueSpecification arguments(Map<String, Object> arguments) {
+    public QueueSpecification arguments(@Nullable Map<String, Object> arguments) {
         this.arguments = arguments;
         return this;
     }
@@ -78,6 +79,7 @@ public class QueueSpecification {
         return this;
     }
 
+    @Nullable
     public String getName() {
         return name;
     }
@@ -98,6 +100,7 @@ public class QueueSpecification {
         return passive;
     }
 
+    @Nullable
     public Map<String, Object> getArguments() {
         return arguments;
     }
@@ -118,7 +121,7 @@ public class QueueSpecification {
         }
 
         @Override
-        public QueueSpecification name(String name) {
+        public QueueSpecification name(@Nullable String name) {
             if (name == null) {
                 return this;
             }
