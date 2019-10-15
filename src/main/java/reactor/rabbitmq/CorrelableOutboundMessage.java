@@ -18,6 +18,7 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.AMQP;
 import org.reactivestreams.Publisher;
+import reactor.util.annotation.Nullable;
 
 import java.util.Arrays;
 
@@ -58,7 +59,7 @@ public class CorrelableOutboundMessage<T> extends OutboundMessage {
      * @param body                The main body of the message.
      * @param correlationMetadata The (unserialized) metadata correlated with this Message.
      */
-    public CorrelableOutboundMessage(String exchange, String routingKey, AMQP.BasicProperties properties, byte[] body, T correlationMetadata) {
+    public CorrelableOutboundMessage(String exchange, String routingKey, @Nullable AMQP.BasicProperties properties, byte[] body, T correlationMetadata) {
         super(exchange, routingKey, properties, body);
         this.correlationMetadata = correlationMetadata;
     }
