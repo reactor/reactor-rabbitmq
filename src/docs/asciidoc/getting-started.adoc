@@ -132,40 +132,41 @@ Boot environment.
 To build your own application using the Reactor RabbitMQ API,
 you need to include a dependency to Reactor RabbitMQ.
 
-For gradle:
+For Gradle:
 
-[source,groovy]
+[source,groovy,subs="attributes"]
 --------
 dependencies {
-    compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.4.0.RC1"
+    compile "io.projectreactor.rabbitmq:reactor-rabbitmq:{appversion}"
 }
 --------
 
 
 For Maven:
 
-[source,xml]
+[source,xml,subs="attributes"]
 --------
 <dependency>
     <groupId>io.projectreactor.rabbitmq</groupId>
     <artifactId>reactor-rabbitmq</artifactId>
-    <version>1.4.0.RC1</version>
+    <version>{appversion}</version>
 </dependency>
 --------
 
-When using a milestone or a release candidate, you need to add the Spring IO
+When using a *milestone* or a *release candidate*, you need to add the Spring IO
 milestone repository.
 
-For gradle:
+For Gradle:
 
 [source,groovy]
 --------
 repositories {
   maven { url 'https://repo.spring.io/milestone' }
+  mavenCentral()
 }
 --------
 
-For maven:
+For Maven:
 
 [source,xml]
 --------
@@ -180,3 +181,33 @@ For maven:
     </repository>
 </repositories>
 --------
+
+When using a *snapshot*, you need to add the Spring IO snapshots repository.
+
+For Gradle:
+
+[source,groovy]
+--------
+repositories {
+  maven { url 'https://repo.spring.io/libs-snapshot' }
+  mavenCentral()
+}
+--------
+
+For Maven:
+
+[source,xml]
+--------
+<repositories>
+    <repository>
+        <id>spring-snapshots</id>
+        <name>Spring Snapshots</name>
+        <url>https://repo.spring.io/libs-snapshot</url>
+        <snapshots>
+            <enabled>true</enabled>
+        </snapshots>
+    </repository>
+</repositories>
+--------
+
+
