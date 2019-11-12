@@ -16,20 +16,17 @@ with other systems to provide an end-to-end reactive pipeline.
 
 For the latest stable release, please see the [getting started](https://projectreactor.io/docs/rabbitmq/release/reference/#_getting_started)
 section in the [reference documentation](https://projectreactor.io/docs/rabbitmq/release/reference/).
+You can view the [Javadoc](https://projectreactor.io/docs/rabbitmq/release/api/index.html) as well.
 
 For latest milestone:
 [Getting Started](https://projectreactor.io/docs/rabbitmq/milestone/reference/#_getting_started) -
-[Reference Documentation](https://projectreactor.io/docs/rabbitmq/milestone/reference/)
+[Reference Documentation](https://projectreactor.io/docs/rabbitmq/milestone/reference/) -
+[Javadoc](https://projectreactor.io/docs/rabbitmq/milestone/api/index.html)
 
 For snapshots:
 [Getting Started](https://projectreactor.io/docs/rabbitmq/snapshot/reference/#_getting_started) -
-[Reference Documentation](https://projectreactor.io/docs/rabbitmq/snapshot/reference/)
-
-## Documentation
-
-[Reference documentation](https://projectreactor.io/docs/rabbitmq/milestone/reference/)
-
-[Javadoc](https://projectreactor.io/docs/rabbitmq/milestone/api/index.html)
+[Reference Documentation](https://projectreactor.io/docs/rabbitmq/snapshot/reference/) -
+[Javadoc](https://projectreactor.io/docs/rabbitmq/snapshot/api/index.html)
 
 ## Building applications using Reactor RabbitMQ API
 
