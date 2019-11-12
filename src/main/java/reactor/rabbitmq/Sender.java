@@ -238,7 +238,7 @@ public class Sender implements AutoCloseable {
      * @return flux of confirmations with typed correlated metadata
      * @see <a href="https://www.rabbitmq.com/confirms.html#publisher-confirms">Publisher Confirms</a>
      * @see CorrelableOutboundMessage
-     * @see 1.4.0
+     * @since 1.4.0
      */
     public <OMSG extends OutboundMessage> Flux<OutboundMessageResult<OMSG>> sendWithTypedPublishConfirms(Publisher<OMSG> messages) {
         return sendWithTypedPublishConfirms(messages, new SendOptions());
