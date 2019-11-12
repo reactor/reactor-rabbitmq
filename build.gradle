@@ -34,7 +34,7 @@ ext {
 	reactorCoreVersion = "3.3.0.RELEASE"
 
 	// Logging
-	slf4jVersion = '1.7.28'
+	slf4jVersion = '1.7.29'
 	logbackVersion = '1.2.3'
 
 	// Libraries
