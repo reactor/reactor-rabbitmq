@@ -118,13 +118,17 @@ dependencies {
 }
 ```
 
-## Build intructions
+## Build instructions
 
 ### Building Reactor RabbitMQ jars
     ./gradlew jar
 
-### Running unit tests
-    ./gradlew test
+### Running tests
+
+The test suite needs to execute `rabbitmqctl` to test connection recovery. You
+can specify the path to `rabbitmqctl` like the following:
+
+    ./gradlew check -Drabbitmqctl.bin=/path/to/rabbitmqctl
 
 You need a local running RabbitMQ instance. 
 
