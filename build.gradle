@@ -19,19 +19,17 @@ buildscript {
 		maven { url "https://repo.spring.io/plugins-release" }
 	}
 	dependencies {
-		classpath 'org.asciidoctor:asciidoctorj-pdf:1.5.0-alpha.11',
-				  'io.spring.gradle:propdeps-plugin:0.0.9.RELEASE'
+		classpath 'org.asciidoctor:asciidoctorj-pdf:1.5.0-alpha.11'
 	}
 }
 plugins {
 	id 'org.asciidoctor.convert' version '1.5.6'
 	id 'me.champeau.gradle.jmh' version '0.4.7'
+	id "com.jfrog.artifactory" version "4.9.8" apply false
 }
 
 ext {
 	gradleScriptDir = "${rootProject.projectDir}/gradle"
-
-	reactorCoreVersion = "$reactorVersion"
 
 	// Logging
 	slf4jVersion = '1.7.29'
@@ -57,8 +55,8 @@ ext {
 					"https://rabbitmq.github.io/rabbitmq-java-client/api/current/",] as String[]
 }
 
-apply from: "$gradleScriptDir/setup.gradle"
 apply from: "$gradleScriptDir/doc.gradle"
+apply from: "$gradleScriptDir/releaser.gradle"
 
 configurations.all {
 	// check for snapshot updates every time
@@ -78,8 +76,8 @@ configure(allprojects) { project ->
 	apply plugin: 'maven'
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
-	apply plugin: 'propdeps'
 	apply plugin: 'java'
+	apply from: "$gradleScriptDir/setup.gradle"
 
 	sourceCompatibility = targetCompatibility = 1.8
 
@@ -132,7 +130,7 @@ configure(rootProject) {
 	jar {
 		manifest {
 			attributes("Automatic-Module-Name": "reactor.rabbitmq",
-					   "Implementation-Version": version)
+					   "Implementation-Version": project.version)
 		}
 	}
 
@@ -141,12 +139,8 @@ configure(rootProject) {
 		systemProperty 'rabbitmqctl.bin', System.getProperty('rabbitmqctl.bin') ?: 'sudo rabbitmqctl'
 	}
 
-	artifacts {
-		archives sourcesJar
-		archives javadocJar
-		archives docsZip
-	}
-
+	//add specific task artifacts to the publication
+	publishing.publications.mavenJava.artifact(docsZip)
 }
 
 project(':reactor-rabbitmq-samples') {
@@ -178,18 +172,7 @@ project(':reactor-rabbitmq-samples') {
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
-	task classpath {
-		doLast {
-			println sourceSets.main.runtimeClasspath.asPath
-		}
-	}
-
 	test {
 		useJUnitPlatform()
-	}
-
-	artifacts {
-		archives sourcesJar
-		archives javadocJar
 	}
 }
