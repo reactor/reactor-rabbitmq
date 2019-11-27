@@ -7,6 +7,7 @@
 * Add `@NonNullApi` and `@Nullable` annotations
 * Add `Sender#sendWithTypedPublishConfirms` to be able to publish `OutboundMessage` instances
 of a custom class and get them back in the flux of `OutboundMessageResult`
+* Use Reactor 3.3.1.RELEASE
 
 === What's new in Reactor RabbitMQ 1.3
 
