@@ -136,6 +136,19 @@ You need a local running RabbitMQ instance.
     ./gradlew eclipse
     ./gradlew idea
 
+## Versioning
+
+Reactor RabbitMQ used [semantic versioning](https://semver.org/) from 1.0 to 1.4, but switched to
+another scheme for consistency with [Reactor Core](https://github.com/reactor/reactor-core/)
+and the other Reactor libraries.
+
+Starting from 1.4, Reactor RabbitMQ uses a `GENERATION.MAJOR.MINOR` scheme, whereby an increment in:
+
+ * `GENERATION` marks a change of library generation. Expect improvements, new features, bug fixes, and
+ incompatible API changes.
+ * `MAJOR` marks a significant release. Expect new features, bug fixes, and small incompatible API changes.
+ * `MINOR` marks a maintenance release. Expect new features and bug fixes, but *no* incompatible API changes.
+
 ## Community / Support
 
 * For Reactor and Reactor RabbitMQ questions: [![Join the chat at https://gitter.im/reactor/reactor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/reactor/reactor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
