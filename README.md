@@ -138,7 +138,7 @@ You need a local running RabbitMQ instance.
 
 ## Versioning
 
-Reactor RabbitMQ used [semantic versioning](https://semver.org/) from 1.0 to 1.4, but switched to
+Reactor RabbitMQ used [semantic versioning](https://semver.org/) from version 1.0 to version 1.4, but switched to
 another scheme for consistency with [Reactor Core](https://github.com/reactor/reactor-core/)
 and the other Reactor libraries.
 

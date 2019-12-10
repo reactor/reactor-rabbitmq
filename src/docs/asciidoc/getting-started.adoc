@@ -210,4 +210,18 @@ For Maven:
 </repositories>
 --------
 
+==== Versioning
+
+Reactor RabbitMQ used https://semver.org/[semantic versioning] from version 1.0 to
+version 1.4, but switched to another scheme for consistency
+with https://github.com/reactor/reactor-core/[Reactor Core]
+and the other Reactor libraries.
+
+Starting from 1.4, Reactor RabbitMQ uses a `GENERATION.MAJOR.MINOR` scheme, whereby an increment in:
+
+ * `GENERATION` marks a change of library generation. Expect improvements, new features, bug fixes, and
+ incompatible API changes.
+ * `MAJOR` marks a significant release. Expect new features, bug fixes, and small incompatible API changes.
+ * `MINOR` marks a maintenance release. Expect new features and bug fixes, but *no* incompatible API changes.
+
 
