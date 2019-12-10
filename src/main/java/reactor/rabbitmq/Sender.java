@@ -514,18 +514,62 @@ public class Sender implements AutoCloseable {
             .publishOn(resourceManagementScheduler);
     }
 
+    /**
+     * Unbind a queue from an exchange.
+     * <p>
+     * Alias of {@link #unbind(BindingSpecification)}.
+     *
+     * @param specification the unbinding specification
+     * @return the result of the operation
+     * @since 1.4.1
+     */
+    public Mono<AMQP.Queue.UnbindOk> unbindQueue(BindingSpecification specification) {
+        return this.unbind(specification);
+    }
+
+    /**
+     * Unbind a queue from an exchange.
+     * <p>
+     * Alias of {@link #unbind(BindingSpecification, ResourceManagementOptions)}.
+     *
+     * @param specification the unbinding specification
+     * @param options       options to control the operation, e.g. channel to use
+     * @return the result of the operation
+     * @since 1.4.1
+     */
+    public Mono<AMQP.Queue.UnbindOk> unbindQueue(BindingSpecification specification, @Nullable ResourceManagementOptions options) {
+        return this.unbind(specification, options);
+    }
+
+    /**
+     * Unbind a queue from an exchange.
+     * <p>
+     * Alias of {@link #unbindQueue(BindingSpecification)}.
+     *
+     * @param specification the unbinding specification
+     * @return the result of the operation
+     */
     public Mono<AMQP.Queue.UnbindOk> unbind(BindingSpecification specification) {
         return this.unbind(specification, null);
     }
 
+    /**
+     * Unbind a queue from an exchange.
+     * <p>
+     * Alias of {@link #unbindQueue(BindingSpecification, ResourceManagementOptions)}.
+     *
+     * @param specification the unbinding specification
+     * @param options       options to control the operation, e.g. channel to use
+     * @return the result of the operation
+     */
     public Mono<AMQP.Queue.UnbindOk> unbind(BindingSpecification specification, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Queue.Unbind unbinding = new AMQImpl.Queue.Unbind.Builder()
-            .exchange(specification.getExchange())
-            .queue(specification.getQueue())
-            .routingKey(specification.getRoutingKey())
-            .arguments(specification.getArguments())
-            .build();
+                .exchange(specification.getExchange())
+                .queue(specification.getQueue())
+                .routingKey(specification.getRoutingKey())
+                .arguments(specification.getArguments())
+                .build();
 
         return channelMono.map(channel -> {
             try {
@@ -534,22 +578,108 @@ public class Sender implements AutoCloseable {
                 throw new RabbitFluxException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
-            .flatMap(command -> Mono.just((AMQP.Queue.UnbindOk) command.getMethod()))
-            .publishOn(resourceManagementScheduler);
+                .flatMap(command -> Mono.just((AMQP.Queue.UnbindOk) command.getMethod()))
+                .publishOn(resourceManagementScheduler);
     }
 
+    /**
+     * Unbind an exchange from another exchange.
+     *
+     * @param specification the unbinding specification
+     * @return the result of the operation
+     * @since 1.4.1
+     */
+    public Mono<AMQP.Exchange.UnbindOk> unbindExchange(BindingSpecification specification) {
+        return this.unbindExchange(specification, null);
+    }
+
+    /**
+     * Unbind an exchange from another exchange.
+     *
+     * @param specification the unbinding specification
+     * @param options       options to control the operation, e.g. channel to use
+     * @return
+     * @since 1.4.1
+     */
+    public Mono<AMQP.Exchange.UnbindOk> unbindExchange(BindingSpecification specification, @Nullable ResourceManagementOptions options) {
+        Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
+        AMQP.Exchange.Unbind unbinding = new AMQImpl.Exchange.Unbind.Builder()
+                .source(specification.getExchange())
+                .destination(specification.getQueue())
+                .routingKey(specification.getRoutingKey())
+                .arguments(specification.getArguments())
+                .build();
+
+        return channelMono.map(channel -> {
+            try {
+                return channel.asyncCompletableRpc(unbinding);
+            } catch (IOException e) {
+                throw new RabbitFluxException("Error during RPC call", e);
+            }
+        }).flatMap(future -> Mono.fromCompletionStage(future))
+                .flatMap(command -> Mono.just((AMQP.Exchange.UnbindOk) command.getMethod()))
+                .publishOn(resourceManagementScheduler);
+    }
+
+    /**
+     * Bind a queue to an exchange.
+     * <p>
+     * Alias of {@link #bind(BindingSpecification)}
+     *
+     * @param specification the binding specification
+     * @return the result of the operation
+     * @since 1.4.1
+     */
+    public Mono<AMQP.Queue.BindOk> bindQueue(BindingSpecification specification) {
+        return this.bind(specification);
+    }
+
+    /**
+     * Bind a queue to an exchange.
+     * <p>
+     * Alias of {@link #bind(BindingSpecification, ResourceManagementOptions)}
+     *
+     * @param specification the binding specification
+     * @param options       options to control the operation, e.g. channel to use
+     * @return the result of the operation
+     * @since 1.4.1
+     */
+    public Mono<AMQP.Queue.BindOk> bindQueue(BindingSpecification specification, @Nullable ResourceManagementOptions options) {
+        return this.bind(specification, options);
+    }
+
+    /**
+     * Bind a queue to an exchange.
+     * <p>
+     * Alias of {@link #bindQueue(BindingSpecification)}
+     *
+     * @param specification the binding specification
+     * @return the result of the operation
+     * @since 1.4.1
+     */
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification) {
         return this.bind(specification, null);
     }
 
+    /**
+     * Bind a queue to an exchange.
+     * <p>
+     * Alias of {@link #bindQueue(BindingSpecification, ResourceManagementOptions)}
+     *
+     * @param specification the binding specification
+     * @param options       options to control the operation, e.g. channel to use
+     * @return the result of the operation
+     * @since 1.4.1
+     */
     public Mono<AMQP.Queue.BindOk> bind(BindingSpecification specification, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
+
         AMQP.Queue.Bind binding = new AMQImpl.Queue.Bind.Builder()
-            .exchange(specification.getExchange())
-            .queue(specification.getQueue())
-            .routingKey(specification.getRoutingKey())
-            .arguments(specification.getArguments())
-            .build();
+                .exchange(specification.getExchange())
+                .queue(specification.getQueue())
+                .routingKey(specification.getRoutingKey())
+                .arguments(specification.getArguments())
+                .build();
 
         return channelMono.map(channel -> {
             try {
@@ -558,8 +688,48 @@ public class Sender implements AutoCloseable {
                 throw new RabbitFluxException("Error during RPC call", e);
             }
         }).flatMap(future -> Mono.fromCompletionStage(future))
-            .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
-            .publishOn(resourceManagementScheduler);
+                .flatMap(command -> Mono.just((AMQP.Queue.BindOk) command.getMethod()))
+                .publishOn(resourceManagementScheduler);
+    }
+
+    /**
+     * Bind an exchange to another exchange.
+     *
+     * @param specification the binding specification
+     * @return the result of the operation
+     * @since 1.4.1
+     */
+    public Mono<AMQP.Exchange.BindOk> bindExchange(BindingSpecification specification) {
+        return this.bindExchange(specification, null);
+    }
+
+    /**
+     * Bind an exchange to another exchange.
+     *
+     * @param specification the binding specification
+     * @param options       options to control the operation, e.g. channel to use
+     * @return the result of the operation
+     * @since 1.4.1
+     */
+    public Mono<AMQP.Exchange.BindOk> bindExchange(BindingSpecification specification, @Nullable ResourceManagementOptions options) {
+        Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
+
+        AMQP.Exchange.Bind binding = new AMQImpl.Exchange.Bind.Builder()
+                .source(specification.getExchange())
+                .destination(specification.getExchangeTo())
+                .routingKey(specification.getRoutingKey())
+                .arguments(specification.getArguments())
+                .build();
+
+        return channelMono.map(channel -> {
+            try {
+                return channel.asyncCompletableRpc(binding);
+            } catch (IOException e) {
+                throw new RabbitFluxException("Error during RPC call", e);
+            }
+        }).flatMap(future -> Mono.fromCompletionStage(future))
+                .flatMap(command -> Mono.just((AMQP.Exchange.BindOk) command.getMethod()))
+                .publishOn(resourceManagementScheduler);
     }
 
     public void close() {
