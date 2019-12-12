@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
@@ -239,5 +240,52 @@ public class SenderTests {
         assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
         sender.close();
         sender.close();
+    }
+
+    @Test public void exchangeToExchangeBindingUnbinding() throws Exception {
+        Channel channel = connection.createChannel();
+
+        String e1 = "e2e.from";
+        String e2 = "e2e.to";
+        try {
+            channel.exchangeDeclare(e1, BuiltinExchangeType.DIRECT);
+            channel.exchangeDeclare(e2, BuiltinExchangeType.FANOUT);
+
+            sender = createSender();
+            sender.bindExchange(BindingSpecification.exchangeBinding(e1, "rk", e2))
+                    .then(sender.bindQueue(BindingSpecification.queueBinding(e2, "does-not-matter", queue)))
+                    .block(Duration.ofSeconds(5));
+
+            String body = UUID.randomUUID().toString();
+            AtomicReference<String> bodyCaptor = new AtomicReference<>();
+            CountDownLatch receivedLatch = new CountDownLatch(1);
+            channel.basicConsume(queue, true, (consumerTag, message) -> {
+                bodyCaptor.set(new String(message.getBody()));
+                receivedLatch.countDown();
+            }, ctag -> {});
+
+            channel.basicPublish(e1, "rk", null, body.getBytes());
+
+            assertThat(receivedLatch.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(bodyCaptor).hasValue(body);
+
+            CountDownLatch returnedLatch = new CountDownLatch(1);
+            channel.addReturnListener(returnMessage -> {
+                bodyCaptor.set(new String(returnMessage.getBody()));
+                returnedLatch.countDown();
+            });
+
+            sender.unbindExchange(BindingSpecification.binding(e1, "rk", e2)).block(Duration.ofSeconds(5));
+
+            body = UUID.randomUUID().toString();
+            channel.basicPublish(e1, "rk", true, null, body.getBytes());
+
+            assertThat(returnedLatch.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(bodyCaptor).hasValue(body);
+
+        } finally {
+            channel.exchangeDelete(e1);
+            channel.exchangeDelete(e2);
+        }
     }
 }

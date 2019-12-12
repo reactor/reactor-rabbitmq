@@ -2,6 +2,10 @@
 
 [[new]]
 
+=== What's new in Reactor RabbitMQ 1.4.1
+
+* Support exchange-to-exchange binding and unbinding
+
 === What's new in Reactor RabbitMQ 1.4
 
 * Add `@NonNullApi` and `@Nullable` annotations
