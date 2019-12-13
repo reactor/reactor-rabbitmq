@@ -598,7 +598,7 @@ public class Sender implements AutoCloseable {
      *
      * @param specification the unbinding specification
      * @param options       options to control the operation, e.g. channel to use
-     * @return
+     * @return the result of the operation
      * @since 1.4.1
      */
     public Mono<AMQP.Exchange.UnbindOk> unbindExchange(BindingSpecification specification, @Nullable ResourceManagementOptions options) {

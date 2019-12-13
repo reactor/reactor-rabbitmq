@@ -39,7 +39,7 @@ public class BindingSpecification {
      * @param exchange
      * @param routingKey
      * @param queue
-     * @return
+     * @return this specification instance
      */
     public static BindingSpecification binding(String exchange, String routingKey, String queue) {
         return new BindingSpecification().exchange(exchange).routingKey(routingKey).queue(queue);
@@ -51,7 +51,7 @@ public class BindingSpecification {
      * @param exchange
      * @param routingKey
      * @param queue
-     * @return
+     * @return this specification instance
      * @since 1.4.1
      */
     public static BindingSpecification queueBinding(String exchange, String routingKey, String queue) {
@@ -64,7 +64,7 @@ public class BindingSpecification {
      * @param exchangeFrom
      * @param routingKey
      * @param exchangeTo
-     * @return
+     * @return this specification instance
      * @since 1.4.1
      */
     public static BindingSpecification exchangeBinding(String exchangeFrom, String routingKey, String exchangeTo) {
@@ -78,7 +78,7 @@ public class BindingSpecification {
      * {@link #exchangeTo(String)} for exchange-to-exchange, but not both.
      *
      * @param queue
-     * @return
+     * @return this specification instance
      */
     public BindingSpecification queue(String queue) {
         this.queue = queue;
@@ -93,7 +93,7 @@ public class BindingSpecification {
      * binding as well.
      *
      * @param exchange
-     * @return
+     * @return this specification instance
      * @see #exchangeFrom(String)
      * @see #exchangeTo(String)
      */
@@ -110,7 +110,7 @@ public class BindingSpecification {
      * exchange-to-queue binding as well.
      *
      * @param exchangeFrom
-     * @return
+     * @return this specification instance
      * @see #exchange(String)
      * @see #exchangeTo(String)
      * @since 1.4.1
@@ -127,7 +127,7 @@ public class BindingSpecification {
      * {@link #queue(String)} for exchange-to-queue binding, but not both.
      *
      * @param exchangeTo
-     * @return
+     * @return this specification instance
      * @since 1.4.1
      */
     public BindingSpecification exchangeTo(String exchangeTo) {
@@ -139,7 +139,7 @@ public class BindingSpecification {
      * The routing key for the binding.
      *
      * @param routingKey
-     * @return
+     * @return this specification instance
      */
     public BindingSpecification routingKey(String routingKey) {
         this.routingKey = routingKey;
@@ -150,7 +150,7 @@ public class BindingSpecification {
      * Arguments of the binding. These are optional.
      *
      * @param arguments
-     * @return
+     * @return this specification instance
      */
     public BindingSpecification arguments(@Nullable Map<String, Object> arguments) {
         this.arguments = arguments;
