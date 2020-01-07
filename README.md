@@ -155,6 +155,9 @@ Starting from 1.4, Reactor RabbitMQ uses a `GENERATION.MAJOR.MINOR` scheme, wher
 * For RabbitMQ questions: [RabbitMQ Users](https://groups.google.com/forum/#!forum/rabbitmq-users)
 * For reporting bugs and feature requests: [GitHub Issues](https://github.com/reactor/reactor-rabbitmq/issues)
 
+See the [RabbitMQ Java libraries support page](https://www.rabbitmq.com/java-versions.html)
+for the support timeline of this library.
+
 ## License ##
 
 Reactor RabbitMQ is [Apache 2.0 licensed](https://www.apache.org/licenses/LICENSE-2.0.html).
