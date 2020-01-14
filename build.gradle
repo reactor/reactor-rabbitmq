@@ -32,11 +32,11 @@ ext {
 	gradleScriptDir = "${rootProject.projectDir}/gradle"
 
 	// Logging
-	slf4jVersion = '1.7.29'
+	slf4jVersion = '1.7.30'
 	logbackVersion = '1.2.3'
 
 	// Libraries
-	rabbitMqJavaClientVersion = '5.7.3'
+	rabbitMqJavaClientVersion = '5.8.0'
 
 	// Sample
 	springBootVersion = '2.2.1.RELEASE'
