@@ -58,6 +58,7 @@ ext {
 }
 
 apply from: "$gradleScriptDir/setup.gradle"
+apply from: "$gradleScriptDir/releaser.gradle"
 apply from: "$gradleScriptDir/doc.gradle"
 
 configurations.all {
