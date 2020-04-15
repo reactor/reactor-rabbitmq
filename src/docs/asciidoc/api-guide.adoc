@@ -46,6 +46,11 @@ include::{test-examples}/ApiGuideSender.java[tag=options-connection-supplier]
 In the snippet above the connection can be created from 2 different nodes (useful for
 failover) and the connection name is set up.
 
+If TLS is required, it must be configured with the Java client's `ConnectionFactory`,
+see the https://www.rabbitmq.com/api-guide.html#tls[TLS section in the client documentation]
+and the https://www.rabbitmq.com/ssl.html#java-client[TLS guide]
+for more information.
+
 Once the required options have been configured on the options instance,
 a new `Sender` instance can be created with the options already
 configured in `senderOptions`.
@@ -342,6 +347,11 @@ include::{test-examples}/ApiGuideReceiver.java[tag=options-connection-supplier]
 
 In the snippet above the connection can be created from 2 different nodes (useful for
 failover) and the connection name is set up.
+
+If TLS is required, it must be configured with the Java client's `ConnectionFactory`,
+see the https://www.rabbitmq.com/api-guide.html#tls[TLS section in the client documentation]
+and the https://www.rabbitmq.com/ssl.html#java-client[TLS guide]
+for more information.
 
 Once the required configuration options have been configured on the options instance,
 a new `Receiver` instance can be created with these options to consume inbound messages.
