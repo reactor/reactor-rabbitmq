@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2020 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
@@ -36,6 +35,7 @@ import reactor.test.StepVerifier;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
+import reactor.util.retry.RetrySpec;
 
 import java.io.IOException;
 import java.net.SocketException;
@@ -1070,7 +1070,8 @@ public class RabbitFluxTests {
         }
     }
 
-    @Test public void emitErrorOnPublisherConfWhenChannelIsClosedByServer() throws Exception {
+    @Test
+    public void emitErrorOnPublisherConfWhenChannelIsClosedByServer() throws Exception {
         String nonExistingExchange = UUID.randomUUID().toString();
         int messageCount = 5;
         Flux<OutboundMessage> msgFlux = Flux.range(0, messageCount)
@@ -1263,7 +1264,8 @@ public class RabbitFluxTests {
         StepVerifier.create(sender.declareExchange(ExchangeSpecification.exchange("non-existing-exchange").passive(true))).expectError(ShutdownSignalException.class).verify();
     }
 
-    @Test public void useConnectionMonoConfiguratorForRetry() throws Exception {
+    @Test
+    public void useConnectionMonoConfiguratorForRetry() throws Exception {
         AtomicInteger senderCallCount = new AtomicInteger(0);
         AtomicInteger receiverCallCount = new AtomicInteger(0);
         ConnectionFactory cf = new ConnectionFactory() {
@@ -1286,14 +1288,15 @@ public class RabbitFluxTests {
         cf.useNio();
 
         sender = createSender(new SenderOptions()
-            .connectionFactory(cf)
-            .connectionSupplier(connectionFactory -> connectionFactory.newConnection("sender"))
-            .connectionMonoConfigurator(cm -> cm.retry(3, ex -> ex instanceof SocketException)));
+                .connectionFactory(cf)
+                .connectionSupplier(connectionFactory -> connectionFactory.newConnection("sender"))
+                .connectionMonoConfigurator(cm ->
+                        cm.retryWhen(RetrySpec.max(3).filter(ex -> ex instanceof SocketException))));
 
         receiver = createReceiver(new ReceiverOptions()
                 .connectionFactory(cf)
                 .connectionSupplier(connectionFactory -> connectionFactory.newConnection("receiver"))
-                .connectionMonoConfigurator(cm -> cm.retry(2, ex -> ex instanceof SocketException)));
+                .connectionMonoConfigurator(cm -> cm.retryWhen(RetrySpec.max(2).filter(ex -> ex instanceof SocketException))));
 
         String q = sender.declare(QueueSpecification.queue("").exclusive(false).autoDelete(true)).block().getQueue();
         assertThat(senderCallCount).hasValue(4); // retried 3 times, so called 4 times

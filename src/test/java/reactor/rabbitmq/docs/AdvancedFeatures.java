@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2018-2020 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import reactor.rabbitmq.ReceiverOptions;
 import reactor.rabbitmq.Sender;
 import reactor.rabbitmq.SenderOptions;
 import reactor.rabbitmq.Utils;
+import reactor.util.retry.RetrySpec;
 
 import java.time.Duration;
 
@@ -88,7 +89,9 @@ public class AdvancedFeatures {
     void retry() {
         // tag::retry-with-connection-mono-configurator[]
         Receiver receiver = RabbitFlux.createReceiver(new ReceiverOptions()
-            .connectionMonoConfigurator(cm -> cm.retryBackoff(3, Duration.ofSeconds(5)))); // <1>
+            .connectionMonoConfigurator(
+                cm -> cm.retryWhen(RetrySpec.backoff(3, Duration.ofSeconds(5)))    // <1>
+            ));
         // end::retry-with-connection-mono-configurator[]
     }
 
