@@ -871,6 +871,8 @@ public class Sender implements AutoCloseable {
 
         private ReturnListener returnListener;
 
+        private ShutdownListener shutdownListener;
+
         private final boolean trackReturned;
 
         private final BiFunction<AMQP.BasicProperties, Long, AMQP.BasicProperties> propertiesProcessor;
@@ -962,13 +964,17 @@ public class Sender implements AutoCloseable {
                     }
                 };
                 channel.addConfirmListener(confirmListener);
-                channel.addShutdownListener(sse -> {
+
+
+                this.shutdownListener = sse -> {
                     // the server is closing the channel because of some error (e.g. exchange does not exist).
                     // sending a signal downstream
                     if (!sse.isHardError() && !sse.isInitiatedByApplication()) {
                         subscriber.onError(sse);
                     }
-                });
+                };
+                channel.addShutdownListener(shutdownListener);
+
                 state.set(SubscriberState.ACTIVE);
                 this.subscription = subscription;
                 subscriber.onSubscribe(this);
@@ -1017,6 +1023,7 @@ public class Sender implements AutoCloseable {
                 state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE)) {
                 // complete the flux state
                 channel.removeConfirmListener(confirmListener);
+                channel.removeShutdownListener(shutdownListener);
 
                 if (returnListener != null) {
                     channel.removeReturnListener(returnListener);
@@ -1052,6 +1059,7 @@ public class Sender implements AutoCloseable {
             boolean done = state.compareAndSet(SubscriberState.OUTBOUND_DONE, SubscriberState.COMPLETE);
             if (done) {
                 channel.removeConfirmListener(confirmListener);
+                channel.removeShutdownListener(shutdownListener);
 
                 if (returnListener != null) {
                     channel.removeReturnListener(returnListener);

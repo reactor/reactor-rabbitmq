@@ -288,4 +288,25 @@ public class SenderTests {
             channel.exchangeDelete(e2);
         }
     }
+
+    @Test
+    public void publishConfirmSubscriptionCompletingRemovesAllListeners() throws Exception {
+        Sender sender = createSender();
+        int nbMessages = 1;
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, (consumerTag, message) -> latch.countDown(), consumerTag -> {
+        });
+        Channel sendChannel = connection.createChannel();
+        sender.sendWithPublishConfirms(Flux.range(1, 10).map(i -> new OutboundMessage("", queue, "".getBytes())),
+                new SendOptions().channelMono(Mono.just(sendChannel))).blockLast();
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+
+        // there is no API way to access the listeners, we are therefore extracting directly from the field
+        assertThat(sendChannel).extracting("shutdownHooks").asList().isEmpty();
+        assertThat(sendChannel).extracting("returnListeners").asList().isEmpty();
+        assertThat(sendChannel).extracting("confirmListeners").asList().isEmpty();
+
+        sender.close();
+    }
 }
