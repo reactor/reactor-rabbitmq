@@ -23,7 +23,7 @@ before_script:
   - ./bin/before_build.sh
 before_cache:
   - rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
-script: ./gradlew check -i -s -Drabbitmqctl.bin='rabbitmq/sbin/rabbitmqctl'
+script: ./gradlew check -i -s -Drabbitmqctl.bin="rabbitmq/sbin/rabbitmqctl -n rabbit@$(hostname)"
 cache:
   directories:
     - $HOME/.gradle/caches/
