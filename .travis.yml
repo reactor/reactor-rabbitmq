@@ -17,6 +17,7 @@ addons:
 branches:
   only:
     - master
+    - 1.4.x
 
 before_script:
   - ./bin/before_build.sh
