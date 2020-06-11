@@ -1,12 +1,10 @@
 # Reactor RabbitMQ
 
+[![Join the chat at https://gitter.im/reactor/reactor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/reactor/reactor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Reactor RabbitMQ](https://maven-badges.herokuapp.com/maven-central/io.projectreactor.rabbitmq/reactor-rabbitmq/badge.svg?style=plastic)](https://mvnrepository.com/artifact/io.projectreactor.rabbitmq/reactor-rabbitmq)
 
-[![Build Status](https://travis-ci.com/reactor/reactor-rabbitmq.svg?branch=master)](https://travis-ci.com/reactor/reactor-rabbitmq) (`master`)
-
-[![Build Status](https://travis-ci.com/reactor/reactor-rabbitmq.svg?branch=1.4.x)](https://travis-ci.com/reactor/reactor-rabbitmq) (`1.4.x`)
-
-[![Join the chat at https://gitter.im/reactor/reactor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/reactor/reactor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Build Status](https://travis-ci.com/reactor/reactor-rabbitmq.svg?branch=master)](https://travis-ci.com/reactor/reactor-rabbitmq) (master)
+[![Build Status](https://travis-ci.com/reactor/reactor-rabbitmq.svg?branch=1.4.x)](https://travis-ci.com/reactor/reactor-rabbitmq) (1.4.x)
 
 Reactor RabbitMQ is a reactive API for [RabbitMQ](https://www.rabbitmq.com/) based on
 [Reactor](https://projectreactor.io/)
