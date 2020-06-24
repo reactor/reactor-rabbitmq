@@ -39,7 +39,7 @@ With Maven:
 <dependency>
     <groupId>io.projectreactor.rabbitmq</groupId>
     <artifactId>reactor-rabbitmq</artifactId>
-    <version>1.5.0</version>
+    <version>1.4.3.RELEASE</version>
 </dependency>
 ```
 
@@ -47,7 +47,7 @@ With Maven:
 With Gradle:
 ```groovy
 dependencies {
-  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.5.0"
+  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.4.3.RELEASE"
 }
 ```
 
