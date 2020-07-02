@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import reactor.core.Disposable;
+import reactor.test.StepVerifier;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -159,5 +160,25 @@ public class ReceiverTests {
         assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
         receiver.close();
         receiver.close();
+    }
+
+    @Test
+    public void consumeNoAckEmitsErrorWhenQueueDoesNotExist() {
+        Receiver receiver = createReceiver();
+
+        StepVerifier
+                .create(receiver.consumeNoAck("not-existing-queue"))
+                .expectError(RabbitFluxException.class)
+                .verify(Duration.ofSeconds(3));
+    }
+
+    @Test
+    public void consumeManualAckEmitsErrorWhenQueueDoesNotExist() {
+        Receiver receiver = createReceiver();
+
+        StepVerifier
+                .create(receiver.consumeNoAck("not-existing-queue"))
+                .expectError(RabbitFluxException.class)
+                .verify(Duration.ofSeconds(3));
     }
 }
