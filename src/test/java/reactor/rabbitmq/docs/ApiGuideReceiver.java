@@ -43,8 +43,8 @@ public class ApiGuideReceiver {
         connectionFactory.useNio();
 
         ReceiverOptions receiverOptions =  new ReceiverOptions()
-            .connectionFactory(connectionFactory)                       // <1>
-            .connectionSubscriptionScheduler(Schedulers.elastic());     // <2>
+            .connectionFactory(connectionFactory)                           // <1>
+            .connectionSubscriptionScheduler(Schedulers.boundedElastic());  // <2>
         // end::options-simple[]
         // tag::inbound-flux[]
         Flux<Delivery> inboundFlux = RabbitFlux.createReceiver(receiverOptions)
@@ -66,7 +66,7 @@ public class ApiGuideReceiver {
             .connectionSupplier(cf -> cf.newConnection(                                  // <1>
                 new Address[] {new Address("192.168.0.1"), new Address("192.168.0.2")},
                 "reactive-sender"))
-            .resourceManagementScheduler(Schedulers.elastic());
+            .resourceManagementScheduler(Schedulers.boundedElastic());
         // end::options-connection-supplier[]
     }
 
