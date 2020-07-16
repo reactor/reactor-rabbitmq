@@ -146,8 +146,8 @@ public class Receiver implements Closeable {
                         }
                     }
                 });
-            } catch (IOException e) {
-                throw new RabbitFluxException(e);
+            } catch (Exception e) {
+                emitter.error(new RabbitFluxException(e));
             }
         }, emitter::error), options.getOverflowStrategy());
     }
@@ -224,8 +224,8 @@ public class Receiver implements Closeable {
                         }
                     }
                 });
-            } catch (IOException e) {
-                throw new RabbitFluxException(e);
+            } catch (Exception e) {
+                emitter.error(new RabbitFluxException(e));
             }
         }, emitter::error), options.getOverflowStrategy());
     }
