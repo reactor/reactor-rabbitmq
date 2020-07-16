@@ -134,7 +134,11 @@ public class Sender implements AutoCloseable {
     }
 
     protected Scheduler createScheduler(String name) {
-        return Schedulers.newElastic(name);
+        return Schedulers.newBoundedElastic(
+                Schedulers.DEFAULT_BOUNDED_ELASTIC_SIZE,
+                Schedulers.DEFAULT_BOUNDED_ELASTIC_QUEUESIZE,
+                name
+        );
     }
 
     protected <T> Mono<T> cache(Mono<T> mono) {

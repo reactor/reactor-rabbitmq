@@ -51,7 +51,7 @@ public class ApiGuideSender {
 
         SenderOptions senderOptions =  new SenderOptions()
             .connectionFactory(connectionFactory)                         // <1>
-            .resourceManagementScheduler(Schedulers.elastic());           // <2>
+            .resourceManagementScheduler(Schedulers.boundedElastic());    // <2>
         // end::options-simple[]
         // tag::instanciation[]
         Sender sender = RabbitFlux.createSender(senderOptions);
@@ -108,7 +108,7 @@ public class ApiGuideSender {
             .connectionSupplier(cf -> cf.newConnection(                                  // <1>
                 new Address[] {new Address("192.168.0.1"), new Address("192.168.0.2")},
                 "reactive-sender"))
-            .resourceManagementScheduler(Schedulers.elastic());
+            .resourceManagementScheduler(Schedulers.boundedElastic());
         // end::options-connection-supplier[]
     }
 
@@ -118,7 +118,7 @@ public class ApiGuideSender {
 
         SenderOptions senderOptions = new SenderOptions()
             .connectionFactory(connectionFactory)
-            .resourceManagementScheduler(Schedulers.elastic());
+            .resourceManagementScheduler(Schedulers.boundedElastic());
         Sender sender = RabbitFlux.createSender(senderOptions);
         // tag::publisher-confirms[]
         Flux<OutboundMessage> outboundFlux = Flux.range(1, 10)
@@ -141,7 +141,7 @@ public class ApiGuideSender {
 
         SenderOptions senderOptions =  new SenderOptions()
                 .connectionFactory(connectionFactory)
-                .resourceManagementScheduler(Schedulers.elastic());
+                .resourceManagementScheduler(Schedulers.boundedElastic());
         Sender sender = RabbitFlux.createSender(senderOptions);
         // tag::publisher-confirms-with-returned-tracking[]
         Flux<OutboundMessage> outboundFlux  = Flux.range(1, 10)

@@ -66,7 +66,10 @@ class LazyChannelPool implements ChannelPool {
         this.channelsQueue = new LinkedBlockingQueue<>(channelsQueueCapacity);
         this.connectionMono = connectionMono;
         this.subscriptionScheduler = channelPoolOptions.getSubscriptionScheduler() == null ?
-                Schedulers.newElastic("sender-channel-pool") : channelPoolOptions.getSubscriptionScheduler();
+                Schedulers.newBoundedElastic(
+                        Schedulers.DEFAULT_BOUNDED_ELASTIC_SIZE,
+                        Schedulers.DEFAULT_BOUNDED_ELASTIC_QUEUESIZE,
+                        "sender-channel-pool") : channelPoolOptions.getSubscriptionScheduler();
     }
 
     public Mono<? extends Channel> getChannelMono() {

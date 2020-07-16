@@ -97,7 +97,11 @@ public class Receiver implements Closeable {
     }
 
     protected Scheduler createScheduler(String name) {
-        return Schedulers.newElastic(name);
+        return Schedulers.newBoundedElastic(
+                Schedulers.DEFAULT_BOUNDED_ELASTIC_SIZE,
+                Schedulers.DEFAULT_BOUNDED_ELASTIC_QUEUESIZE,
+                name
+        );
     }
 
     // TODO more consumeNoAck functions:

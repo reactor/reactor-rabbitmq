@@ -212,7 +212,7 @@ in the `SenderOptions`.
 
 The `Sender` uses 2 Reactor's `Scheduler`: one for the subscription when creating the
 connection and another one for resources management. The `Sender` defaults
-to 2 elastic schedulers, this can be overriden in the `SenderOptions`. The `Sender`
+to 2 bounded elastic schedulers, this can be overriden in the `SenderOptions`. The `Sender`
 takes care of disposing the default schedulers when closing. If not using the default
 schedulers, it's developer's job to dispose schedulers they passed in to the
 `SenderOptions`.

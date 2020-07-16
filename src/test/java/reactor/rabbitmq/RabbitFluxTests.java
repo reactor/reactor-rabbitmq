@@ -1140,7 +1140,7 @@ public class RabbitFluxTests {
                 .flatMap(q -> sender.bind(binding("amq.direct", "" + q.getT1(), q.getT2())));
 
         Flux<OutboundMessage> messages = Flux.range(0, nbMessages).groupBy(v -> v % nbPartitions)
-                .flatMap(partitionFlux -> partitionFlux.publishOn(Schedulers.elastic())
+                .flatMap(partitionFlux -> partitionFlux.publishOn(Schedulers.boundedElastic())
                         .map(v -> new OutboundMessage("amq.direct", partitionFlux.key().toString(), (v + "").getBytes())));
 
         CountDownLatch latch = new CountDownLatch(nbMessages);
