@@ -58,7 +58,7 @@ With Maven:
 <dependency>
     <groupId>io.projectreactor.rabbitmq</groupId>
     <artifactId>reactor-rabbitmq</artifactId>
-    <version>1.5.0-RC1</version>
+    <version>1.5.0-M2</version>
 </dependency>
 
 <repositories>
@@ -82,7 +82,7 @@ repositories {
 }
 
 dependencies {
-  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.5.0-RC1"
+  compile "io.projectreactor.rabbitmq:reactor-rabbitmq:1.5.0-M2"
 }
 ```
 
