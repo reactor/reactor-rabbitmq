@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2018-2020 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.*;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
@@ -67,6 +66,14 @@ public abstract class Utils {
                 () -> Duration.ZERO);
     }
 
+    static boolean isRecoverable(Connection connection) {
+        return connection instanceof RecoverableConnection;
+    }
+
+    static boolean isRecoverable(Channel channel) {
+        return channel instanceof RecoverableChannel;
+    }
+
     @FunctionalInterface
     public interface ExceptionFunction<T, R> {
 
@@ -79,8 +86,8 @@ public abstract class Utils {
         private final Duration waitTimeout;
 
         private final CountDownLatch latch = new CountDownLatch(1);
-        private AtomicBoolean created = new AtomicBoolean(false);
-        private AtomicReference<Connection> connection = new AtomicReference<>();
+        private final AtomicBoolean created = new AtomicBoolean(false);
+        private final AtomicReference<Connection> connection = new AtomicReference<>();
 
         public SingleConnectionSupplier(Callable<? extends Connection> creationAction) {
             this(creationAction, Duration.ofMinutes(5));
