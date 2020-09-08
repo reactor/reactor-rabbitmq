@@ -19,12 +19,15 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Delivery;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
@@ -32,6 +35,8 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,6 +52,14 @@ public class ReceiverTests {
     Connection connection;
     String queue;
     Receiver receiver;
+
+    static Stream<Function<Object[], Flux<? extends Delivery>>> channelCallbackIsCalled() {
+        return Stream.of(
+                context -> ((Receiver) context[0]).consumeNoAck((String) context[1], (ConsumeOptions) context[2]),
+                context -> ((Receiver) context[0]).consumeAutoAck((String) context[1], (ConsumeOptions) context[2]),
+                context -> ((Receiver) context[0]).consumeManualAck((String) context[1], (ConsumeOptions) context[2])
+        );
+    }
 
     @BeforeEach
     public void init() throws Exception {
@@ -159,6 +172,33 @@ public class ReceiverTests {
 
         assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
         receiver.close();
+        receiver.close();
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    public void channelCallbackIsCalled(Function<Object[], Flux<? extends Delivery>> fluxFactory) throws Exception {
+        Receiver receiver = createReceiver();
+        int nbMessages = 10;
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        Channel channel = connection.createChannel();
+        for (int i = 0; i < nbMessages; i++) {
+            channel.basicPublish("", queue, null, "".getBytes());
+        }
+
+        AtomicInteger calls = new AtomicInteger(0);
+        ConsumeOptions consumeOptions = new ConsumeOptions().channelCallback(ch -> calls.incrementAndGet());
+        Flux<? extends Delivery> flux = fluxFactory.apply(new Object[]{receiver, queue, consumeOptions});
+
+        flux.subscribe(delivery -> {
+            if (delivery instanceof AcknowledgableDelivery) {
+                ((AcknowledgableDelivery) delivery).ack();
+            }
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(calls.get()).isEqualTo(1);
         receiver.close();
     }
 
