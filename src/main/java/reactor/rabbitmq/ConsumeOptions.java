@@ -16,12 +16,14 @@
 
 package reactor.rabbitmq;
 
+import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Delivery;
 import reactor.core.publisher.FluxSink;
 
 import java.time.Duration;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 /**
  * Options for {@link Receiver}#consume* methods.
@@ -52,8 +54,11 @@ public class ConsumeOptions {
     private BiFunction<Long, ? super Delivery, Boolean> stopConsumingBiFunction = (requestedFromDownstream, message) -> false;
 
     private BiConsumer<Receiver.AcknowledgmentContext, Exception> exceptionHandler = new ExceptionHandlers.RetryAcknowledgmentExceptionHandler(
-        Duration.ofSeconds(10), Duration.ofMillis(200), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
+            Duration.ofSeconds(10), Duration.ofMillis(200), ExceptionHandlers.CONNECTION_RECOVERY_PREDICATE
     );
+
+    private Consumer<Channel> channelCallback = ch -> {
+    };
 
     public int getQos() {
         return qos;
@@ -102,7 +107,7 @@ public class ConsumeOptions {
     }
 
     public ConsumeOptions stopConsumingBiFunction(
-        BiFunction<Long, ? super Delivery, Boolean> stopConsumingBiFunction) {
+            BiFunction<Long, ? super Delivery, Boolean> stopConsumingBiFunction) {
         this.stopConsumingBiFunction = stopConsumingBiFunction;
         return this;
     }
@@ -114,5 +119,14 @@ public class ConsumeOptions {
 
     public BiConsumer<Receiver.AcknowledgmentContext, Exception> getExceptionHandler() {
         return exceptionHandler;
+    }
+
+    public ConsumeOptions channelCallback(Consumer<Channel> channelCallback) {
+        this.channelCallback = channelCallback;
+        return this;
+    }
+
+    public Consumer<Channel> getChannelCallback() {
+        return channelCallback;
     }
 }

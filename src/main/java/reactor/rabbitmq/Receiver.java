@@ -114,6 +114,9 @@ public class Receiver implements Closeable {
     public Flux<Delivery> consumeNoAck(final String queue, ConsumeOptions options) {
         return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {
             try {
+                if (options.getChannelCallback() != null) {
+                    options.getChannelCallback().accept(channel);
+                }
                 DeliverCallback deliverCallback = (consumerTag, message) -> {
                     emitter.next(message);
                     if (options.getStopConsumingBiFunction().apply(emitter.requestedFromDownstream(), message)) {
@@ -184,6 +187,9 @@ public class Receiver implements Closeable {
         // could be also developer responsibility
         return Flux.create(emitter -> connectionMono.map(CHANNEL_CREATION_FUNCTION).subscribe(channel -> {
             try {
+                if (options.getChannelCallback() != null) {
+                    options.getChannelCallback().accept(channel);
+                }
                 if (options.getQos() != 0) {
                     channel.basicQos(options.getQos());
                 }
