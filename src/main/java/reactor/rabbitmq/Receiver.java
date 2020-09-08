@@ -157,9 +157,17 @@ public class Receiver implements Closeable {
 
     protected void completeOnChannelShutdown(Channel channel, FluxSink<?> emitter) {
         channel.addShutdownListener(reason -> {
-            if (!AutorecoveringConnection.DEFAULT_CONNECTION_RECOVERY_TRIGGERING_CONDITION.test(reason)) {
+            if (isRecoverable(channel)) {
+                // we complete only on "normal" (channels closed by application) for recoverable channels
+                // other cases includes disconnection, so the channel should recover and resume consuming
+                if (!AutorecoveringConnection.DEFAULT_CONNECTION_RECOVERY_TRIGGERING_CONDITION.test(reason)) {
+                    emitter.complete();
+                }
+            } else {
+                // we always complete for non-recoverable channels, because they won't recover by themselves
                 emitter.complete();
             }
+
         });
     }
 
@@ -234,6 +242,14 @@ public class Receiver implements Closeable {
                 emitter.error(new RabbitFluxException(e));
             }
         }, emitter::error), options.getOverflowStrategy());
+    }
+
+    protected boolean isRecoverable(Connection connection) {
+        return Utils.isRecoverable(connection);
+    }
+
+    protected boolean isRecoverable(Channel channel) {
+        return Utils.isRecoverable(channel);
     }
 
     // TODO consume with dynamic QoS and/or batch ack
