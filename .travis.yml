@@ -6,7 +6,7 @@ jdk:
   - openjdk11
 
 notifications:
-  email: acogoluegnes@pivotal.io
+  email: acogoluegnes@vmware.io
 addons:
   apt:
     sources:
