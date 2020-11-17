@@ -46,7 +46,7 @@ ext {
 	mockitoVersion = '3.6.0'
 	junitPlatformVersion = '1.7.0'
 	junitJupiterVersion  = '5.7.0'
-	assertjVersion = '3.18.0'
+	assertjVersion = '3.18.1'
 
 	javadocLinks = ["https://docs.oracle.com/javase/8/docs/api/",
 					"https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/",
