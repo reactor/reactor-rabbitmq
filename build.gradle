@@ -135,7 +135,7 @@ configure(rootProject) {
 
 	test {
 		useJUnitPlatform()
-		systemProperty 'rabbitmqctl.bin', System.getProperty('rabbitmqctl.bin') ?: 'sudo rabbitmqctl'
+		systemProperty 'rabbitmqctl.bin', System.getProperty('rabbitmqctl.bin') ?: 'DOCKER:rabbitmq'
 	}
 
 	//add specific task artifacts to the publication
