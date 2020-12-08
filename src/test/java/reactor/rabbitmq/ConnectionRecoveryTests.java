@@ -22,6 +22,7 @@ import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -85,7 +86,7 @@ public class ConnectionRecoveryTests {
     }
 
     @BeforeEach
-    public void init() throws Exception {
+    public void init(TestInfo info) throws Exception {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.useNio();
         connectionFactory.setNetworkRecoveryInterval(RECOVERY_INTERVAL);
@@ -96,7 +97,9 @@ public class ConnectionRecoveryTests {
         channel.close();
         receiver = null;
         sender = null;
-        connectionMono = Mono.just(connectionFactory.newConnection()).cache();
+        connectionMono = Mono.just(connectionFactory.newConnection(
+            info.getTestMethod().get().getName()))
+            .cache();
     }
 
     @AfterEach
@@ -142,7 +145,7 @@ public class ConnectionRecoveryTests {
                 }
             });
 
-            closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
+            closeAndWaitForRecovery(connectionMono.block());
 
             for (int $$ : IntStream.range(0, nbMessages).toArray()) {
                 channel.basicPublish("", queue, null, "Hello".getBytes());
@@ -295,7 +298,7 @@ public class ConnectionRecoveryTests {
                 )))
                 .subscribe();
 
-        closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
+        closeAndWaitForRecovery(connectionMono.block());
 
         assertTrue(latch.await(10, TimeUnit.SECONDS));
         assertEquals(nbMessages, counter.get());
@@ -345,7 +348,7 @@ public class ConnectionRecoveryTests {
                     }
                 });
 
-        closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
+        closeAndWaitForRecovery(connectionMono.block());
 
         // we expect all messages to make to the queue (they're retried)
         assertTrue(consumedLatch.await(20, TimeUnit.SECONDS));
@@ -382,15 +385,15 @@ public class ConnectionRecoveryTests {
 
         latch.set(new CountDownLatch(1));
 
-        closeAndWaitForRecovery((RecoverableConnection) connectionMono.block());
+        closeAndWaitForRecovery(connectionMono.block());
 
         ch.basicPublish(e, "", null, "".getBytes());
         assertTrue(latch.get().await(5, TimeUnit.SECONDS));
     }
 
-    private void closeAndWaitForRecovery(RecoverableConnection connection) throws IOException, InterruptedException {
+    private void closeAndWaitForRecovery(Connection connection) throws IOException, InterruptedException {
         CountDownLatch latch = prepareForRecovery(connection);
-        Host.closeConnection((NetworkConnection) connection);
+        Host.closeConnection(connection);
         wait(latch);
     }
 

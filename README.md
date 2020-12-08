@@ -130,7 +130,17 @@ can specify the path to `rabbitmqctl` like the following:
 
     ./gradlew check -Drabbitmqctl.bin=/path/to/rabbitmqctl
 
-You need a local running RabbitMQ instance. 
+You need a local running RabbitMQ instance.
+
+### Running tests with Docker
+
+Start a RabbitMQ container:
+
+    docker run -it --rm --name rabbitmq -p 5672:5672 rabbitmq:3.8
+
+Run the test suite:
+
+    ./gradlew check -i -s -Drabbitmqctl.bin=DOCKER:rabbitmq
 
 ### Building IDE project
     ./gradlew eclipse
