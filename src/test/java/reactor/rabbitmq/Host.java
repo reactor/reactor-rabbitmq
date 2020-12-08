@@ -95,8 +95,10 @@ public class Host {
         if (rabbitmqCtl.startsWith("DOCKER:")) {
             String containerId = rabbitmqCtl.split(":")[1];
             return "docker exec " + containerId + " rabbitmqctl";
+        } else if ("sudo_rabbitmqctl".equals(rabbitmqCtl)) {
+            return "sudo rabbitmqctl";
         } else {
-            return rabbitmqCtl;
+                return rabbitmqCtl;
         }
     }
 
