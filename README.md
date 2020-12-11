@@ -140,7 +140,7 @@ Start a RabbitMQ container:
 
 Run the test suite:
 
-    ./gradlew check -i -s -Drabbitmqctl.bin=DOCKER:rabbitmq
+    ./gradlew check -i -s
 
 ### Building IDE project
     ./gradlew eclipse
