@@ -123,6 +123,38 @@ public class SenderTests {
         assertEquals(nbMessages, counter.get());
     }
 
+    // Uncomment @Test if delay plugin enabled in testing environment
+//    @Test
+    void createDelayedExchangeBeforePublishing() throws Exception {
+        int nbMessages = 10;
+        long delayMillis = 200;
+        CountDownLatch firstDeliveryLatch = new CountDownLatch(1);
+        CountDownLatch latch = new CountDownLatch(nbMessages);
+        AtomicInteger counter = new AtomicInteger();
+        Channel channel = connection.createChannel();
+        channel.basicConsume(queue, true, new DefaultConsumer(channel) {
+
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) {
+                firstDeliveryLatch.countDown();
+                counter.incrementAndGet();
+                latch.countDown();
+            }
+        });
+
+        String exchange = UUID.randomUUID().toString();
+
+        Flux<OutboundMessage> msgFlux = Flux.range(0, nbMessages).map(i -> new DelayedOutboundMessage(exchange, queue, delayMillis, "".getBytes()));
+
+        sender = createSender();
+        sender.declare(DelayedExchangeSpecification.exchange(exchange).autoDelete(true).type("topic"))
+                .then(sender.bind(BindingSpecification.binding(exchange, "#", queue)))
+                .then(sender.send(msgFlux)).subscribe();
+        assertFalse(firstDeliveryLatch.await(delayMillis, TimeUnit.MILLISECONDS));
+        assertTrue(latch.await(2 * delayMillis, TimeUnit.MILLISECONDS));
+        assertEquals(nbMessages, counter.get());
+    }
+
     @Test
     void connectionFromSupplierShouldBeCached() throws Exception {
         ConnectionFactory cf = new ConnectionFactory();
