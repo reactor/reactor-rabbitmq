@@ -44,7 +44,7 @@ ext {
 	springAmqpVersion = '2.2.10.RELEASE'
 
 	// Testing
-	mockitoVersion = '3.6.28'
+	mockitoVersion = '3.7.7'
 	junitJupiterVersion  = '5.7.0'
 	assertjVersion = '3.18.1'
 
