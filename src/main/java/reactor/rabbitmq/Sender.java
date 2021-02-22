@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2021 VMware, Inc. or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1016,6 +1016,8 @@ public class Sender implements AutoCloseable {
                 unconfirmed.remove(nextPublishSeqNo);
                 try {
                     this.exceptionHandler.accept(new ConfirmSendContext<>(channel, message, this), e);
+                } catch (RabbitFluxRetryTimeoutException timeoutException) {
+                    subscriber.onNext(new OutboundMessageResult<>(message, false, false));
                 } catch (Exception innerException) {
                     handleError(innerException, new OutboundMessageResult<>(message, false, false));
                 }
