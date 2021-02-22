@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 VMware, Inc. or its affiliates.
+ * Copyright (c) 2018-2021 VMware, Inc. or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,14 @@ public class ExceptionHandlers {
 
         private final Predicate<Throwable> predicate;
 
+        private boolean failOnTimeout;
+
         public SimpleRetryTemplate(Duration timeout, Duration waitingTime, Predicate<Throwable> predicate) {
+            this(timeout, waitingTime, predicate, true);
+        }
+
+        public SimpleRetryTemplate(Duration timeout, Duration waitingTime, Predicate<Throwable> predicate,
+                boolean failOnTimeout) {
             if (timeout == null || timeout.isNegative() || timeout.isZero()) {
                 throw new IllegalArgumentException("Timeout must be greater than 0");
             }
@@ -88,11 +95,13 @@ public class ExceptionHandlers {
             this.timeout = timeout.toMillis();
             this.waitingTime = waitingTime.toMillis();
             this.predicate = predicate;
+            this.failOnTimeout = failOnTimeout;
         }
 
         public void retry(Callable<Void> operation, Exception e) {
             if (predicate.test(e)) {
                 int elapsedTime = 0;
+                boolean callSucceeded = false;
                 while (elapsedTime < timeout) {
                     try {
                         Thread.sleep(waitingTime);
@@ -102,12 +111,16 @@ public class ExceptionHandlers {
                     elapsedTime += waitingTime;
                     try {
                         operation.call();
+                        callSucceeded = true;
                         break;
                     } catch (Throwable sendingException) {
                         if (!predicate.test(sendingException)) {
                             throw new RabbitFluxException("Not retryable exception thrown during retry", sendingException);
                         }
                     }
+                }
+                if (!callSucceeded && failOnTimeout) {
+                    throw new RabbitFluxRetryTimeoutException("Retry timed out after " + this.timeout + " ms", e);
                 }
             } else {
                 throw new RabbitFluxException("Not retryable exception, cannot retry", e);
@@ -122,7 +135,7 @@ public class ExceptionHandlers {
         public RetryAcknowledgmentExceptionHandler(Duration timeout, Duration waitingTime,
             Predicate<Throwable> predicate) {
             this.retryTemplate = new SimpleRetryTemplate(
-                timeout, waitingTime, predicate
+                timeout, waitingTime, predicate, false
             );
         }
 
@@ -140,8 +153,13 @@ public class ExceptionHandlers {
         private final SimpleRetryTemplate retryTemplate;
 
         public RetrySendingExceptionHandler(Duration timeout, Duration waitingTime, Predicate<Throwable> predicate) {
+            this(timeout, waitingTime, predicate, true);
+        }
+
+        public RetrySendingExceptionHandler(Duration timeout, Duration waitingTime, Predicate<Throwable> predicate,
+                boolean failOnTimeout) {
             this.retryTemplate = new SimpleRetryTemplate(
-                timeout, waitingTime, predicate
+                timeout, waitingTime, predicate, failOnTimeout
             );
         }
 

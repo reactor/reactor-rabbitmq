@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 VMware, Inc. or its affiliates.
+ * Copyright (c) 2018-2021 VMware, Inc. or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.AuthenticationFailureException;
 import com.rabbitmq.client.ShutdownSignalException;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -30,6 +31,7 @@ import java.util.function.Predicate;
 
 import static java.time.Duration.ofMillis;
 import static java.util.Collections.singletonMap;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -83,11 +85,25 @@ public class ExceptionHandlersTests {
     @Test
     void retryTimeoutIsReached() {
         exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
-            ofMillis(100), ofMillis(10), new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true))
+            ofMillis(100), ofMillis(10),
+            new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true)), false
         );
         exceptionHandler.accept(sendContext(() -> {
             throw new Exception();
         }), new Exception());
+    }
+
+    @Test
+    void shouldThrowTimeoutExceptionWhenConfigured() {
+        exceptionHandler = new ExceptionHandlers.RetrySendingExceptionHandler(
+            ofMillis(100), ofMillis(10),
+            new ExceptionHandlers.ExceptionPredicate(singletonMap(Exception.class, true)), true
+        );
+        assertThatThrownBy(() -> {
+            exceptionHandler.accept(sendContext(() -> {
+                throw new Exception();
+            }), new Exception());
+        }).isInstanceOf(RabbitFluxRetryTimeoutException.class);
     }
 
     @Test

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 VMware, Inc. or its affiliates.
+ * Copyright (c) 2017-2021 VMware, Inc. or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -869,6 +869,46 @@ public class RabbitFluxTests {
 
         ShutdownListener shutdownListener = shutdownListenerArgumentCaptor.getValue();
         shutdownListener.shutdownCompleted(new ShutdownSignalException(true, false, null, null));
+
+        assertThat(nackLatch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void publishConfirmsEmitNackOnRetryTimeout() throws Exception {
+        ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
+        Connection mockConnection = mock(Connection.class);
+        Channel mockChannel = mock(Channel.class);
+        when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
+        when(mockConnection.createChannel()).thenReturn(mockChannel);
+        when(mockConnection.isOpen()).thenReturn(true);
+        when(mockChannel.getConnection()).thenReturn(mockConnection);
+
+        AtomicLong publishSequence = new AtomicLong();
+        when(mockChannel.getNextPublishSeqNo()).thenAnswer(invocation -> publishSequence.incrementAndGet());
+        when(mockChannel.isOpen()).thenReturn(true);
+
+        doAnswer(answer -> {
+            throw new RuntimeException();
+        })
+            .when(mockChannel).basicPublish(anyString(), anyString(), eq(false), nullable(AMQP.BasicProperties.class), any(byte[].class));
+
+        Flux<OutboundMessage> msgFlux = Flux.just(new OutboundMessage("", queue, "".getBytes()));
+        CountDownLatch nackLatch = new CountDownLatch(1);
+        sender = createSender(new SenderOptions()
+            .connectionFactory(mockConnectionFactory));
+        sender
+            .sendWithPublishConfirms(msgFlux,
+                new SendOptions().exceptionHandler((ctx, ex) -> {
+                    throw new RabbitFluxRetryTimeoutException(null, null);
+                }))
+            .subscribe(
+                outboundMessageResult -> {
+                    if (!outboundMessageResult.isAck()) {
+                        nackLatch.countDown();
+                    }
+                },
+                error -> {
+                });
 
         assertThat(nackLatch.await(5, TimeUnit.SECONDS)).isTrue();
     }
