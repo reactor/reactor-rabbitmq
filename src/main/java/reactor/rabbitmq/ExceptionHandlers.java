@@ -19,6 +19,7 @@ package reactor.rabbitmq;
 import com.rabbitmq.client.MissedHeartbeatException;
 import com.rabbitmq.client.ShutdownSignalException;
 
+import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -38,7 +39,7 @@ public class ExceptionHandlers {
         public boolean test(Throwable throwable) {
             if (throwable instanceof ShutdownSignalException) {
                 ShutdownSignalException sse = (ShutdownSignalException) throwable;
-                return !sse.isInitiatedByApplication() || (sse.getCause() instanceof MissedHeartbeatException);
+                return AutorecoveringConnection.DEFAULT_CONNECTION_RECOVERY_TRIGGERING_CONDITION.test(sse);
             }
             return false;
         }

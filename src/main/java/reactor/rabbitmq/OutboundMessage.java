@@ -34,6 +34,8 @@ public class OutboundMessage {
 
     private final byte[] body;
 
+    private volatile boolean published = false;
+
     /**
      * Constructs a new message which is described by the body, the target exchange and the routing key which
      * can be used for smart routing after the message is published to the exchange.
@@ -108,5 +110,13 @@ public class OutboundMessage {
                 ", properties=" + properties +
                 ", body=" + Arrays.toString(body) +
                 '}';
+    }
+
+    void published() {
+        this.published = true;
+    }
+
+    boolean isPublished() {
+        return published;
     }
 }
