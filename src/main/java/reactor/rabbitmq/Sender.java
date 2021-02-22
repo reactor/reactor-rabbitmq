@@ -18,6 +18,7 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.*;
 import com.rabbitmq.client.impl.AMQImpl;
+import java.util.Map.Entry;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -965,8 +966,22 @@ public class Sender implements AutoCloseable {
                 };
                 channel.addConfirmListener(confirmListener);
 
-
                 this.shutdownListener = sse -> {
+                    // nack outstanding messages to warn downstream
+                    Iterator<Entry<Long, OMSG>> iterator = this.unconfirmed.entrySet()
+                        .iterator();
+                    while (iterator.hasNext()) {
+                        OMSG message = iterator.next().getValue();
+                        if (!message.isPublished()) {
+                            // we deal only with messages that won't be retried here
+                            try {
+                                subscriber.onNext(new OutboundMessageResult<>(message, false, false));
+                                iterator.remove();
+                            } catch (Exception e) {
+                                LOGGER.info("Error while nacking messages after channel failure");
+                            }
+                        }
+                    }
                     // the server is closing the channel because of some error (e.g. exchange does not exist).
                     // sending a signal downstream
                     if (!sse.isHardError() && !sse.isInitiatedByApplication()) {
@@ -986,7 +1001,6 @@ public class Sender implements AutoCloseable {
             if (checkComplete(message)) {
                 return;
             }
-
             long nextPublishSeqNo = channel.getNextPublishSeqNo();
             try {
                 unconfirmed.putIfAbsent(nextPublishSeqNo, message);
@@ -997,6 +1011,7 @@ public class Sender implements AutoCloseable {
                         this.propertiesProcessor.apply(message.getProperties(), nextPublishSeqNo),
                         message.getBody()
                 );
+                message.published();
             } catch (Exception e) {
                 unconfirmed.remove(nextPublishSeqNo);
                 try {

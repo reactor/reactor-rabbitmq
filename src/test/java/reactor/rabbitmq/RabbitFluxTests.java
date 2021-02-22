@@ -824,6 +824,56 @@ public class RabbitFluxTests {
     }
 
     @Test
+    public void publishConfirmsEmitNackForUnconfirmedMessagesOnConnectionFailure() throws Exception {
+        ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
+        Connection mockConnection = mock(Connection.class);
+        Channel mockChannel = mock(Channel.class);
+        when(mockConnectionFactory.newConnection()).thenReturn(mockConnection);
+        when(mockConnection.createChannel()).thenReturn(mockChannel);
+        when(mockConnection.isOpen()).thenReturn(true);
+        when(mockChannel.getConnection()).thenReturn(mockConnection);
+
+        AtomicLong publishSequence = new AtomicLong();
+        when(mockChannel.getNextPublishSeqNo()).thenAnswer(invocation -> publishSequence.incrementAndGet());
+        when(mockChannel.isOpen()).thenReturn(true);
+
+        CountDownLatch publishLatch = new CountDownLatch(1);
+            doAnswer(answer -> {
+                publishLatch.countDown();
+                try {
+                    Thread.sleep(1000L);
+                } catch (Exception e) {
+                }
+                return null;
+            })
+            .when(mockChannel).basicPublish(anyString(), anyString(), eq(false), nullable(AMQP.BasicProperties.class), any(byte[].class));
+
+        Flux<OutboundMessage> msgFlux = Flux.just(new OutboundMessage("", queue, "".getBytes()));
+        CountDownLatch nackLatch = new CountDownLatch(1);
+        sender = createSender(new SenderOptions().connectionFactory(mockConnectionFactory));
+        sender
+            .sendWithPublishConfirms(msgFlux)
+            .subscribe(
+                outboundMessageResult -> {
+                    if (!outboundMessageResult.isAck()) {
+                        nackLatch.countDown();
+                    }
+                },
+                error -> {
+                });
+
+        assertThat(publishLatch.await(5, TimeUnit.SECONDS)).isTrue();
+
+        ArgumentCaptor<ShutdownListener> shutdownListenerArgumentCaptor = ArgumentCaptor.forClass(ShutdownListener.class);
+        verify(mockChannel).addShutdownListener(shutdownListenerArgumentCaptor.capture());
+
+        ShutdownListener shutdownListener = shutdownListenerArgumentCaptor.getValue();
+        shutdownListener.shutdownCompleted(new ShutdownSignalException(true, false, null, null));
+
+        assertThat(nackLatch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
     public void publishConfirmsErrorWhilePublishing() throws Exception {
         ConnectionFactory mockConnectionFactory = mock(ConnectionFactory.class);
         Connection mockConnection = mock(Connection.class);
