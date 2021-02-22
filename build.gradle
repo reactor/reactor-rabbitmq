@@ -45,11 +45,10 @@ ext {
 
 	// Testing
 	mockitoVersion = '3.7.7'
-	junitJupiterVersion  = '5.7.0'
-	assertjVersion = '3.18.1'
+	junitJupiterVersion  = '5.7.1'
+	assertjVersion = '3.19.0'
 
-	javadocLinks = ["https://docs.oracle.com/javase/7/docs/api/",
-					"https://docs.oracle.com/javaee/6/api/",
+	javadocLinks = ["https://docs.oracle.com/javase/8/docs/api/",
 					"https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/",
 					"https://projectreactor.io/docs/core/release/api/",
 					"https://rabbitmq.github.io/rabbitmq-java-client/api/current/",] as String[]
