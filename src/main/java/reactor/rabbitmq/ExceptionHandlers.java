@@ -16,7 +16,6 @@
 
 package reactor.rabbitmq;
 
-import com.rabbitmq.client.MissedHeartbeatException;
 import com.rabbitmq.client.ShutdownSignalException;
 
 import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
