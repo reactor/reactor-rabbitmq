@@ -1,10 +1,6 @@
 name: Build (Linux)
 
 on:
-  push:
-    branches:
-      - master
-      - 1.4.x
   pull_request:
     branches:
       - master
