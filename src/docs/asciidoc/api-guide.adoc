@@ -96,7 +96,7 @@ include::{test-examples}/ApiGuideSender.java[tag=send-flux]
 <2> If the sending fails, log an error
 <3> Subscribe to trigger the actual flow of records from `outboundFlux` to RabbitMQ.
 
-See https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleSender.java[SampleSender]
+See https://github.com/reactor/reactor-rabbitmq/blob/main/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleSender.java[SampleSender]
 for a full code listing for a `Sender`.
 
 ==== Managing resources (exchanges, queues, and bindings)
@@ -368,7 +368,7 @@ The inbound RabbitMQ `Flux` is ready to be consumed.
 Each inbound message delivered by the Flux is represented as a
 https://www.rabbitmq.com/releases/rabbitmq-java-client/current-javadoc/com/rabbitmq/client/Delivery.html[`Delivery`].
 
-See https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleReceiver.java[`SampleReceiver`]
+See https://github.com/reactor/reactor-rabbitmq/blob/main/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleReceiver.java[`SampleReceiver`]
 for a full code listing for a `Receiver`.
 
 ==== Consuming options
@@ -599,7 +599,7 @@ include::{test-examples}/ApiGuideSender.java[tag=channel-pool]
 Note it is developer's responsibility to close the pool when it is no longer
 necessary, typically at application shutdown.
 
-https://github.com/reactor/reactor-rabbitmq/tree/master/src/jmh/java/reactor/rabbitmq[Micro-benchmarks]
+https://github.com/reactor/reactor-rabbitmq/tree/main/src/jmh/java/reactor/rabbitmq[Micro-benchmarks]
 revealed channel pooling performs much better for sending short sequence
 of messages (1 to 10) repeatedly, without publisher confirms. With longer sequence
 of messages (100 or more), channel pooling can perform worse than
