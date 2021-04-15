@@ -30,7 +30,7 @@ Download Reactor RabbitMQ from https://github.com/reactor/reactor-rabbitmq/.
 
 ===== Sample Sender
 
-The https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleSender.java[`SampleSender`]
+The https://github.com/reactor/reactor-rabbitmq/blob/main/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleSender.java[`SampleSender`]
 code is on GitHub.
 
 Run the sample sender:
@@ -66,7 +66,7 @@ when the publisher confirmation is received from the broker.
 
 ===== Sample Receiver
 
-The https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleReceiver.java[`SampleReceiver`]
+The https://github.com/reactor/reactor-rabbitmq/blob/main/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SampleReceiver.java[`SampleReceiver`]
 code is on GitHub.
 
 Run the sample receiver:
@@ -101,7 +101,7 @@ the message content in the console.
 
 ===== Sample Spring Boot Application
 
-The https://github.com/reactor/reactor-rabbitmq/blob/master/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SpringBootSample.java[`SpringBootSample`]
+The https://github.com/reactor/reactor-rabbitmq/blob/main/reactor-rabbitmq-samples/src/main/java/reactor/rabbitmq/samples/SpringBootSample.java[`SpringBootSample`]
 code is on GitHub.
 
 Run the sample Spring Boot application:

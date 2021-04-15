@@ -3,7 +3,7 @@ name: Build (Linux)
 on:
   pull_request:
     branches:
-      - master
+      - main
       - 1.4.x
 
 jobs:
