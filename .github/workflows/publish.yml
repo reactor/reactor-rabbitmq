@@ -19,6 +19,7 @@ jobs:
           - 5672:5672
     outputs:
       versionType: ${{ steps.version.outputs.versionType }}
+      fullVersion: ${{ steps.version.outputs.fullVersion }}
     steps:
       - uses: actions/checkout@v2
       - name: setup java
