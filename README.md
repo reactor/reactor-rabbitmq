@@ -174,4 +174,4 @@ for the support timeline of this library.
 
 Reactor RabbitMQ is [Apache 2.0 licensed](https://www.apache.org/licenses/LICENSE-2.0.html).
 
-_Sponsored by [VMware](https://www.vmware.com/)_
+_Sponsored by [VMware](https://tanzu.vmware.com/)_
