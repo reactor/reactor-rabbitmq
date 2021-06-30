@@ -1,9 +1,5 @@
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
-import java.time.temporal.ChronoField
-
 /*
- * Copyright (c) 2011-Present Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2017-2021 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +13,10 @@ import java.time.temporal.ChronoField
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.temporal.ChronoField
 
 if (rootProject.hasProperty("releaserDryRun") && rootProject.findProperty("releaserDryRun") != "false") {
 	println "Adding MavenLocal() for benefit of releaser dry run"
