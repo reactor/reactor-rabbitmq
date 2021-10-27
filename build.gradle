@@ -34,19 +34,19 @@ ext {
 
 	// Logging
 	slf4jVersion = '1.7.30'
-	logbackVersion = '1.2.3'
+	logbackVersion = '1.2.6'
 
 	// Libraries
 	rabbitMqJavaClientVersion = '5.11.0'
 
 	// Sample
-	springBootVersion = '2.3.3.RELEASE'
-	springAmqpVersion = '2.2.10.RELEASE'
+	springBootVersion = '2.5.6'
+	springAmqpVersion = '2.3.11'
 
 	// Testing
-	mockitoVersion = '3.7.7'
-	junitJupiterVersion  = '5.7.1'
-	assertjVersion = '3.19.0'
+	mockitoVersion = '4.0.0'
+	junitJupiterVersion  = '5.8.1'
+	assertjVersion = '3.21.0'
 
 	javadocLinks = ["https://docs.oracle.com/javase/8/docs/api/",
 					"https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/",
