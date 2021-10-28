@@ -210,7 +210,7 @@ For Maven:
 </repositories>
 --------
 
-[#versioning]
+[[versioning-scheme]]
 ==== Versioning
 
 Reactor RabbitMQ used https://semver.org/[semantic versioning] from version 1.0 to
