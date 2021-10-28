@@ -128,7 +128,15 @@ public class Receiver implements Closeable {
 
                 completeOnChannelShutdown(channel, emitter);
 
-                final String consumerTag = channel.basicConsume(queue, true, options.getConsumerTag(), deliverCallback, cancelCallback);
+                final String consumerTag = channel.basicConsume(
+                    queue,
+                    true, // auto-ack
+                    options.getConsumerTag(),
+                    false, // noLocal (not supported by RabbitMQ)
+                    false, // not exclusive
+                    options.getArguments(),
+                    deliverCallback,
+                    cancelCallback);
                 AtomicBoolean cancelled = new AtomicBoolean(false);
                 LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                 emitter.onDispose(() -> {
@@ -217,7 +225,15 @@ public class Receiver implements Closeable {
 
                 completeOnChannelShutdown(channel, emitter);
 
-                final String consumerTag = channel.basicConsume(queue, false, options.getConsumerTag(), deliverCallback, cancelCallback);
+                final String consumerTag = channel.basicConsume(
+                    queue,
+                    false, // no auto-ack
+                    options.getConsumerTag(),
+                    false, // noLocal (not supported by RabbitMQ)
+                    false, // not exclusive
+                    options.getArguments(),
+                    deliverCallback,
+                    cancelCallback);
                 AtomicBoolean cancelled = new AtomicBoolean(false);
                 LOGGER.info("Consumer {} consuming from {} has been registered", consumerTag, queue);
                 emitter.onDispose(() -> {
