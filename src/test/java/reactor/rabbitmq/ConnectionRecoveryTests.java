@@ -170,9 +170,16 @@ public class ConnectionRecoveryTests {
         AtomicReference<DeliverCallback> deliverCallbackAtomicReference = new AtomicReference<>();
 
         when(mockChannel.basicConsume(
-                anyString(), anyBoolean(), anyString(), any(DeliverCallback.class), any(CancelCallback.class)
+                anyString(), // queue
+                anyBoolean(), // auto-ack
+                anyString(), // consumer tag
+                anyBoolean(), // noLocal (always false)
+                anyBoolean(), // exclusive (always false)
+                anyMap(), // arguments
+                any(DeliverCallback.class),
+                any(CancelCallback.class)
         )).thenAnswer(answer -> {
-            deliverCallbackAtomicReference.set(answer.getArgument(3));
+            deliverCallbackAtomicReference.set(answer.getArgument(6));
             consumerRegisteredLatch.countDown();
             return "ctag";
         });
@@ -228,9 +235,16 @@ public class ConnectionRecoveryTests {
         AtomicReference<DeliverCallback> deliverCallbackAtomicReference = new AtomicReference<>();
 
         when(mockChannel.basicConsume(
-                anyString(), anyBoolean(), anyString(), any(DeliverCallback.class), any(CancelCallback.class)
+            anyString(), // queue
+            anyBoolean(), // auto-ack
+            anyString(), // consumer tag
+            anyBoolean(), // noLocal (always false)
+            anyBoolean(), // exclusive (always false)
+            anyMap(), // arguments
+            any(DeliverCallback.class),
+            any(CancelCallback.class)
         )).thenAnswer(answer -> {
-            deliverCallbackAtomicReference.set(answer.getArgument(3));
+            deliverCallbackAtomicReference.set(answer.getArgument(6));
             consumerRegisteredLatch.countDown();
             return "ctag";
         });

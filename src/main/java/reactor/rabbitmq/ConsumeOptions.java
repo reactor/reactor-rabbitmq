@@ -18,6 +18,8 @@ package reactor.rabbitmq;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Delivery;
+import java.util.Collections;
+import java.util.Map;
 import reactor.core.publisher.FluxSink;
 
 import java.time.Duration;
@@ -59,6 +61,11 @@ public class ConsumeOptions {
 
     private Consumer<Channel> channelCallback = ch -> {
     };
+
+    /**
+     * Arguments for the call to <code>basic.consume</code>.
+     */
+    private Map<String, Object> arguments = Collections.emptyMap();
 
     public int getQos() {
         return qos;
@@ -128,5 +135,14 @@ public class ConsumeOptions {
 
     public Consumer<Channel> getChannelCallback() {
         return channelCallback;
+    }
+
+    public ConsumeOptions arguments(Map<String, Object> arguments) {
+        this.arguments = arguments;
+        return this;
+    }
+
+    public Map<String, Object> getArguments() {
+        return arguments;
     }
 }
