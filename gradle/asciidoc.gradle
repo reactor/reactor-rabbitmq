@@ -26,7 +26,6 @@ configure(rootProject) {
 		attributes 'allow-uri-read': '',
 				   'attribute-missing': 'warn',
 				   'revdate': "${date}",
-				   'revremark': "test",
 				   'docinfo': '',
 				   'toc2': '',
 				   'compat-mode': '',
