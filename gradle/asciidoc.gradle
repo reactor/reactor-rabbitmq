@@ -26,6 +26,7 @@ configure(rootProject) {
 		attributes 'allow-uri-read': '',
 				   'attribute-missing': 'warn',
 				   'revdate': "${date}",
+				   'revremark': "test",
 				   'docinfo': '',
 				   'toc2': '',
 				   'compat-mode': '',
@@ -44,9 +45,7 @@ configure(rootProject) {
 		resources {
 			from(sourceDir) {
 				include 'images/**'
-				include 'highlight/**/*'
 			}
-
 		}
 		outputDir file("$buildDir/docs/asciidoc/html")
 		logDocuments = true

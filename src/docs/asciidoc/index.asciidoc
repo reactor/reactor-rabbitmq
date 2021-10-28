@@ -1,7 +1,5 @@
 = Reactor RabbitMQ Reference Guide
-Arnaud Cogoluègnes, Pawel Mackowski
-// version is automatically set in asciidoc.gradle, no need to change it here
-:appversion: 1.0.0.BUILD-SNAPSHOT
+Arnaud Cogoluègnes; Pawel Mackowski
 ifndef::host-github[:ext-relative: {outfilesuffix}]
 {appversion}
 :doctype: book

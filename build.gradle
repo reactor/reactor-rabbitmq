@@ -68,7 +68,6 @@ configure(allprojects) { project ->
 		maven { url 'https://repo.spring.io/snapshot' }
 	}
 
-	apply plugin: 'maven-publish'
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
 	apply plugin: 'java'
