@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import org.gradle.util.VersionNumber
+import org.gradle.util.internal.VersionNumber
 
 static def qualifyVersion(String v) {
 	def versionNumber = VersionNumber.parse(v)
