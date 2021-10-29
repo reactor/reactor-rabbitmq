@@ -69,13 +69,13 @@ configure(rootProject) {
 	archiveClassifier.set('docs')
 	afterEvaluate() {
 		//we copy the pdf late, when a potential customVersion has been applied to rootProject
-		from("$buildDir/asciidoc/pdf/index.pdf") {
+		from("$buildDir/docs/asciidoc/pdf/index.pdf") {
 			into ("docs/")
 			rename("index.pdf", "reactor-rabbitmq-reference-guide-${rootProject.version}.pdf")
 		}
 	}
-	from("$buildDir/asciidoc/html5/index.html") { into("docs/") }
-	from("$buildDir/asciidoc/html5/images") { into("images/") }
+	from("$buildDir/docs/asciidoc/html5/index.html") { into("docs/") }
+	from("$buildDir/docs/asciidoc/html5/images") { into("images/") }
   }
 }
 
