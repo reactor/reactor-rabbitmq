@@ -5,7 +5,7 @@
 === What's new in Reactor RabbitMQ 1.4.1
 
 * Support exchange-to-exchange binding and unbinding
-* Change in <<versioning,versioning scheme>>: Reactor RabbitMQ does not follow semantic versioning anymore,
+* Change in <<versioning-scheme,versioning scheme>>: Reactor RabbitMQ does not follow semantic versioning anymore,
 it uses now a `GENERATION.MAJOR.MINOR` scheme, for consistency with the other Reactor libraries
 
 === What's new in Reactor RabbitMQ 1.4

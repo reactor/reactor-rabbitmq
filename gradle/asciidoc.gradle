@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2011-2021 VMware Inc. or its affiliates, All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+configure(rootProject) {
+  	apply plugin: 'org.asciidoctor.jvm.convert'
+  	apply plugin: 'org.asciidoctor.jvm.pdf'
+
+	var date = new Date().format('yyyy-MM-dd');
+
+	// This configuration applies both to the asciidoctor & asciidoctorPdf tasks
+	asciidoctorj {
+		options = [doctype: 'book']
+		attributes 'allow-uri-read': '',
+				   'attribute-missing': 'warn',
+				   'revdate': "${date}",
+				   'docinfo': '',
+				   'toc2': '',
+				   'compat-mode': '',
+				   'stylesdir': "stylesheets/",
+				   'stylesheet': 'golo.css',
+				   'appversion': "${project.version}",
+				   'source-highlighter': 'coderay'
+	}
+
+	asciidoctor {
+		sourceDir "src/docs/asciidoc/"
+		sources {
+			include "index.asciidoc"
+		}
+		baseDirFollowsSourceDir()
+		resources {
+			from(sourceDir) {
+				include 'images/**'
+			}
+		}
+		outputDir file("$buildDir/docs/asciidoc/html")
+		logDocuments = true
+		attributes stylesdir: "stylesheets/",
+				   stylesheet: 'golo.css',
+				   'source-highlighter': 'coderay'
+	}
+
+	asciidoctorPdf {
+		sourceDir "src/docs/asciidoc/"
+		sources {
+			include "index.asciidoc"
+		}
+		baseDirFollowsSourceDir()
+		outputDir file("$buildDir/docs/asciidoc/pdf")
+		logDocuments = true
+		attributes 'source-highlighter': 'coderay'
+	}
+
+  task docsZip(type: Zip, dependsOn: [asciidoctor, asciidoctorPdf]) {
+	archiveBaseName.set('reactor-rabbitmq')
+	archiveClassifier.set('docs')
+	afterEvaluate() {
+		//we copy the pdf late, when a potential customVersion has been applied to rootProject
+		from("$buildDir/docs/asciidoc/pdf/index.pdf") {
+			into ("docs/")
+			rename("index.pdf", "reactor-rabbitmq-reference-guide-${rootProject.version}.pdf")
+		}
+	}
+	from("$buildDir/docs/asciidoc/html5/index.html") { into("docs/") }
+	from("$buildDir/docs/asciidoc/html5/images") { into("images/") }
+  }
+}
+

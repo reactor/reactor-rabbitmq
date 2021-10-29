@@ -19,14 +19,12 @@ buildscript {
 		mavenCentral()
 		maven { url "https://repo.spring.io/plugins-release" }
 	}
-	dependencies {
-		classpath 'org.asciidoctor:asciidoctorj-pdf:1.5.4'
-	}
 }
 plugins {
-	id 'org.asciidoctor.convert' version '1.5.12'
-	id 'me.champeau.gradle.jmh' version '0.4.7'
-	id "com.jfrog.artifactory" version "4.15.2" apply false
+	id 'org.asciidoctor.jvm.convert' version '3.3.2' apply false
+	id 'org.asciidoctor.jvm.pdf' version '3.3.2' apply false
+	// applied in setup.gradle, only if artifactory credentials are configured
+	id "com.jfrog.artifactory" version "4.24.20" apply false
 }
 
 ext {
@@ -55,7 +53,7 @@ ext {
 					"https://rabbitmq.github.io/rabbitmq-java-client/api/current/",] as String[]
 }
 
-apply from: "$gradleScriptDir/doc.gradle"
+apply from: "$gradleScriptDir/asciidoc.gradle"
 apply from: "$gradleScriptDir/releaser.gradle"
 
 configurations.all {
@@ -71,7 +69,6 @@ configure(allprojects) { project ->
 		maven { url 'https://repo.spring.io/snapshot' }
 	}
 
-	apply plugin: 'maven'
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
 	apply plugin: 'java'
@@ -100,21 +97,21 @@ configure(allprojects) { project ->
 	]
 
 	dependencies {
-		compile "io.projectreactor:reactor-core:$reactorCoreVersion"
-		compile "com.rabbitmq:amqp-client:$rabbitMqJavaClientVersion"
+		implementation "io.projectreactor:reactor-core:$reactorCoreVersion"
+		implementation "com.rabbitmq:amqp-client:$rabbitMqJavaClientVersion"
 
 		// Testing
 		// JUnit Jupiter API and TestEngine implementation
-		testCompile("org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}")
-		testCompile("org.junit.jupiter:junit-jupiter-params:${junitJupiterVersion}")
-		testRuntime("org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}")
+		testImplementation("org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}")
+		testImplementation("org.junit.jupiter:junit-jupiter-params:${junitJupiterVersion}")
+		testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}")
 
-		testCompile "io.projectreactor:reactor-test:$reactorCoreVersion"
-		testCompile "org.mockito:mockito-core:$mockitoVersion"
-		testCompile "org.assertj:assertj-core:${assertjVersion}"
-		testRuntime "org.slf4j:jcl-over-slf4j:$slf4jVersion"
-		testRuntime "org.slf4j:slf4j-api:$slf4jVersion"
-		testRuntime "ch.qos.logback:logback-classic:$logbackVersion"
+		testImplementation "io.projectreactor:reactor-test:$reactorCoreVersion"
+		testImplementation "org.mockito:mockito-core:$mockitoVersion"
+		testImplementation "org.assertj:assertj-core:${assertjVersion}"
+		testRuntimeOnly "org.slf4j:jcl-over-slf4j:$slf4jVersion"
+		testRuntimeOnly "org.slf4j:slf4j-api:$slf4jVersion"
+		testRuntimeOnly "ch.qos.logback:logback-classic:$logbackVersion"
 	}
 
 	// force test runs even when there are no test changes
@@ -124,6 +121,7 @@ configure(allprojects) { project ->
 configure(rootProject) {
 	archivesBaseName = 'reactor-rabbitmq'
 	description = 'Reactor RabbitMQ: A reactive API for RabbitMQ'
+	apply from: "$gradleScriptDir/javadoc.gradle"
 
 	jar {
 		manifest {
@@ -146,27 +144,27 @@ project(':reactor-rabbitmq-samples') {
 	description = 'Samples for Reactor RabbitMQ'
 
 	dependencies {
-		compile rootProject
-		runtime "ch.qos.logback:logback-classic:$logbackVersion"
+		implementation rootProject
+		runtimeOnly "ch.qos.logback:logback-classic:$logbackVersion"
 		implementation "org.springframework.boot:spring-boot-starter:$springBootVersion"
 		implementation "org.springframework.amqp:spring-rabbit:$springAmqpVersion"
 
-		testCompile rootProject.sourceSets.test.output
-		testRuntime "org.springframework.boot:spring-boot-starter-test:$springBootVersion"
+		testImplementation rootProject.sourceSets.test.output
+		testRuntimeOnly "org.springframework.boot:spring-boot-starter-test:$springBootVersion"
 	}
 
 	task sender(type:JavaExec) {
-		main = 'reactor.rabbitmq.samples.SampleSender'
+		mainClass = 'reactor.rabbitmq.samples.SampleSender'
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
 	task receiver(type:JavaExec) {
-		main = 'reactor.rabbitmq.samples.SampleReceiver'
+		mainClass = 'reactor.rabbitmq.samples.SampleReceiver'
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
 	task springboot(type:JavaExec) {
-		main = 'reactor.rabbitmq.samples.SpringBootSample'
+		mainClass = 'reactor.rabbitmq.samples.SpringBootSample'
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
