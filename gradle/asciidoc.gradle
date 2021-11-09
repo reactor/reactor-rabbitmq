@@ -74,8 +74,8 @@ configure(rootProject) {
 			rename("index.pdf", "reactor-rabbitmq-reference-guide-${rootProject.version}.pdf")
 		}
 	}
-	from("$buildDir/docs/asciidoc/html5/index.html") { into("docs/") }
-	from("$buildDir/docs/asciidoc/html5/images") { into("images/") }
+	from("$buildDir/docs/asciidoc/html/index.html") { into("docs/") }
+	from("$buildDir/docs/asciidoc/html/images") { into("images/") }
   }
 }
 
