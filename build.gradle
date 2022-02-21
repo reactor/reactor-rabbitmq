@@ -21,10 +21,10 @@ buildscript {
 	}
 }
 plugins {
-	id 'org.asciidoctor.jvm.convert' version '3.3.2' apply false
-	id 'org.asciidoctor.jvm.pdf' version '3.3.2' apply false
+	alias(libs.plugins.asciidoctor.convert) apply false
+	alias(libs.plugins.asciidoctor.pdf) apply false
 	// applied in setup.gradle, only if artifactory credentials are configured
-	id "com.jfrog.artifactory" version "4.27.1" apply false
+	alias(libs.plugins.artifactory) apply false
 }
 
 ext {
