@@ -7,6 +7,7 @@ rabbitMq = "5.14.2"
 asciidoctor = "3.3.2"
 junit = "5.8.2"
 slf4j = "1.7.36"
+springBoot = "2.5.9"
 reactiveStreams = "1.0.3"
 
 [libraries]
@@ -20,7 +21,8 @@ reactor-test = { module = "io.projectreactor:reactor-test", version.ref = "react
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-jcl = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4j" }
 spring-amqp-rabbitmq = "org.springframework.amqp:spring-rabbit:2.3.14"
-spring-boot-test = "org.springframework.boot:spring-boot-starter-test:2.5.9"
+spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "springBoot" }
+spring-boot-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 
 [plugins]
 artifactory = { id = "com.jfrog.artifactory", version = "4.27.1" }

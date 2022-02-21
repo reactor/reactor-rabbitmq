@@ -141,7 +141,8 @@ project(':reactor-rabbitmq-samples') {
 	dependencies {
 		implementation rootProject
 
-		testRuntimeOnly libs.logback
+		runtimeOnly libs.logback
+		implementation libs.spring.boot.starter
 		implementation libs.spring.amqp.rabbitmq
 
 		testImplementation rootProject.sourceSets.test.output
