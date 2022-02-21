@@ -94,6 +94,9 @@ configure(allprojects) { project ->
 		implementation libs.reactor.core
 		implementation libs.rabbitmq.javaClient
 
+		// JSR-305 annotations
+		compileOnly libs.jsr305
+
 		// Testing
 		// JUnit Jupiter API and TestEngine implementation
 		testImplementation platform(libs.junit.bom)

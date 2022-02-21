@@ -12,6 +12,7 @@ reactiveStreams = "1.0.3"
 
 [libraries]
 assertj = "org.assertj:assertj-core:3.22.0"
+jsr305 = "com.google.code.findbugs:jsr305:3.0.1" #v3.0.1 is the last with required annotations
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 logback = "ch.qos.logback:logback-classic:1.2.10"
 mockito = "org.mockito:mockito-core:4.3.1"
