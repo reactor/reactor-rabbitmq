@@ -1,7 +1,7 @@
 [versions]
 # Baselines, should be updated on every release
 reactorCore = "3.4.16-SNAPSHOT"
-rabbitMq = "5.13.1"
+rabbitMq = "5.14.2"
 
 # Other shared versions
 asciidoctor = "3.3.2"
