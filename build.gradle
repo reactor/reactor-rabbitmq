@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021 VMware Inc. or its affiliates, All Rights Reserved.
+ * Copyright (c) 2011-2022 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,6 @@ plugins {
 }
 
 ext {
-	gradleScriptDir = "${rootProject.projectDir}/gradle"
-
 	// Logging
 	slf4jVersion = '1.7.32'
 	logbackVersion = '1.2.6'
@@ -53,8 +51,8 @@ ext {
 					"https://rabbitmq.github.io/rabbitmq-java-client/api/current/",] as String[]
 }
 
-apply from: "$gradleScriptDir/asciidoc.gradle"
-apply from: "$gradleScriptDir/releaser.gradle"
+apply from: "${rootDir}/gradle/asciidoc.gradle"
+apply from: "${rootDir}/gradle/releaser.gradle"
 
 configurations.all {
 	// check for snapshot updates every time
@@ -72,10 +70,13 @@ configure(allprojects) { project ->
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
 	apply plugin: 'java'
-	apply from: "$gradleScriptDir/setup.gradle"
+	apply from: "${rootDir}/gradle/setup.gradle"
 
 	sourceCompatibility = targetCompatibility = 1.8
 
+	if (JavaVersion.current().isJava8Compatible()) {
+		compileTestJava.options.compilerArgs += "-parameters"
+	}
 	[compileJava, compileTestJava]*.options*.compilerArgs = ["-Xlint:varargs",
 															 "-Xlint:cast",
 															 "-Xlint:classfile",
@@ -121,7 +122,7 @@ configure(allprojects) { project ->
 configure(rootProject) {
 	archivesBaseName = 'reactor-rabbitmq'
 	description = 'Reactor RabbitMQ: A reactive API for RabbitMQ'
-	apply from: "$gradleScriptDir/javadoc.gradle"
+	apply from: "${rootDir}/gradle/javadoc.gradle"
 
 	jar {
 		manifest {
@@ -154,17 +155,17 @@ project(':reactor-rabbitmq-samples') {
 	}
 
 	task sender(type:JavaExec) {
-		mainClass = 'reactor.rabbitmq.samples.SampleSender'
+		mainClass.set('reactor.rabbitmq.samples.SampleSender')
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
 	task receiver(type:JavaExec) {
-		mainClass = 'reactor.rabbitmq.samples.SampleReceiver'
+		mainClass.set('reactor.rabbitmq.samples.SampleReceiver')
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
 	task springboot(type:JavaExec) {
-		mainClass = 'reactor.rabbitmq.samples.SpringBootSample'
+		mainClass.set('reactor.rabbitmq.samples.SpringBootSample')
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
