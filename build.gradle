@@ -28,27 +28,20 @@ plugins {
 }
 
 ext {
-	// Logging
-	slf4jVersion = '1.7.36'
-	logbackVersion = '1.2.10'
+	//NOTE: all dependencies, including plugins, are defined in gradle/libs.versions.toml catalog
 
-	// Libraries
-	rabbitMqJavaClientVersion = '5.13.1'
-
-	// Sample
-	springBootVersion = '2.5.9'
-	springAmqpVersion = '2.3.14'
-
-	// Testing
-	mockitoVersion = '4.3.1'
-	junitPlatformVersion = '1.8.1' //TODO replace with BOM
-	junitJupiterVersion  = '5.8.2'
-	assertjVersion = '3.22.0'
-
-	javadocLinks = ["https://docs.oracle.com/javase/8/docs/api/",
-					"https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/",
-					"https://projectreactor.io/docs/core/release/api/",
-					"https://rabbitmq.github.io/rabbitmq-java-client/api/current/",] as String[]
+	jdk = JavaVersion.current().majorVersion
+	jdkJavadoc = "https://docs.oracle.com/javase/$jdk/docs/api/"
+	if (JavaVersion.current().isJava11Compatible()) {
+		jdkJavadoc = "https://docs.oracle.com/en/java/javase/$jdk/docs/api/"
+	}
+	println "JDK Javadoc link for this build is ${rootProject.jdkJavadoc}"
+	javadocLinks = [
+		jdkJavadoc,
+		"https://www.reactive-streams.org/reactive-streams-${libs.versions.reactiveStreams.get()}-javadoc/",
+		"https://projectreactor.io/docs/core/release/api/",
+		"https://rabbitmq.github.io/rabbitmq-java-client/api/current/"
+	] as String[]
 }
 
 apply from: "${rootDir}/gradle/asciidoc.gradle"
@@ -98,21 +91,22 @@ configure(allprojects) { project ->
 	]
 
 	dependencies {
-		implementation "io.projectreactor:reactor-core:$reactorCoreVersion"
-		implementation "com.rabbitmq:amqp-client:$rabbitMqJavaClientVersion"
+		implementation libs.reactor.core
+		implementation libs.rabbitmq.javaClient
 
 		// Testing
 		// JUnit Jupiter API and TestEngine implementation
-		testImplementation("org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}")
-		testImplementation("org.junit.jupiter:junit-jupiter-params:${junitJupiterVersion}")
-		testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}")
+		testImplementation platform(libs.junit.bom)
+		testImplementation "org.junit.jupiter:junit-jupiter-api"
+		testImplementation "org.junit.jupiter:junit-jupiter-params"
+		testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 
-		testImplementation "io.projectreactor:reactor-test:$reactorCoreVersion"
-		testImplementation "org.mockito:mockito-core:$mockitoVersion"
-		testImplementation "org.assertj:assertj-core:${assertjVersion}"
-		testRuntimeOnly "org.slf4j:jcl-over-slf4j:$slf4jVersion"
-		testRuntimeOnly "org.slf4j:slf4j-api:$slf4jVersion"
-		testRuntimeOnly "ch.qos.logback:logback-classic:$logbackVersion"
+		testImplementation libs.reactor.test
+		testImplementation libs.mockito
+		testImplementation libs.assertj
+		testRuntimeOnly libs.slf4j.api
+		testRuntimeOnly libs.slf4j.jcl
+		testRuntimeOnly libs.logback
 	}
 
 	// force test runs even when there are no test changes
@@ -146,12 +140,12 @@ project(':reactor-rabbitmq-samples') {
 
 	dependencies {
 		implementation rootProject
-		runtimeOnly "ch.qos.logback:logback-classic:$logbackVersion"
-		implementation "org.springframework.boot:spring-boot-starter:$springBootVersion"
-		implementation "org.springframework.amqp:spring-rabbit:$springAmqpVersion"
+
+		testRuntimeOnly libs.logback
+		implementation libs.spring.amqp.rabbitmq
 
 		testImplementation rootProject.sourceSets.test.output
-		testRuntimeOnly "org.springframework.boot:spring-boot-starter-test:$springBootVersion"
+		testRuntimeOnly libs.spring.boot.test
 	}
 
 	task sender(type:JavaExec) {
