@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021 VMware Inc. or its affiliates, All Rights Reserved.
+ * Copyright (c) 2011-2022 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,40 +21,30 @@ buildscript {
 	}
 }
 plugins {
-	id 'org.asciidoctor.jvm.convert' version '3.3.2' apply false
-	id 'org.asciidoctor.jvm.pdf' version '3.3.2' apply false
+	alias(libs.plugins.asciidoctor.convert) apply false
+	alias(libs.plugins.asciidoctor.pdf) apply false
 	// applied in setup.gradle, only if artifactory credentials are configured
-	id "com.jfrog.artifactory" version "4.24.20" apply false
+	alias(libs.plugins.artifactory) apply false
 }
 
 ext {
-	gradleScriptDir = "${rootProject.projectDir}/gradle"
+	//NOTE: all dependencies, including plugins, are defined in gradle/libs.versions.toml catalog
 
-	// Logging
-	slf4jVersion = '1.7.32'
-	logbackVersion = '1.2.6'
-
-	// Libraries
-	rabbitMqJavaClientVersion = '5.13.1'
-
-	// Sample
-	springBootVersion = '2.5.6'
-	springAmqpVersion = '2.3.11'
-
-	// Testing
-	mockitoVersion = '4.0.0'
-	junitPlatformVersion = '1.8.1'
-	junitJupiterVersion  = '5.8.1'
-	assertjVersion = '3.21.0'
-
-	javadocLinks = ["https://docs.oracle.com/javase/8/docs/api/",
-					"https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/",
-					"https://projectreactor.io/docs/core/release/api/",
-					"https://rabbitmq.github.io/rabbitmq-java-client/api/current/",] as String[]
+	jdk = JavaVersion.current().majorVersion
+	jdkJavadoc = "https://docs.oracle.com/javase/$jdk/docs/api/"
+	if (JavaVersion.current().isJava11Compatible()) {
+		jdkJavadoc = "https://docs.oracle.com/en/java/javase/$jdk/docs/api/"
+	}
+	javadocLinks = [
+		jdkJavadoc,
+		"https://www.reactive-streams.org/reactive-streams-${libs.versions.reactiveStreams.get()}-javadoc/",
+		"https://projectreactor.io/docs/core/release/api/",
+		"https://rabbitmq.github.io/rabbitmq-java-client/api/current/"
+	] as String[]
 }
 
-apply from: "$gradleScriptDir/asciidoc.gradle"
-apply from: "$gradleScriptDir/releaser.gradle"
+apply from: "${rootDir}/gradle/asciidoc.gradle"
+apply from: "${rootDir}/gradle/releaser.gradle"
 
 configurations.all {
 	// check for snapshot updates every time
@@ -72,10 +62,13 @@ configure(allprojects) { project ->
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
 	apply plugin: 'java'
-	apply from: "$gradleScriptDir/setup.gradle"
+	apply from: "${rootDir}/gradle/setup.gradle"
 
 	sourceCompatibility = targetCompatibility = 1.8
 
+	if (JavaVersion.current().isJava8Compatible()) {
+		compileTestJava.options.compilerArgs += "-parameters"
+	}
 	[compileJava, compileTestJava]*.options*.compilerArgs = ["-Xlint:varargs",
 															 "-Xlint:cast",
 															 "-Xlint:classfile",
@@ -97,21 +90,25 @@ configure(allprojects) { project ->
 	]
 
 	dependencies {
-		implementation "io.projectreactor:reactor-core:$reactorCoreVersion"
-		implementation "com.rabbitmq:amqp-client:$rabbitMqJavaClientVersion"
+		implementation libs.reactor.core
+		implementation libs.rabbitmq.javaClient
+
+		// JSR-305 annotations
+		compileOnly libs.jsr305
 
 		// Testing
 		// JUnit Jupiter API and TestEngine implementation
-		testImplementation("org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}")
-		testImplementation("org.junit.jupiter:junit-jupiter-params:${junitJupiterVersion}")
-		testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}")
+		testImplementation platform(libs.junit.bom)
+		testImplementation "org.junit.jupiter:junit-jupiter-api"
+		testImplementation "org.junit.jupiter:junit-jupiter-params"
+		testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 
-		testImplementation "io.projectreactor:reactor-test:$reactorCoreVersion"
-		testImplementation "org.mockito:mockito-core:$mockitoVersion"
-		testImplementation "org.assertj:assertj-core:${assertjVersion}"
-		testRuntimeOnly "org.slf4j:jcl-over-slf4j:$slf4jVersion"
-		testRuntimeOnly "org.slf4j:slf4j-api:$slf4jVersion"
-		testRuntimeOnly "ch.qos.logback:logback-classic:$logbackVersion"
+		testImplementation libs.reactor.test
+		testImplementation libs.mockito
+		testImplementation libs.assertj
+		testRuntimeOnly libs.slf4j.api
+		testRuntimeOnly libs.slf4j.jcl
+		testRuntimeOnly libs.logback
 	}
 
 	// force test runs even when there are no test changes
@@ -121,7 +118,7 @@ configure(allprojects) { project ->
 configure(rootProject) {
 	archivesBaseName = 'reactor-rabbitmq'
 	description = 'Reactor RabbitMQ: A reactive API for RabbitMQ'
-	apply from: "$gradleScriptDir/javadoc.gradle"
+	apply from: "${rootDir}/gradle/javadoc.gradle"
 
 	jar {
 		manifest {
@@ -145,26 +142,27 @@ project(':reactor-rabbitmq-samples') {
 
 	dependencies {
 		implementation rootProject
-		runtimeOnly "ch.qos.logback:logback-classic:$logbackVersion"
-		implementation "org.springframework.boot:spring-boot-starter:$springBootVersion"
-		implementation "org.springframework.amqp:spring-rabbit:$springAmqpVersion"
+
+		runtimeOnly libs.logback
+		implementation libs.spring.boot.starter
+		implementation libs.spring.amqp.rabbitmq
 
 		testImplementation rootProject.sourceSets.test.output
-		testRuntimeOnly "org.springframework.boot:spring-boot-starter-test:$springBootVersion"
+		testRuntimeOnly libs.spring.boot.test
 	}
 
 	task sender(type:JavaExec) {
-		mainClass = 'reactor.rabbitmq.samples.SampleSender'
+		mainClass.set('reactor.rabbitmq.samples.SampleSender')
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
 	task receiver(type:JavaExec) {
-		mainClass = 'reactor.rabbitmq.samples.SampleReceiver'
+		mainClass.set('reactor.rabbitmq.samples.SampleReceiver')
 		classpath = sourceSets.main.runtimeClasspath
 	}
 
 	task springboot(type:JavaExec) {
-		mainClass = 'reactor.rabbitmq.samples.SpringBootSample'
+		mainClass.set('reactor.rabbitmq.samples.SpringBootSample')
 		classpath = sourceSets.main.runtimeClasspath
 	}
 

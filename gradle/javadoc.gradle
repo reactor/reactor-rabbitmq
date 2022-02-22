@@ -6,10 +6,7 @@ javadoc {
     title = "Reactor RabbitMQ ${version}"
 
     if (JavaVersion.current().isJava8Compatible()) {
-        compileTestJava.options.compilerArgs += "-parameters"
-        tasks.withType(Javadoc) {
-            options.addStringOption('Xdoclint:none', '-quiet')
-        }
+        options.addStringOption('Xdoclint:none', '-quiet')
     }
 
     options.memberLevel = org.gradle.external.javadoc.JavadocMemberLevel.PROTECTED
