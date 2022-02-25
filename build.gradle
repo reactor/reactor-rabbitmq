@@ -61,7 +61,7 @@ configure(allprojects) { project ->
 
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
-	apply plugin: 'java'
+	apply plugin: 'java-library'
 	apply from: "${rootDir}/gradle/setup.gradle"
 
 	sourceCompatibility = targetCompatibility = 1.8
@@ -90,8 +90,8 @@ configure(allprojects) { project ->
 	]
 
 	dependencies {
-		implementation libs.reactor.core
-		implementation libs.rabbitmq.javaClient
+		api libs.reactor.core
+		api libs.rabbitmq.javaClient
 
 		// JSR-305 annotations
 		compileOnly libs.jsr305
