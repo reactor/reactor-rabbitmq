@@ -150,6 +150,12 @@ include::{test-examples}/ApiGuideSender.java[tag=static-import]
 include::{test-examples}/ApiGuideSender.java[tag=resource-deletion,indent=0]
 -------
 
+[NOTE]
+====
+Warning: These methods relies on RPCs. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+====
+
 ==== Reliable publishing with publisher confirms
 
 `Sender` offers also the `sendWithPublishConfirms` method to send
