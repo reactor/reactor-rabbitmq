@@ -329,6 +329,9 @@ public class Sender implements AutoCloseable {
     /**
      * Declare a queue following the specification.
      *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     *
      * @param specification the specification of the queue
      * @return a mono wrapping the result of the declaration
      * @see QueueSpecification
@@ -339,6 +342,9 @@ public class Sender implements AutoCloseable {
 
     /**
      * Declare a queue following the specification and the resource management options.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
      *
      * @param specification the specification of the queue
      * @param options       options for resource management
@@ -353,6 +359,9 @@ public class Sender implements AutoCloseable {
     /**
      * Declare a queue following the specification.
      *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     *
      * @param specification the specification of the queue
      * @return a mono wrapping the result of the declaration
      * @see QueueSpecification
@@ -363,6 +372,9 @@ public class Sender implements AutoCloseable {
 
     /**
      * Declare a queue following the specification and the resource management options.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
      *
      * @param specification the specification of the queue
      * @param options       options for resource management
@@ -409,26 +421,62 @@ public class Sender implements AutoCloseable {
             options.getChannelMono() : this.resourceManagementChannelMono;
     }
 
+    /**
+     * Delete a queue.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification) {
         return this.delete(specification, false, false);
     }
 
+    /**
+     * Delete a queue.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, @Nullable ResourceManagementOptions options) {
         return this.delete(specification, false, false, options);
     }
 
+    /**
+     * Delete a queue.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, boolean ifUnused, boolean ifEmpty) {
         return this.deleteQueue(specification, ifUnused, ifEmpty);
     }
 
+    /**
+     * Delete a queue.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Queue.DeleteOk> delete(QueueSpecification specification, boolean ifUnused, boolean ifEmpty, @Nullable ResourceManagementOptions options) {
         return this.deleteQueue(specification, ifUnused, ifEmpty, options);
     }
 
+    /**
+     * Delete a queue.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Queue.DeleteOk> deleteQueue(QueueSpecification specification, boolean ifUnused, boolean ifEmpty) {
         return this.deleteQueue(specification, ifUnused, ifEmpty, null);
     }
 
+    /**
+     * Delete a queue.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Queue.DeleteOk> deleteQueue(QueueSpecification specification, boolean ifUnused, boolean ifEmpty, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Queue.Delete delete = new AMQImpl.Queue.Delete.Builder()
@@ -448,18 +496,41 @@ public class Sender implements AutoCloseable {
             .publishOn(resourceManagementScheduler);
     }
 
+    /**
+     * Declare an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification) {
         return this.declareExchange(specification, null);
     }
 
+    /**
+     * Declare an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeclareOk> declare(ExchangeSpecification specification, @Nullable ResourceManagementOptions options) {
         return this.declareExchange(specification, options);
     }
-
+        /**
+     * Declare an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeclareOk> declareExchange(ExchangeSpecification specification) {
         return this.declareExchange(specification, null);
     }
 
+    /**
+     * Declare an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeclareOk> declareExchange(ExchangeSpecification specification, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Exchange.Declare declare = new AMQImpl.Exchange.Declare.Builder()
@@ -482,26 +553,62 @@ public class Sender implements AutoCloseable {
             .publishOn(resourceManagementScheduler);
     }
 
+    /**
+     * Delete an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification) {
         return this.delete(specification, false);
     }
 
+    /**
+     * Delete an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, @Nullable ResourceManagementOptions options) {
         return this.delete(specification, false, options);
     }
 
+    /**
+     * Delete an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, boolean ifUnused) {
         return this.deleteExchange(specification, ifUnused);
     }
 
+    /**
+     * Delete an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeleteOk> delete(ExchangeSpecification specification, boolean ifUnused, @Nullable ResourceManagementOptions options) {
         return this.deleteExchange(specification, ifUnused, options);
     }
 
+    /**
+     * Delete an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeleteOk> deleteExchange(ExchangeSpecification specification, boolean ifUnused) {
         return this.deleteExchange(specification, ifUnused, null);
     }
 
+    /**
+     * Delete an exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     */
     public Mono<AMQP.Exchange.DeleteOk> deleteExchange(ExchangeSpecification specification, boolean ifUnused, @Nullable ResourceManagementOptions options) {
         Mono<? extends Channel> channelMono = getChannelMonoForResourceManagement(options);
         AMQP.Exchange.Delete delete = new AMQImpl.Exchange.Delete.Builder()
@@ -524,6 +631,9 @@ public class Sender implements AutoCloseable {
      * <p>
      * Alias of {@link #unbind(BindingSpecification)}.
      *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     *
      * @param specification the unbinding specification
      * @return the result of the operation
      * @since 1.4.1
@@ -536,6 +646,9 @@ public class Sender implements AutoCloseable {
      * Unbind a queue from an exchange.
      * <p>
      * Alias of {@link #unbind(BindingSpecification, ResourceManagementOptions)}.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
      *
      * @param specification the unbinding specification
      * @param options       options to control the operation, e.g. channel to use
@@ -551,6 +664,9 @@ public class Sender implements AutoCloseable {
      * <p>
      * Alias of {@link #unbindQueue(BindingSpecification)}.
      *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     *
      * @param specification the unbinding specification
      * @return the result of the operation
      */
@@ -562,6 +678,9 @@ public class Sender implements AutoCloseable {
      * Unbind a queue from an exchange.
      * <p>
      * Alias of {@link #unbindQueue(BindingSpecification, ResourceManagementOptions)}.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
      *
      * @param specification the unbinding specification
      * @param options       options to control the operation, e.g. channel to use
@@ -590,6 +709,9 @@ public class Sender implements AutoCloseable {
     /**
      * Unbind an exchange from another exchange.
      *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     *
      * @param specification the unbinding specification
      * @return the result of the operation
      * @since 1.4.1
@@ -600,6 +722,9 @@ public class Sender implements AutoCloseable {
 
     /**
      * Unbind an exchange from another exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
      *
      * @param specification the unbinding specification
      * @param options       options to control the operation, e.g. channel to use
@@ -631,6 +756,9 @@ public class Sender implements AutoCloseable {
      * <p>
      * Alias of {@link #bind(BindingSpecification)}
      *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     *
      * @param specification the binding specification
      * @return the result of the operation
      * @since 1.4.1
@@ -643,6 +771,9 @@ public class Sender implements AutoCloseable {
      * Bind a queue to an exchange.
      * <p>
      * Alias of {@link #bind(BindingSpecification, ResourceManagementOptions)}
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
      *
      * @param specification the binding specification
      * @param options       options to control the operation, e.g. channel to use
@@ -658,6 +789,9 @@ public class Sender implements AutoCloseable {
      * <p>
      * Alias of {@link #bindQueue(BindingSpecification)}
      *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     *
      * @param specification the binding specification
      * @return the result of the operation
      * @since 1.4.1
@@ -670,6 +804,9 @@ public class Sender implements AutoCloseable {
      * Bind a queue to an exchange.
      * <p>
      * Alias of {@link #bindQueue(BindingSpecification, ResourceManagementOptions)}
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
      *
      * @param specification the binding specification
      * @param options       options to control the operation, e.g. channel to use
@@ -700,6 +837,9 @@ public class Sender implements AutoCloseable {
     /**
      * Bind an exchange to another exchange.
      *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
+     *
      * @param specification the binding specification
      * @return the result of the operation
      * @since 1.4.1
@@ -710,6 +850,9 @@ public class Sender implements AutoCloseable {
 
     /**
      * Bind an exchange to another exchange.
+     *
+     * Warning: This method relies on RPC. As AMQP 0.9.1 protocol does not use a correlation ID for requests, a lock
+     * is being used to prevent concurrent RPCs, making this publisher potentially blocking.
      *
      * @param specification the binding specification
      * @param options       options to control the operation, e.g. channel to use
