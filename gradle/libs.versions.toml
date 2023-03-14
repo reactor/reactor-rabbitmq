@@ -1,6 +1,6 @@
 [versions]
 # Baselines, should be updated on every release
-reactorCore = "3.4.20-SNAPSHOT"
+reactorCore = "3.4.28"
 rabbitMq = "5.14.2"
 
 # Other shared versions
